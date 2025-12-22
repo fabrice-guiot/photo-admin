@@ -329,20 +329,16 @@ class TestHTMLReportGeneration:
         assert str(stats.stats['total_files']) in content
         assert 'chart.js' in content.lower()  # Should include charting library
 
-    def test_html_report_default_name(self, temp_photo_dir, tmp_path):
+    def test_html_report_default_name(self, temp_photo_dir, tmp_path, monkeypatch):
         """Test HTML report generation with default name."""
         stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
-        # Change to tmp directory to avoid polluting working directory
-        original_dir = Path.cwd()
-        try:
-            os.chdir(tmp_path)
-            result = stats.generate_html_report()
-            assert result.name == 'photo_stats_report.html'
-            assert result.exists()
-        finally:
-            os.chdir(original_dir)
+        # Use monkeypatch to change directory without affecting other tests
+        monkeypatch.chdir(tmp_path)
+        result = stats.generate_html_report()
+        assert result.name == 'photo_stats_report.html'
+        assert result.exists()
 
     def test_pairing_section_generation(self, temp_photo_dir):
         """Test generation of file pairing section in HTML."""
