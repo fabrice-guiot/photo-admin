@@ -1,5 +1,7 @@
 # photo-admin
 
+[![Tests](https://github.com/fabrice-guiot/photo-admin/actions/workflows/test.yml/badge.svg)](https://github.com/fabrice-guiot/photo-admin/actions/workflows/test.yml)
+
 Photo Administration toolbox - Python utility for analyzing photo collections
 
 ## Features
