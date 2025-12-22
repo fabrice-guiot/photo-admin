@@ -19,12 +19,6 @@ Photo Administration toolbox - Python utility for analyzing photo collections
 pip install -r requirements.txt
 ```
 
-Note: `python-xmp-toolkit` may require additional system libraries. On macOS with Homebrew:
-
-```bash
-brew install exempi
-```
-
 ## Usage
 
 Basic usage:
