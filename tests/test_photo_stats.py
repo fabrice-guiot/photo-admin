@@ -311,7 +311,7 @@ class TestHTMLReportGeneration:
         assert result.suffix == '.html'
 
         # Check HTML content
-        content = result.read_text()
+        content = result.read_text(encoding='utf-8')
         assert '<!DOCTYPE html>' in content
         assert 'Photo Statistics Report' in content
 
@@ -323,7 +323,7 @@ class TestHTMLReportGeneration:
         output_file = tmp_path / "test_report.html"
         stats.generate_html_report(str(output_file))
 
-        content = output_file.read_text()
+        content = output_file.read_text(encoding='utf-8')
 
         # Should contain key statistics
         assert str(stats.stats['total_files']) in content
