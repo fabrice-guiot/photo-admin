@@ -284,18 +284,47 @@ class TestUtilityFunctions:
         assert stats._format_size(1536) == "1.50 KB"
         assert stats._format_size(2560) == "2.50 KB"
 
-    def test_generate_file_type_rows(self, temp_photo_dir):
-        """Test HTML table row generation."""
+    def test_get_total_image_count(self, temp_photo_dir):
+        """Test total image count calculation (excluding sidecars)."""
         stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
-        rows = stats._generate_file_type_rows()
+        image_count = stats._get_total_image_count()
 
-        assert isinstance(rows, str)
-        assert '<tr>' in rows
-        assert '<td>' in rows
-        # Should contain file extensions
-        assert '.DNG' in rows or '.dng' in rows.upper()
+        assert isinstance(image_count, int)
+        assert image_count >= 0
+        # Should not include metadata files in count
+        total_files = stats.stats['total_files']
+        assert image_count <= total_files
+
+    def test_get_image_type_distribution(self, temp_photo_dir):
+        """Test image type distribution data for charts."""
+        stats = PhotoStats(temp_photo_dir)
+        stats.scan_folder()
+
+        labels, counts = stats._get_image_type_distribution()
+
+        assert isinstance(labels, list)
+        assert isinstance(counts, list)
+        assert len(labels) == len(counts)
+        # Should only contain image types, not metadata
+        for label in labels:
+            if label != 'ORPHANED SIDECARS':
+                assert any(ext.upper() == label for ext in stats.PHOTO_EXTENSIONS)
+
+    def test_get_storage_distribution(self, temp_photo_dir):
+        """Test storage distribution combining image and sidecar sizes."""
+        stats = PhotoStats(temp_photo_dir)
+        stats.scan_folder()
+
+        labels, sizes = stats._get_storage_distribution()
+
+        assert isinstance(labels, list)
+        assert isinstance(sizes, list)
+        assert len(labels) == len(sizes)
+        # All sizes should be non-negative
+        for size in sizes:
+            assert size >= 0
 
 
 class TestHTMLReportGeneration:
@@ -353,35 +382,43 @@ class TestHTMLReportGeneration:
         assert 'File Pairing Status' in section
         assert 'orphaned' in section.lower()
 
-    def test_xmp_metadata_section_generation(self, tmp_path, sample_xmp_content):
-        """Test generation of XMP metadata section in HTML."""
-        test_dir = tmp_path / "xmp_section_test"
-        test_dir.mkdir()
-
-        (test_dir / "photo.dng").write_bytes(b"data")
-        (test_dir / "photo.xmp").write_text(sample_xmp_content)
-
-        stats = PhotoStats(test_dir)
+    def test_html_report_no_file_type_details_section(self, temp_photo_dir, tmp_path):
+        """Test that HTML report does not contain File Type Details section."""
+        stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
-        section = stats._generate_xmp_metadata_section()
+        output_file = tmp_path / "test_report.html"
+        stats.generate_html_report(str(output_file))
 
-        assert isinstance(section, str)
-        assert 'XMP Metadata' in section
+        content = output_file.read_text()
+        # Should NOT contain the removed sections
+        assert 'File Type Details' not in content
 
-    def test_xmp_metadata_section_no_xmp(self, tmp_path):
-        """Test XMP metadata section when no XMP files exist."""
-        test_dir = tmp_path / "no_xmp_section"
-        test_dir.mkdir()
-
-        (test_dir / "photo.dng").write_bytes(b"data")
-
-        stats = PhotoStats(test_dir)
+    def test_html_report_no_xmp_metadata_section(self, temp_photo_dir, tmp_path):
+        """Test that HTML report does not contain XMP Metadata section."""
+        stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
-        section = stats._generate_xmp_metadata_section()
+        output_file = tmp_path / "test_report.html"
+        stats.generate_html_report(str(output_file))
 
-        assert 'No XMP metadata found' in section
+        content = output_file.read_text()
+        # Should NOT contain the removed sections
+        assert 'XMP Metadata Analysis' not in content
+
+    def test_html_report_contains_image_type_distribution(self, temp_photo_dir, tmp_path):
+        """Test that HTML report contains Image Type Distribution."""
+        stats = PhotoStats(temp_photo_dir)
+        stats.scan_folder()
+
+        output_file = tmp_path / "test_report.html"
+        stats.generate_html_report(str(output_file))
+
+        content = output_file.read_text()
+        # Should contain the new image-focused section
+        assert 'Image Type Distribution' in content
+        assert 'Total Images' in content
+        assert 'Orphaned Sidecars' in content
 
 
 class TestEdgeCases:

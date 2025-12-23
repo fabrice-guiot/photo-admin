@@ -448,24 +448,24 @@ class PhotoStats:
 
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>Total Files</h3>
-                <div class="value">{self.stats['total_files']}</div>
+                <h3>Total Images</h3>
+                <div class="value">{self._get_total_image_count()}</div>
             </div>
             <div class="stat-card green">
                 <h3>Total Size</h3>
                 <div class="value">{self._format_size(self.stats['total_size'])}</div>
             </div>
             <div class="stat-card blue">
-                <h3>Paired Files</h3>
-                <div class="value">{len(self.stats['paired_files'])}</div>
+                <h3>Orphaned Images</h3>
+                <div class="value">{len(self.stats['orphaned_images'])}</div>
             </div>
             <div class="stat-card orange">
-                <h3>Orphaned Files</h3>
-                <div class="value">{len(self.stats['orphaned_images']) + len(self.stats['orphaned_xmp'])}</div>
+                <h3>Orphaned Sidecars</h3>
+                <div class="value">{len(self.stats['orphaned_xmp'])}</div>
             </div>
         </div>
 
-        <h2>📊 File Type Distribution</h2>
+        <h2>📊 Image Type Distribution</h2>
         <div class="chart-container">
             <canvas id="fileCountChart"></canvas>
         </div>
@@ -475,42 +475,29 @@ class PhotoStats:
             <canvas id="fileSizeChart"></canvas>
         </div>
 
-        <h2>📁 File Type Details</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>File Type</th>
-                    <th>Count</th>
-                    <th>Total Size</th>
-                    <th>Average Size</th>
-                </tr>
-            </thead>
-            <tbody>
-                {self._generate_file_type_rows()}
-            </tbody>
-        </table>
-
         {self._generate_pairing_section()}
-
-        {self._generate_xmp_metadata_section()}
     </div>
 
     <script>
-        // File Count Chart
+        // Image Type Distribution Chart
+        const imageTypeLabels = {json.dumps(self._get_image_type_distribution()[0])};
+        const imageTypeCounts = {json.dumps(self._get_image_type_distribution()[1])};
+
         const fileCountCtx = document.getElementById('fileCountChart').getContext('2d');
         new Chart(fileCountCtx, {{
             type: 'doughnut',
             data: {{
-                labels: {json.dumps(list(self.stats['file_counts'].keys()))},
+                labels: imageTypeLabels,
                 datasets: [{{
-                    label: 'File Count',
-                    data: {json.dumps(list(self.stats['file_counts'].values()))},
+                    label: 'Image Count',
+                    data: imageTypeCounts,
                     backgroundColor: [
                         'rgba(255, 99, 132, 0.8)',
                         'rgba(54, 162, 235, 0.8)',
                         'rgba(255, 206, 86, 0.8)',
                         'rgba(75, 192, 192, 0.8)',
                         'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
                     ],
                     borderWidth: 2,
                     borderColor: '#fff'
@@ -531,7 +518,7 @@ class PhotoStats:
                     }},
                     title: {{
                         display: true,
-                        text: 'Number of Files by Type',
+                        text: 'Number of Images by Type',
                         font: {{
                             size: 16
                         }}
@@ -540,16 +527,18 @@ class PhotoStats:
             }}
         }});
 
-        // File Size Chart
+        // Storage Distribution Chart
+        const storageLabels = {json.dumps(self._get_storage_distribution()[0])};
+        const storageSizes = {json.dumps(self._get_storage_distribution()[1])};
+
         const fileSizeCtx = document.getElementById('fileSizeChart').getContext('2d');
-        const fileSizeData = {json.dumps({ext: sum(sizes) for ext, sizes in self.stats['file_sizes'].items()})};
         new Chart(fileSizeCtx, {{
             type: 'bar',
             data: {{
-                labels: {json.dumps(list(self.stats['file_sizes'].keys()))},
+                labels: storageLabels,
                 datasets: [{{
                     label: 'Total Size (MB)',
-                    data: Object.values(fileSizeData).map(v => (v / 1024 / 1024).toFixed(2)),
+                    data: storageSizes.map(v => (v / 1024 / 1024).toFixed(2)),
                     backgroundColor: 'rgba(52, 152, 219, 0.8)',
                     borderColor: 'rgba(52, 152, 219, 1)',
                     borderWidth: 2
@@ -564,7 +553,7 @@ class PhotoStats:
                     }},
                     title: {{
                         display: true,
-                        text: 'Storage Usage by File Type',
+                        text: 'Storage Usage by Image Type (including paired sidecars)',
                         font: {{
                             size: 16
                         }}
@@ -598,24 +587,71 @@ class PhotoStats:
             size_bytes /= 1024.0
         return f"{size_bytes:.2f} PB"
 
-    def _generate_file_type_rows(self):
-        """Generate table rows for file type details."""
-        rows = []
-        for ext, count in sorted(self.stats['file_counts'].items()):
-            sizes = self.stats['file_sizes'][ext]
-            total_size = sum(sizes)
-            avg_size = total_size / len(sizes) if sizes else 0
+    def _get_total_image_count(self):
+        """Get total count of image files (excluding sidecars)."""
+        return sum(count for ext, count in self.stats['file_counts'].items()
+                   if ext in self.PHOTO_EXTENSIONS)
 
-            rows.append(f"""
-                <tr>
-                    <td><strong>{ext.upper()}</strong></td>
-                    <td>{count}</td>
-                    <td>{self._format_size(total_size)}</td>
-                    <td>{self._format_size(avg_size)}</td>
-                </tr>
-            """)
+    def _get_image_type_distribution(self):
+        """Get image type distribution for chart (images only + orphaned sidecars)."""
+        # Get image extensions in config order
+        ordered_exts = [ext for ext in self.config.get('photo_extensions', [])
+                       if ext in self.stats['file_counts']]
 
-        return '\n'.join(rows)
+        labels = [ext.upper() for ext in ordered_exts]
+        counts = [self.stats['file_counts'][ext] for ext in ordered_exts]
+
+        # Add orphaned sidecars as last series
+        if self.stats['orphaned_xmp']:
+            labels.append('ORPHANED SIDECARS')
+            counts.append(len(self.stats['orphaned_xmp']))
+
+        return labels, counts
+
+    def _get_storage_distribution(self):
+        """Get storage distribution combining image + paired sidecar sizes."""
+        # Group files by base name to find pairs
+        file_groups = defaultdict(lambda: {'image_ext': None, 'image_size': 0, 'sidecar_size': 0})
+
+        for file_path in Path(self.stats['folder_path']).rglob('*'):
+            if file_path.is_file():
+                ext = file_path.suffix.lower()
+                if ext in self.PHOTO_EXTENSIONS or ext in self.METADATA_EXTENSIONS:
+                    base_name = file_path.stem
+                    file_size = file_path.stat().st_size
+
+                    if ext in self.PHOTO_EXTENSIONS:
+                        file_groups[base_name]['image_ext'] = ext
+                        file_groups[base_name]['image_size'] = file_size
+                    elif ext in self.METADATA_EXTENSIONS:
+                        file_groups[base_name]['sidecar_size'] = file_size
+
+        # Calculate combined sizes per image type
+        storage_by_type = defaultdict(int)
+        orphaned_sidecar_size = 0
+
+        for base_name, group in file_groups.items():
+            if group['image_ext']:
+                # Image exists - add image size + paired sidecar size
+                combined_size = group['image_size'] + group['sidecar_size']
+                storage_by_type[group['image_ext']] += combined_size
+            elif group['sidecar_size'] > 0:
+                # Orphaned sidecar (no image)
+                orphaned_sidecar_size += group['sidecar_size']
+
+        # Get extensions in config order
+        ordered_exts = [ext for ext in self.config.get('photo_extensions', [])
+                       if ext in storage_by_type]
+
+        labels = [ext.upper() for ext in ordered_exts]
+        sizes = [storage_by_type[ext] for ext in ordered_exts]
+
+        # Add orphaned sidecars as last series
+        if orphaned_sidecar_size > 0:
+            labels.append('ORPHANED SIDECARS')
+            sizes.append(orphaned_sidecar_size)
+
+        return labels, sizes
 
     def _generate_pairing_section(self):
         """Generate HTML section for file pairing status."""
@@ -645,64 +681,6 @@ class PhotoStats:
                 {f'<div><em>... and {len(self.stats["orphaned_xmp"]) - 100} more</em></div>' if len(self.stats['orphaned_xmp']) > 100 else ''}
             </div>
             '''
-
-        return section
-
-    def _generate_xmp_metadata_section(self):
-        """Generate HTML section for XMP metadata analysis."""
-        if not self.stats['xmp_metadata']:
-            return '<h2>📝 XMP Metadata</h2><p>No XMP metadata found or could not be parsed.</p>'
-
-        # Collect all metadata keys
-        all_keys = set()
-        for metadata in self.stats['xmp_metadata']:
-            all_keys.update(metadata.keys())
-
-        all_keys.discard('file')
-
-        section = f'''
-        <h2>📝 XMP Metadata Analysis</h2>
-        <p>Analyzed {len(self.stats['xmp_metadata'])} XMP files. Found {len(all_keys)} unique metadata fields.</p>
-
-        <h3>Common Metadata Fields</h3>
-        <table>
-            <thead>
-                <tr>
-                    <th>Field Name</th>
-                    <th>Occurrences</th>
-                    <th>Sample Value</th>
-                </tr>
-            </thead>
-            <tbody>
-        '''
-
-        # Count occurrences of each field
-        field_counts = defaultdict(list)
-        for metadata in self.stats['xmp_metadata']:
-            for key, value in metadata.items():
-                if key != 'file':
-                    field_counts[key].append(value)
-
-        # Sort by occurrence count
-        sorted_fields = sorted(field_counts.items(), key=lambda x: len(x[1]), reverse=True)
-
-        for field, values in sorted_fields[:20]:  # Show top 20 fields
-            sample_value = values[0] if values else ''
-            if len(sample_value) > 50:
-                sample_value = sample_value[:47] + '...'
-
-            section += f'''
-                <tr>
-                    <td><code>{field}</code></td>
-                    <td>{len(values)}</td>
-                    <td>{sample_value}</td>
-                </tr>
-            '''
-
-        section += '''
-            </tbody>
-        </table>
-        '''
 
         return section
 
