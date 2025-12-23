@@ -156,12 +156,10 @@ You can uncomment additional format options in the template or add your own cust
 
 The tool generates an HTML report containing:
 
-- **Summary Statistics**: Total files, total size, paired files, orphaned files
-- **File Type Distribution Chart**: Visual breakdown of file counts
-- **Storage Distribution Chart**: Storage usage by file type
-- **Detailed File Type Table**: Counts, sizes, and averages per type
-- **Pairing Status**: Lists of orphaned images and XMP files
-- **XMP Metadata Analysis**: Common metadata fields and sample values
+- **Summary Statistics**: Total images (excluding sidecars), total size, orphaned images count, orphaned sidecars count
+- **Image Type Distribution Chart**: Visual breakdown of image file counts (sidecars excluded except orphaned ones)
+- **Storage Distribution Chart**: Storage usage by image type, combining each image with its paired sidecar size
+- **Pairing Status**: Lists of orphaned images and XMP sidecar files
 
 ## Example Output
 
@@ -241,7 +239,7 @@ python -m pytest tests/test_photo_stats.py::TestFileScanningFunctionality::test_
 
 ### Test Coverage
 
-The test suite includes 34 tests covering:
+The test suite includes 47 tests covering:
 
 - **Initialization**: PhotoStats class instantiation and configuration
 - **File Scanning**: Recursive scanning, file filtering, and discovery
