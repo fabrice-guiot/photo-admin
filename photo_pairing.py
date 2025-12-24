@@ -30,8 +30,9 @@ from config_manager import PhotoAdminConfig
 
 # Filename validation pattern
 # Format: 4 uppercase alphanumeric + 4 digits (0001-9999) + optional properties + extension
+# Properties can contain letters, digits, spaces, and underscores
 VALID_FILENAME_PATTERN = re.compile(
-    r'^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 ]+)*\.[a-z0-9]+$'
+    r'^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 _]+)*\.[a-zA-Z0-9]+$'
 )
 
 
@@ -83,7 +84,7 @@ def validate_filename(filename):
         # Check for invalid characters in properties
         if len(name_without_ext) > 8:
             properties_part = name_without_ext[8:]
-            if not re.match(r'^(-[A-Za-z0-9 ]+)*$', properties_part):
+            if not re.match(r'^(-[A-Za-z0-9 _]+)*$', properties_part):
                 return False, "Invalid characters in property name"
 
     return True, None
@@ -147,7 +148,7 @@ def detect_property_type(property_str):
 
 def scan_folder(folder_path, extensions):
     """
-    Scan folder for files with specified extensions.
+    Scan folder for files with specified extensions (case-insensitive).
 
     Args:
         folder_path: Path object for the folder to scan
@@ -156,9 +157,14 @@ def scan_folder(folder_path, extensions):
     Yields:
         Path: Full path to each matching file
     """
-    for ext in extensions:
-        for file_path in folder_path.rglob(f'*{ext}'):
-            if file_path.is_file():
+    # Normalize extensions to lowercase for comparison
+    normalized_extensions = {ext.lower() for ext in extensions}
+
+    # Scan all files and check extension case-insensitively
+    for file_path in folder_path.rglob('*'):
+        if file_path.is_file():
+            file_ext = file_path.suffix.lower()
+            if file_ext in normalized_extensions:
                 yield file_path
 
 

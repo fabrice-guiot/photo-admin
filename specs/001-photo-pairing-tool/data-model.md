@@ -62,7 +62,7 @@ Represents a collection of related files that share the same 8-character filenam
 - `separate_images`: Must contain at least one key (at minimum, base image with empty string key)
 - Each separate image entry must have:
   - `files`: Non-empty list with at least one Path
-  - `properties`: Set of strings (can be empty)
+  - `properties`: Set of strings (can be empty). Property names may contain letters, digits, spaces, and underscores
 - All-numeric properties (e.g., '2', '123') become separate_images keys, not processing methods
 
 **Analytics Calculations**:

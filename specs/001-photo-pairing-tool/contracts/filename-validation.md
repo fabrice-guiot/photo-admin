@@ -13,7 +13,7 @@ This contract specifies the filename pattern that the Photo Pairing Tool uses to
 ### Complete Pattern (Regex)
 
 ```regex
-^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 ]+)*\.[a-z0-9]+$
+^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 _]+)*\.[a-z0-9]+$
 ```
 
 **Case-insensitive mode**: OFF (pattern is case-sensitive)
@@ -42,13 +42,14 @@ A valid filename consists of four parts:
 **Invalid examples**: `0000` (zero not allowed), `00` (too short), `10000` (too long)
 
 #### 3. Properties (Optional, Multiple Allowed)
-- **Pattern**: `(-[A-Za-z0-9 ]+)*`
+- **Pattern**: `(-[A-Za-z0-9 _]+)*`
 - **Format**: Each property starts with a dash (`-`)
 - **Allowed characters within property**:
   - Uppercase letters: A-Z
   - Lowercase letters: a-z
   - Digits: 0-9
   - Spaces
+  - Underscores: _
 - **Termination**: Next dash or file extension
 - **Quantity**: Zero or more properties
 
@@ -56,15 +57,17 @@ A valid filename consists of four parts:
 - `-HDR` (single property)
 - `-HDR-BW` (two properties)
 - `-property 2` (property with space)
+- `-HDR_BW` (property with underscore)
 - `-HDR-property 2-PANO` (multiple properties, one with space)
+- `-high_res_output` (property with multiple underscores)
 - `-123` (all-numeric property - valid syntax, treated as separate image ID)
 
 **Invalid examples**:
 - `-` (empty property - no characters after dash)
 - `--HDR` (empty first property)
 - `-HDR-` (empty last property)
-- `-HDR_BW` (underscore not allowed)
 - `-HDR.BW` (period not allowed within property)
+- `-HDR@BW` (special characters not allowed)
 
 #### 4. File Extension (Required)
 - **Pattern**: `\.[a-z0-9]+`
@@ -83,6 +86,8 @@ A valid filename consists of four parts:
 | `A1B20123-property1-2.cr3` | A1B2 | 0123 | property1, 2 | .cr3 |
 | `9XYZ9999-HDR-BW-PANO.jpg` | 9XYZ | 9999 | HDR, BW, PANO | .jpg |
 | `TEST0001-property with spaces.dng` | TEST | 0001 | property with spaces | .dng |
+| `AB3D0035-HDR_BW.tiff` | AB3D | 0035 | HDR_BW | .tiff |
+| `XYZW0042-high_res_output.dng` | XYZW | 0042 | high_res_output | .dng |
 | `AB3D0035-123.dng` | AB3D | 0035 | 123 (sep. image) | .dng |
 
 ### Invalid Filenames
@@ -97,8 +102,8 @@ A valid filename consists of four parts:
 | `AB3D00001.dng` | Counter must be exactly 4 digits (5 given) |
 | `AB3D0035-.ext` | Empty property name (dash with nothing after) |
 | `AB3D0035-HDR-.ext` | Empty property name (second property empty) |
-| `AB3D0035-HDR_BW.ext` | Invalid character in property (underscore) |
 | `AB3D0035-HDR.BW.ext` | Invalid character in property (period in HDR.BW) |
+| `AB3D0035-HDR@BW.ext` | Invalid character in property (@ symbol) |
 | `AB 3D0001.dng` | Space in camera ID not allowed |
 | `AB3D-0001.dng` | Dash separates camera ID from counter (makes "AB3D" 4 chars and "0001" a property) |
 

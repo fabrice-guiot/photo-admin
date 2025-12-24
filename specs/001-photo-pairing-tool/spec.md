@@ -68,7 +68,7 @@ A photographer has a mixed collection with some files that don't follow their na
 
 ### Functional Requirements
 
-- **FR-001**: System MUST analyze image filenames following the pattern: 4 uppercase alphanumeric characters + 4 digits (0001-9999) + optional properties
+- **FR-001**: System MUST analyze image filenames following the pattern: 4 uppercase alphanumeric characters + 4 digits (0001-9999) + optional dash-prefixed properties (properties may contain letters, digits, spaces, and underscores)
 - **FR-002**: System MUST identify files not matching the naming convention and track them as "invalid image files"
 - **FR-003**: System MUST group files with identical first 8 characters (camera ID + counter) as representing the same base image
 - **FR-004**: System MUST extract camera identification from the first 4 characters of valid filenames
