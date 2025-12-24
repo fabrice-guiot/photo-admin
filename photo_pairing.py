@@ -953,8 +953,9 @@ The tool will:
 
     print(f"Analyzing folder: {folder_path}")
 
-    # Start timing the scan
+    # Start timing the scan (excluding user input time)
     scan_start_time = time.time()
+    total_pause_time = 0.0  # Track time spent waiting for user input
 
     # Load configuration
     config = PhotoAdminConfig()
@@ -975,8 +976,11 @@ The tool will:
             print("✓ Found valid cache - using cached data")
             use_cached_data = True
         else:
-            # Cache is stale - prompt user
+            # Cache is stale - prompt user (pause timer during user input)
+            pause_start = time.time()
             action = prompt_cache_action(validation['folder_changed'], validation['cache_edited'])
+            total_pause_time += time.time() - pause_start
+
             if action is None:
                 print("\n\nAnalysis cancelled by user.")
                 sys.exit(1)
@@ -1035,20 +1039,26 @@ The tool will:
     new_cameras = {}
     new_methods = {}
 
-    # Prompt for new cameras
+    # Prompt for new cameras (pause timer during user input)
     for camera_id in sorted(camera_ids):
         if camera_id not in existing_cameras:
+            pause_start = time.time()
             info = prompt_camera_info(camera_id)
+            total_pause_time += time.time() - pause_start
+
             if info is None:
                 print("\n\nAnalysis cancelled by user.")
                 sys.exit(1)
             new_cameras[camera_id] = info
             print(f"✓ Camera {camera_id} configured")
 
-    # Prompt for new processing methods
+    # Prompt for new processing methods (pause timer during user input)
     for method in sorted(processing_methods_found):
         if method not in existing_methods:
+            pause_start = time.time()
             description = prompt_processing_method(method)
+            total_pause_time += time.time() - pause_start
+
             if description is None:
                 print("\n\nAnalysis cancelled by user.")
                 sys.exit(1)
@@ -1093,8 +1103,8 @@ The tool will:
         config.processing_methods
     )
 
-    # Calculate scan duration
-    scan_duration = time.time() - scan_start_time
+    # Calculate scan duration (excluding user input time)
+    scan_duration = time.time() - scan_start_time - total_pause_time
 
     # Generate HTML report
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
