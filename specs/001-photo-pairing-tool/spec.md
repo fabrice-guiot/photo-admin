@@ -55,11 +55,14 @@ A photographer has a mixed collection with some files that don't follow their na
 
 ### Edge Cases
 
-- What happens when a filename has duplicate properties (e.g., `AB3D0001-HDR-HDR.dng`)?
-- How does the system handle very long filenames with many processing methods?
-- What if a user cancels a configuration prompt mid-analysis?
-- How are files with numeric-only suffixes distinguished from processing method properties?
-- What happens when the same camera ID produces different serial numbers in config?
+- **Duplicate properties** (e.g., `AB3D0001-HDR-HDR.dng`): System silently deduplicates - each unique property is attached only once. The file is treated as having one HDR property, not two. This is valid behavior and requires no user warning.
+- **Very long filenames with many processing methods** (e.g., `AB3D0001-HDR-BW-PANO-CROP-SHARPEN.dng`): No artificial limit on number of properties. System accepts any number of dash-prefixed properties as long as the total filename length stays within filesystem limits (typically 255 characters). All properties are parsed and processed normally.
+- **User cancels configuration prompt (Ctrl+C)**: Tool exits immediately with no report generated. Analysis progress is lost. User can re-run when ready to provide configuration.
+- **User provides empty input for camera name or processing method description (just presses Enter)**: Tool generates a placeholder value (e.g., "Unknown Camera AB3D" or "Unknown Method HDR"), saves it to config, and continues analysis. User can manually edit the config file later to provide meaningful names.
+- **Numeric-only suffixes vs processing method properties**: System distinguishes by checking if the property contains only digits. All-numeric properties (e.g., `-2`, `-123`) are treated as separate image identifiers, not processing methods. Properties with at least one non-digit character (e.g., `-HDR`, `-2K`, `-property 2`) are processing methods. In files like `AB3D0035-2-HDR.dng`, the first all-numeric property (`2`) identifies the separate image, and subsequent properties (`HDR`) are processing methods.
+- **Multiple cameras with same camera ID in config**: Version 1.0 assumes camera IDs are unique identifiers. However, the config file structure supports multiple camera entries per ID (as a list) for future enhancement. If multiple cameras are defined for the same ID, v1.0 uses only the first entry in the list. Future versions will add distinguishing logic (e.g., based on processing method compatibility) to identify which specific camera was used.
+- **Cached ImageGroup data with folder changes**: If persisted `.photo_pairing_imagegroups` file exists but folder content has changed (files added/removed/renamed), system detects this via hash mismatch and prompts user to either: (a) use cached data to quickly generate report, or (b) re-analyze folder to update cache. User has full control over whether to use stale cache or refresh.
+- **Corrupted or manually edited cache file**: If `.photo_pairing_imagegroups` is corrupted (invalid JSON) or manually edited (hash mismatch), system treats it as invalid and offers re-analysis. No error - graceful degradation to full scan.
 
 ## Requirements *(mandatory)*
 
@@ -76,10 +79,17 @@ A photographer has a mixed collection with some files that don't follow their na
 - **FR-009**: System MUST persist camera mappings and processing method descriptions to configuration file for future runs
 - **FR-010**: System MUST generate an interactive HTML report with statistics, charts, and breakdowns
 - **FR-011**: System MUST respect configured photo extensions and ignore metadata sidecar files (version 1.0)
-- **FR-012**: System MUST handle duplicate properties in filenames by attaching each unique property only once per file
+- **FR-012**: System MUST handle duplicate properties in filenames by silently deduplicating and attaching each unique property only once per file (no warnings or errors)
 - **FR-013**: System MUST provide clear error messages for invalid filenames explaining what rule was violated
 - **FR-014**: System MUST use the shared PhotoAdminConfig class for configuration management
 - **FR-015**: Users MUST be able to run the tool on any folder containing supported photo file types
+- **FR-016**: System MUST exit immediately when user cancels configuration prompts with keyboard interrupt (Ctrl+C), discarding analysis progress
+- **FR-017**: System MUST generate placeholder values when user provides empty input for required configuration fields (camera names, processing method descriptions), save placeholders to config, and continue analysis
+- **FR-018**: System MUST support config file structure where camera mappings can contain multiple camera entries per ID (stored as list), but in version 1.0 use only the first entry when multiple exist
+- **FR-019**: System MUST persist ImageGroup structure to `.photo_pairing_imagegroups` file in analyzed folder after successful completion (not on Ctrl+C interruption)
+- **FR-020**: System MUST include metadata in persisted file: hash of file list, hash of ImageGroup structure, timestamp, and summary statistics
+- **FR-021**: System MUST check for persisted ImageGroup file on startup and validate hashes to detect folder changes or manual edits
+- **FR-022**: System MUST prompt user when persisted data exists but hashes don't match, offering options to: (a) use cached data and generate report, or (b) re-analyze folder and update cache
 
 ### Key Entities
 
@@ -104,14 +114,16 @@ A photographer has a mixed collection with some files that don't follow their na
 - **SC-005**: HTML reports clearly present metrics and breakdowns that photographers can understand without technical knowledge
 - **SC-006**: Users can determine their most-used camera and most-applied processing methods within 30 seconds of opening the report
 - **SC-007**: The tool operates independently without requiring any other photo-admin tools to be installed or running
+- **SC-008**: Users can regenerate reports with updated camera/method descriptions instantly (under 2 seconds) when folder content hasn't changed, by using cached ImageGroup data
 
 ## Assumptions
 
 - Photo filenames follow a consistent 8-character prefix convention established by the photographer's workflow
-- Camera ID codes (first 4 characters) are unique per camera and don't change over time
+- Camera ID codes (first 4 characters) are unique per camera in version 1.0 - photographers use different IDs for different cameras (e.g., `AB3D` for Canon R5, `AB3E` for Sony A7). Config file structure supports multiple cameras per ID for future versions, but v1.0 uses only the first entry.
 - Processing method keywords in filenames are meaningful to the photographer and worth tracking as analytics
 - Users are willing to provide one-time configuration input when new cameras or methods are detected
 - HTML report format is acceptable for viewing results (no need for CSV, JSON, or other export formats in v1.0)
 - Sidecar files can be safely ignored in version 1.0 (future enhancement to include them in groups)
 - Photographers organize photos into folders for analysis (tool processes one folder at a time)
 - File extensions for photo types are already configured in shared PhotoAdminConfig
+- Once a camera mapping exists in config, users manually edit the YAML file to update camera names or serial numbers (tool does not re-prompt)

@@ -48,6 +48,8 @@ Please provide a description for processing method 'HDR':
 After analysis completes, open the generated HTML report:
 
 ```
+✓ Analysis complete
+✓ Cache saved to: .photo_pairing_imagegroups
 ✓ Report saved to: photo_pairing_report_2025-12-23_14-30-45.html
 ```
 
@@ -57,6 +59,36 @@ The report shows:
 - Images per camera (with chart)
 - Images per processing method (with chart)
 - List of invalid files (if any)
+
+### 4. Fast Report Regeneration
+
+The tool creates a `.photo_pairing_imagegroups` cache file in the analyzed folder. On subsequent runs:
+
+**If folder hasn't changed:**
+```bash
+python photo_pairing.py /path/to/your/photos
+
+✓ Found cached analysis data
+✓ Folder content unchanged - using cache
+✓ Report saved to: photo_pairing_report_2025-12-23_15-45-12.html
+```
+Report generated in under 2 seconds! Perfect for updating camera names or method descriptions in config.
+
+**If folder content changed:**
+```bash
+python photo_pairing.py /path/to/your/photos
+
+⚠ Found cached analysis data
+⚠ Folder content has changed (files added/removed/renamed)
+
+Choose an option:
+  (a) Use cached data and generate report (fast, ignores changes)
+  (b) Re-analyze folder and update cache (slow, reflects current state)
+
+Your choice [a/b]: b
+
+Scanning folder...
+```
 
 ## How It Works
 
@@ -175,11 +207,11 @@ Open `config/config.yaml` to see your saved mappings:
 ```yaml
 camera_mappings:
   AB3D:
-    name: "Canon EOS R5"
-    serial_number: "12345"
+    - name: "Canon EOS R5"
+      serial_number: "12345"
   XYZW:
-    name: "Sony A7IV"
-    serial_number: ""
+    - name: "Sony A7IV"
+      serial_number: ""
 
 processing_methods:
   "HDR": "High Dynamic Range processing"
@@ -187,10 +219,12 @@ processing_methods:
   "PANO": "Panorama stitching"
 ```
 
+**Note**: Camera mappings are stored as lists (notice the `-` before each entry). Version 1.0 uses only the first camera in each list. Future versions will support multiple cameras per ID with distinguishing logic.
+
 ### Editing Mappings
 
 You can manually edit this file to:
-- Update camera names or serial numbers
+- Update camera names or serial numbers (edit the first entry in each list)
 - Fix typos in processing method descriptions
 - Add new mappings in advance (to avoid prompts)
 
@@ -248,6 +282,20 @@ python photo_pairing.py ~/Photos/Processed
 # Identify photos with multiple processing applied
 ```
 
+**Workflow 4: Update Camera Names Without Re-Scanning**
+```bash
+# Initial analysis
+python photo_pairing.py ~/Photos/2025-01
+
+# Later: realize camera name was generic placeholder
+# Edit config/config.yaml: change "Unknown Camera AB3D" to "Canon EOS R5"
+
+# Regenerate report instantly (uses cached .photo_pairing_imagegroups)
+python photo_pairing.py ~/Photos/2025-01
+
+# Report now shows proper camera name - no re-scanning!
+```
+
 ## Troubleshooting
 
 ### "No configuration file found"
@@ -280,6 +328,20 @@ python photo_pairing.py ~/Photos/Processed
 1. Check `config/config.yaml` for `photo_extensions`
 2. Add your file extensions if missing (e.g., `.arw`, `.nef`)
 3. Or rename files to match the required pattern
+
+### Cache file causing issues
+
+**Problem**: Tool keeps using old analysis data after folder changes
+
+**Solution**: Delete `.photo_pairing_imagegroups` file in the analyzed folder to force re-analysis:
+```bash
+rm /path/to/photos/.photo_pairing_imagegroups
+python photo_pairing.py /path/to/photos
+```
+
+**Problem**: Tool says cache is invalid or corrupted
+
+**Solution**: The file will be recreated automatically. Just choose option (b) to re-analyze when prompted, or delete the file manually.
 
 ## Advanced Usage
 

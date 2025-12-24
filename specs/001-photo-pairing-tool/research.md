@@ -111,14 +111,22 @@ def update_config_with_camera(camera_id, name, serial_number):
     if 'camera_mappings' not in config:
         config['camera_mappings'] = {}
 
-    config['camera_mappings'][camera_id] = {
+    # Store as list for future compatibility (multiple cameras per ID)
+    # v1.0: Create single-entry list
+    # Future: Can append additional cameras to list
+    config['camera_mappings'][camera_id] = [{
         'name': name,
         'serial_number': serial_number
-    }
+    }]
 
     with open(config_path, 'w') as f:
         yaml.safe_dump(config, f, default_flow_style=False, sort_keys=False)
 ```
+
+**Future Enhancement Notes**:
+- Config structure supports multiple cameras per ID (stored as list)
+- v1.0 always creates single-entry list and uses first entry (index 0)
+- Future versions can add distinguishing logic based on processing methods, EXIF data, etc.
 
 **Safety Considerations**:
 - Validate config structure before saving
@@ -218,6 +226,97 @@ camera_usage = {
 - matplotlib/plotly: Generate static images, less interactive, adds dependencies
 - D3.js: More complex, higher learning curve
 - No charts: Less user-friendly, harder to see patterns
+
+### 8. ImageGroup Persistence & Caching
+
+**Decision**: Persist ImageGroup structure to JSON file in analyzed folder with hash-based validation
+
+**Rationale**:
+- ImageGroup data is expensive to compute (file scanning, parsing, grouping)
+- Structure is independent of config (camera names, method descriptions)
+- Enables instant report regeneration when only config changes
+- Users often tweak camera/method names after initial analysis
+- Hash validation ensures data integrity and freshness
+
+**Implementation Approach**:
+```python
+import json
+import hashlib
+from pathlib import Path
+
+def calculate_file_list_hash(folder_path, extensions):
+    """Calculate SHA256 hash of sorted file paths."""
+    files = sorted([str(f.relative_to(folder_path))
+                   for ext in extensions
+                   for f in folder_path.rglob(f'*{ext}')])
+    file_list_str = '\n'.join(files)
+    return hashlib.sha256(file_list_str.encode()).hexdigest()
+
+def calculate_imagegroups_hash(imagegroups):
+    """Calculate SHA256 hash of ImageGroup structure."""
+    # Convert to JSON (excluding metadata), sort keys for consistency
+    data_str = json.dumps(imagegroups, sort_keys=True, default=str)
+    return hashlib.sha256(data_str.encode()).hexdigest()
+
+def save_cache(folder_path, imagegroups, invalid_files):
+    """Save ImageGroup structure to .photo_pairing_imagegroups"""
+    cache_path = folder_path / '.photo_pairing_imagegroups'
+
+    cache_data = {
+        'version': '1.0',
+        'created_at': datetime.utcnow().isoformat() + 'Z',
+        'folder_path': str(folder_path.absolute()),
+        'tool_version': '1.0.0',
+        'metadata': {
+            'file_list_hash': calculate_file_list_hash(...),
+            'imagegroups_hash': calculate_imagegroups_hash(imagegroups),
+            'total_files': sum(...),
+            'total_groups': len(imagegroups),
+            'total_images': sum(len(g['separate_images']) for g in imagegroups),
+            'total_invalid_files': len(invalid_files)
+        },
+        'imagegroups': imagegroups,
+        'invalid_files': invalid_files
+    }
+
+    with open(cache_path, 'w') as f:
+        json.dump(cache_data, f, indent=2, default=str)
+```
+
+**Cache Validation Flow**:
+1. Check if `.photo_pairing_imagegroups` exists in target folder
+2. Load and parse JSON
+3. Calculate current file_list_hash from folder
+4. Compare with cached file_list_hash
+5. Calculate imagegroups_hash from loaded data
+6. Compare with cached imagegroups_hash
+7. If both match: use cache, skip analysis
+8. If either doesn't match: prompt user for action
+
+**User Prompt on Mismatch**:
+```
+⚠ Found cached analysis data
+⚠ Changes detected:
+  - Folder content: [CHANGED/OK]
+  - Cache file: [EDITED/OK]
+
+Choose an option:
+  (a) Use cached data anyway (fast, ignores changes)
+  (b) Re-analyze folder (slow, reflects current state)
+Your choice [a/b]:
+```
+
+**Format Choice**: JSON over YAML
+- Simpler to parse in Python (stdlib `json` module)
+- Better for programmatic access (not meant for manual editing)
+- Slightly more compact for large datasets
+- Standard for data interchange
+
+**Alternatives Considered**:
+- YAML: More human-readable, but adds dependency and parsing overhead
+- Pickle: Not human-readable, version-incompatible, security concerns
+- SQLite: Overkill for simple key-value storage, adds dependency
+- No caching: Simple but wasteful - re-scan every time even for config-only changes
 
 ## Open Questions (Resolved)
 
