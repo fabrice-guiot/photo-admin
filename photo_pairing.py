@@ -536,6 +536,10 @@ def generate_html_report(analytics, invalid_files, output_path, folder_path, sca
             <div class="stat-value">{stats['processing_methods_used']}</div>
             <div class="stat-label">Processing Methods</div>
         </div>
+        <div class="stat-card">
+            <div class="stat-value">{len(invalid_files)}</div>
+            <div class="stat-label">Invalid Files</div>
+        </div>
     </div>
 
     <h2>Camera Usage</h2>
@@ -603,8 +607,41 @@ def generate_html_report(analytics, invalid_files, output_path, folder_path, sca
         html += """    <p>No processing methods detected in filenames.</p>
 """
 
-    # Invalid files section
-    html += f"""
+    # Validation rules documentation
+    html += """
+    <h2>Filename Format Requirements</h2>
+    <div class="chart-container">
+        <p>Photo files must follow this naming convention:</p>
+        <p style="font-family: monospace; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-left: 4px solid #007bff;">
+            <strong>{CAMERA_ID}{COUNTER}[-{PROPERTY}]*{.extension}</strong>
+        </p>
+        <ul style="line-height: 1.8;">
+            <li><strong>CAMERA_ID</strong>: Exactly 4 uppercase alphanumeric characters [A-Z0-9]
+                <br><span style="color: #666; font-size: 0.9em;">Examples: AB3D, XYZW, R5M2</span>
+            </li>
+            <li><strong>COUNTER</strong>: Exactly 4 digits from 0001 to 9999 (0000 not allowed)
+                <br><span style="color: #666; font-size: 0.9em;">Examples: 0001, 0042, 1234, 9999</span>
+            </li>
+            <li><strong>PROPERTY</strong> (optional): One or more dash-prefixed properties
+                <br><span style="color: #666; font-size: 0.9em;">• Can contain letters, digits, spaces, and underscores</span>
+                <br><span style="color: #666; font-size: 0.9em;">• Numeric properties indicate separate images (e.g., -2, -3)</span>
+                <br><span style="color: #666; font-size: 0.9em;">• Alphanumeric properties indicate processing methods (e.g., -HDR, -BW)</span>
+                <br><span style="color: #666; font-size: 0.9em;">Examples: -HDR, -2, -HDR_BW, -Focus Stack</span>
+            </li>
+            <li><strong>Extension</strong>: Case-insensitive file extension
+                <br><span style="color: #666; font-size: 0.9em;">Examples: .dng, .DNG, .cr3, .CR3, .tiff</span>
+            </li>
+        </ul>
+        <p><strong>Valid filename examples:</strong></p>
+        <ul style="font-family: monospace; color: #28a745;">
+            <li>AB3D0001.dng</li>
+            <li>XYZW0035-HDR.tiff</li>
+            <li>AB3D0042-2.cr3</li>
+            <li>R5M21234-HDR-BW.dng</li>
+            <li>AB3D0001-Focus Stack.tiff</li>
+        </ul>
+    </div>
+
     <h2>Invalid Files</h2>
 """
 

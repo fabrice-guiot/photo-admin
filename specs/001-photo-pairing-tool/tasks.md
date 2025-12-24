@@ -109,10 +109,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T035 [US3] Implement detailed validation error message generation in photo_pairing.py
-- [ ] T036 [US3] Add invalid files table to HTML report with filename and reason columns in photo_pairing.py
-- [ ] T037 [US3] Implement validation rule documentation display in report in photo_pairing.py
-- [ ] T038 [US3] Add invalid file count to summary statistics in photo_pairing.py
+- [x] T035 [US3] Implement detailed validation error message generation in photo_pairing.py
+- [x] T036 [US3] Add invalid files table to HTML report with filename and reason columns in photo_pairing.py
+- [x] T037 [US3] Implement validation rule documentation display in report in photo_pairing.py
+- [x] T038 [US3] Add invalid file count to summary statistics in photo_pairing.py
 
 **Checkpoint**: All user stories should now be independently functional - complete analysis with validation feedback.
 
