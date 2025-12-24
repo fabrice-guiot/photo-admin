@@ -68,7 +68,7 @@ A photographer has a mixed collection with some files that don't follow their na
 
 ### Functional Requirements
 
-- **FR-001**: System MUST analyze image filenames following the pattern: 4 uppercase alphanumeric characters + 4 digits (0001-9999) + optional dash-prefixed properties (properties may contain letters, digits, spaces, and underscores)
+- **FR-001**: System MUST analyze image filenames following the pattern: 4 uppercase alphanumeric characters + 4 digits (0001-9999) + optional dash-prefixed properties (properties may contain letters, digits, spaces, and underscores) + case-insensitive file extension
 - **FR-002**: System MUST identify files not matching the naming convention and track them as "invalid image files"
 - **FR-003**: System MUST group files with identical first 8 characters (camera ID + counter) as representing the same base image
 - **FR-004**: System MUST extract camera identification from the first 4 characters of valid filenames
@@ -79,6 +79,7 @@ A photographer has a mixed collection with some files that don't follow their na
 - **FR-009**: System MUST persist camera mappings and processing method descriptions to configuration file for future runs
 - **FR-010**: System MUST generate an interactive HTML report with statistics, charts, and breakdowns
 - **FR-011**: System MUST respect configured photo extensions and ignore metadata sidecar files (version 1.0)
+- **FR-011a**: System MUST treat file extensions as case-insensitive - files with .DNG, .dng, .Dng, .TIFF, .tiff are all valid and equivalent
 - **FR-012**: System MUST handle duplicate properties in filenames by silently deduplicating and attaching each unique property only once per file (no warnings or errors)
 - **FR-013**: System MUST provide clear error messages for invalid filenames explaining what rule was violated
 - **FR-014**: System MUST use the shared PhotoAdminConfig class for configuration management

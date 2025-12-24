@@ -31,6 +31,7 @@ from config_manager import PhotoAdminConfig
 # Filename validation pattern
 # Format: 4 uppercase alphanumeric + 4 digits (0001-9999) + optional properties + extension
 # Properties can contain letters, digits, spaces, and underscores
+# Extensions are case-insensitive (both .DNG and .dng are valid)
 VALID_FILENAME_PATTERN = re.compile(
     r'^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 _]+)*\.[a-zA-Z0-9]+$'
 )

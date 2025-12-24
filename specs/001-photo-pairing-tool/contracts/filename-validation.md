@@ -13,10 +13,10 @@ This contract specifies the filename pattern that the Photo Pairing Tool uses to
 ### Complete Pattern (Regex)
 
 ```regex
-^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 _]+)*\.[a-z0-9]+$
+^[A-Z0-9]{4}(0[0-9]{3}|[1-9][0-9]{3})(-[A-Za-z0-9 _]+)*\.[a-zA-Z0-9]+$
 ```
 
-**Case-insensitive mode**: OFF (pattern is case-sensitive)
+**Case-insensitive mode**: OFF (pattern is case-sensitive for camera ID, but extensions accept both uppercase and lowercase)
 
 ### Component Breakdown
 
@@ -70,10 +70,11 @@ A valid filename consists of four parts:
 - `-HDR@BW` (special characters not allowed)
 
 #### 4. File Extension (Required)
-- **Pattern**: `\.[a-z0-9]+`
-- **Format**: Dot followed by one or more lowercase letters or digits
-- **Examples**: `.dng`, `.tiff`, `.cr3`, `.jpg`, `.jpeg`
-- **Note**: Extension checking is done against PhotoAdminConfig's `photo_extensions` list
+- **Pattern**: `\.[a-zA-Z0-9]+`
+- **Format**: Dot followed by one or more letters (uppercase or lowercase) or digits
+- **Case-sensitivity**: Extensions are case-insensitive - `.DNG`, `.dng`, `.Dng` are all valid and equivalent
+- **Examples**: `.dng`, `.DNG`, `.tiff`, `.TIFF`, `.cr3`, `.CR3`, `.jpg`, `.JPG`
+- **Note**: Extension checking is done case-insensitively against PhotoAdminConfig's `photo_extensions` list
 
 ## Complete Examples
 
@@ -89,6 +90,9 @@ A valid filename consists of four parts:
 | `AB3D0035-HDR_BW.tiff` | AB3D | 0035 | HDR_BW | .tiff |
 | `XYZW0042-high_res_output.dng` | XYZW | 0042 | high_res_output | .dng |
 | `AB3D0035-123.dng` | AB3D | 0035 | 123 (sep. image) | .dng |
+| `AB3D0001.DNG` | AB3D | 0001 | (none) | .DNG (uppercase) |
+| `XYZW0035-HDR.TIFF` | XYZW | 0035 | HDR | .TIFF (uppercase) |
+| `TEST0042-BW.Cr3` | TEST | 0042 | BW | .Cr3 (mixed case) |
 
 ### Invalid Filenames
 
@@ -183,6 +187,14 @@ If a filename contains the same property multiple times, attach it only once.
 **Properties**: `['property with spaces']`
 **Note**: Spaces are explicitly allowed within property keywords
 
+### Case-Insensitive File Extensions
+
+`AB3D0001.DNG`, `AB3D0001.dng`, `AB3D0001.Dng`
+
+**Validation**: ALL VALID (equivalent)
+**Extension**: .DNG / .dng / .Dng (all treated as same extension)
+**Note**: File extensions are case-insensitive. The system normalizes extensions to lowercase for comparison with the configured `photo_extensions` list. Both validation and file scanning treat `.DNG`, `.dng`, `.TIFF`, `.tiff` as equivalent.
+
 ### All-Numeric Properties
 
 `AB3D0035-2-HDR.dng`
@@ -220,10 +232,11 @@ Each filename validation rule MUST have dedicated tests:
 3. **Property validation**:
    - Optional presence (test with/without)
    - Multiple properties (test 0, 1, 3, 10 properties)
-   - Valid characters (test alphanumeric + spaces)
-   - Invalid characters (test dash, underscore, period, etc.)
+   - Valid characters (test alphanumeric + spaces + underscores)
+   - Invalid characters (test period, @ symbol, etc.)
    - Empty properties (test trailing dash, double dash)
    - Spaces in properties (test "property with spaces")
+   - Underscores in properties (test "HDR_BW", "high_res_output")
 
 4. **Property type identification**:
    - All-numeric = separate image ID (test "2", "123")
@@ -231,8 +244,10 @@ Each filename validation rule MUST have dedicated tests:
    - First numeric wins (test "2-HDR" vs "HDR-2")
 
 5. **Extension validation**:
-   - Lowercase with dot (test ".dng", ".TIFF")
-   - Against allowed extensions list
+   - Case-insensitive matching (test ".dng", ".DNG", ".Dng" all valid)
+   - Against allowed extensions list (normalized to lowercase)
+   - Mixed case extensions (test ".TIFF", ".tiff", ".TiFf")
+   - File scanning respects case-insensitivity
 
 ### Integration Test Requirements
 
