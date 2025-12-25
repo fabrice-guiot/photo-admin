@@ -12,6 +12,8 @@ Photo Administration toolbox - Python utilities for analyzing photo collections.
 2. **Photo Pairing Tool** - Analyze filename patterns, group files, track camera usage
 
 ## Active Technologies
+- Python 3.10+ + PyYAML (>=6.0), Jinja2 (new dependency) (002-html-report-consistency)
+- File system (HTML reports, Jinja2 templates) (002-html-report-consistency)
 
 - **Python 3.10+**
 - **PyYAML** (>=6.0) - Configuration file handling
@@ -193,22 +195,13 @@ prop_type = FilenameParser.detect_property_type('HDR')  # 'processing_method'
 ```
 
 ## Recent Changes
+- 002-html-report-consistency: Added Python 3.10+ + PyYAML (>=6.0), Jinja2 (new dependency)
 
 ### Photo Pairing Tool (2025-12-25)
 - ✅ Complete implementation with 8 phases (68 tasks)
 - ✅ 40 comprehensive tests, all passing
-- ✅ Filename validation with detailed error messages
-- ✅ Smart caching with hash-based invalidation
-- ✅ Interactive HTML reports with Chart.js visualizations
-- ✅ Camera and processing method tracking
-- ✅ Invalid filename detection and reporting
-- ✅ Comprehensive documentation (docs/photo-pairing.md)
 
 ### Code Refactoring (2025-12-24)
-- Moved config_manager.py to utils/config_manager.py for reusability
-- Created utils/filename_parser.py for shared filename validation
-- Enhanced PhotoAdminConfig with interactive prompt methods
-- Updated photo_stats.py to use new utils location
 
 ## Testing Guidelines
 

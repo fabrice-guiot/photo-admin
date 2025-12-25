@@ -1,20 +1,31 @@
 <!--
-SYNC IMPACT REPORT (Constitution v1.0.0 - Initial Ratification)
+SYNC IMPACT REPORT (Constitution v1.1.0 - CLI Standards Amendment)
 
-Version change: N/A → 1.0.0
-Modified principles: N/A (initial version)
-Added sections:
-  - Core Principles: Independent CLI Tools, Testing & Quality, User-Centric Design
-  - Shared Infrastructure Standards
-  - Development Philosophy
-  - Governance
+Version change: 1.0.0 → 1.1.0
+Modified principles:
+  - User-Centric Design: Added requirements for --help option and CTRL+C handling
+  - Shared Infrastructure Standards: Added HTML Report Consistency requirement
+
+Added requirements:
+  - All tools MUST provide --help and -h options
+  - All tools MUST handle CTRL+C gracefully with exit code 130
+  - All tools MUST use centralized HTML templating with consistent styling
+
+Rationale:
+  - Issues #13, #14, and #16 identified gaps in professional CLI behavior
+  - Help flags and interruption handling are industry-standard user expectations
+  - Consistent HTML reports improve user experience across toolbox
+  - These requirements apply to all current and future tools
 
 Templates requiring updates:
-  ✅ plan-template.md - Constitution Check section aligned with new principles
-  ✅ spec-template.md - Already compatible (no changes needed)
-  ✅ tasks-template.md - Test-optional approach matches flexible testing principle
+  ⚠️ plan-template.md - Constitution Check should validate help/CTRL+C/HTML consistency
+  ✅ spec-template.md - No changes needed (implementation-agnostic)
+  ✅ tasks-template.md - No changes needed
 
-Follow-up TODOs: None
+Follow-up TODOs:
+  - Update existing tools (PhotoStats, Photo Pairing) to comply with new requirements
+  - Create centralized HTML template infrastructure
+  - Update plan-template.md Constitution Check section
 -->
 
 # photo-admin Constitution
@@ -37,7 +48,9 @@ All features MUST have test coverage. Tests SHOULD be written before or alongsid
 
 Analysis tools MUST generate interactive HTML reports with visualizations and clear presentation of results. All tools MUST provide helpful, actionable error messages. Code MUST prioritize simplicity over cleverness (YAGNI principle). Tools MUST include structured logging for observability and debugging.
 
-**Rationale**: Users deserve clear, visual insights into their photo collections. Simplicity reduces maintenance burden and makes the codebase accessible to contributors. Good observability enables users to understand what's happening and troubleshoot issues effectively.
+All tools MUST provide `--help` and `-h` options that display comprehensive usage information without performing operations. All tools MUST handle CTRL+C (SIGINT) gracefully with user-friendly messages and appropriate exit codes (130).
+
+**Rationale**: Users deserve clear, visual insights into their photo collections. Simplicity reduces maintenance burden and makes the codebase accessible to contributors. Good observability enables users to understand what's happening and troubleshoot issues effectively. Standard CLI conventions (help flags, interruption handling) create professional user experiences and meet established user expectations.
 
 ## Shared Infrastructure Standards
 
@@ -47,6 +60,7 @@ Analysis tools MUST generate interactive HTML reports with visualizations and cl
 - **Config Schema**: New tools MAY extend the shared config schema by adding top-level keys; existing keys MUST NOT be redefined
 - **File Type Support**: Tools MUST respect `photo_extensions` and `metadata_extensions` from shared config
 - **Report Output**: HTML reports MUST be timestamped (format: `tool_name_report_YYYY-MM-DD_HH-MM-SS.html`)
+- **HTML Report Consistency**: All tools MUST use a centralized HTML templating approach with consistent styling for common elements (headers, footers, metadata sections, KPI cards, charts, warnings, errors). Tools MAY have tool-specific content sections but MUST maintain consistent visual design and user experience
 
 ## Development Philosophy
 
@@ -78,4 +92,4 @@ Analysis tools MUST generate interactive HTML reports with visualizations and cl
 - Repeated exceptions to a principle suggest it needs revision
 - Project direction or scope changes significantly
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-23 | **Last Amended**: 2025-12-23
+**Version**: 1.1.0 | **Ratified**: 2025-12-23 | **Last Amended**: 2025-12-25
