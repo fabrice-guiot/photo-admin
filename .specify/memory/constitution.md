@@ -1,31 +1,32 @@
 <!--
-SYNC IMPACT REPORT (Constitution v1.1.0 - CLI Standards Amendment)
+SYNC IMPACT REPORT (Constitution v1.1.1 - Cross-Platform Encoding Standard)
 
-Version change: 1.0.0 → 1.1.0
+Version change: 1.1.0 → 1.1.1 (PATCH)
 Modified principles:
-  - User-Centric Design: Added requirements for --help option and CTRL+C handling
-  - Shared Infrastructure Standards: Added HTML Report Consistency requirement
+  - Shared Infrastructure Standards: Added Cross-Platform File Encoding requirement
 
 Added requirements:
-  - All tools MUST provide --help and -h options
-  - All tools MUST handle CTRL+C gracefully with exit code 130
-  - All tools MUST use centralized HTML templating with consistent styling
+  - All file read/write operations MUST explicitly specify encoding='utf-8' for text files
+  - Never rely on platform default encodings (prevents Windows cp1252 failures)
 
 Rationale:
-  - Issues #13, #14, and #16 identified gaps in professional CLI behavior
-  - Help flags and interruption handling are industry-standard user expectations
-  - Consistent HTML reports improve user experience across toolbox
-  - These requirements apply to all current and future tools
+  - Recurring Windows CI failures due to missing UTF-8 encoding specification
+  - Windows defaults to cp1252, which fails on UTF-8 content from templates
+  - Explicit encoding ensures consistent behavior across all platforms (Windows, macOS, Linux)
+  - Prevents test failures and runtime errors in production
+
+Impact:
+  - Code reviews MUST check for explicit encoding parameters
+  - All text file operations need encoding='utf-8' parameter
+  - Applies to: open(), Path.read_text(), Path.write_text(), json.load(), etc.
 
 Templates requiring updates:
-  ⚠️ plan-template.md - Constitution Check should validate help/CTRL+C/HTML consistency
-  ✅ spec-template.md - No changes needed (implementation-agnostic)
-  ✅ tasks-template.md - No changes needed
+  ✅ No template changes needed - this is a coding standard
 
-Follow-up TODOs:
-  - Update existing tools (PhotoStats, Photo Pairing) to comply with new requirements
-  - Create centralized HTML template infrastructure
-  - Update plan-template.md Constitution Check section
+Previous Amendment (v1.1.0 - CLI Standards):
+  - User-Centric Design: Added requirements for --help option and CTRL+C handling
+  - Shared Infrastructure Standards: Added HTML Report Consistency requirement
+  - Issues #13, #14, and #16 identified gaps in professional CLI behavior
 -->
 
 # photo-admin Constitution
@@ -61,6 +62,7 @@ All tools MUST provide `--help` and `-h` options that display comprehensive usag
 - **File Type Support**: Tools MUST respect `photo_extensions` and `metadata_extensions` from shared config
 - **Report Output**: HTML reports MUST be timestamped (format: `tool_name_report_YYYY-MM-DD_HH-MM-SS.html`)
 - **HTML Report Consistency**: All tools MUST use a centralized HTML templating approach with consistent styling for common elements (headers, footers, metadata sections, KPI cards, charts, warnings, errors). Tools MAY have tool-specific content sections but MUST maintain consistent visual design and user experience
+- **Cross-Platform File Encoding**: All file read and write operations MUST explicitly specify `encoding='utf-8'` for text files. This includes `open()`, `Path.read_text()`, `Path.write_text()`, and similar operations. Never rely on platform default encodings (Windows defaults to cp1252, which causes failures on UTF-8 content)
 
 ## Development Philosophy
 
@@ -92,4 +94,4 @@ All tools MUST provide `--help` and `-h` options that display comprehensive usag
 - Repeated exceptions to a principle suggest it needs revision
 - Project direction or scope changes significantly
 
-**Version**: 1.1.0 | **Ratified**: 2025-12-23 | **Last Amended**: 2025-12-25
+**Version**: 1.1.1 | **Ratified**: 2025-12-23 | **Last Amended**: 2025-12-25
