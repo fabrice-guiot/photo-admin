@@ -331,7 +331,7 @@ class TestHTMLReportGeneration:
     """Tests for HTML report generation."""
 
     def test_generate_html_report(self, temp_photo_dir, tmp_path):
-        """Test HTML report generation."""
+        """Test HTML report generation with template-based rendering."""
         stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
@@ -344,7 +344,21 @@ class TestHTMLReportGeneration:
         # Check HTML content
         content = result.read_text(encoding='utf-8')
         assert '<!DOCTYPE html>' in content
-        assert 'Photo Statistics Report' in content
+        assert 'PhotoStats' in content
+
+        # Check template-based styling elements
+        assert 'kpi-card' in content
+        assert 'section-title' in content
+        assert 'chart-container' in content
+
+        # Check CSS color variables from base template
+        assert '--color-primary' in content
+        assert '--color-success' in content
+        assert '--gradient-purple' in content
+
+        # Check Chart.js integration
+        assert 'chart.js' in content.lower()
+        assert 'CHART_COLORS' in content
 
     def test_html_report_contains_stats(self, temp_photo_dir, tmp_path):
         """Test that HTML report contains statistics."""
@@ -361,14 +375,18 @@ class TestHTMLReportGeneration:
         assert 'chart.js' in content.lower()  # Should include charting library
 
     def test_html_report_default_name(self, temp_photo_dir, tmp_path, monkeypatch):
-        """Test HTML report generation with default name."""
+        """Test HTML report generation with default timestamped name."""
         stats = PhotoStats(temp_photo_dir)
         stats.scan_folder()
 
         # Use monkeypatch to change directory without affecting other tests
         monkeypatch.chdir(tmp_path)
         result = stats.generate_html_report()
-        assert result.name == 'photo_stats_report.html'
+
+        # Verify filename follows timestamp pattern: photo_stats_report_YYYY-MM-DD_HH-MM-SS.html
+        assert result.name.startswith('photo_stats_report_')
+        assert result.name.endswith('.html')
+        assert len(result.name) == len('photo_stats_report_YYYY-MM-DD_HH-MM-SS.html')
         assert result.exists()
 
     def test_pairing_section_generation(self, temp_photo_dir):

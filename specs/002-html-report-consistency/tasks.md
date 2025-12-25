@@ -17,9 +17,9 @@
 
 **Purpose**: Project initialization and basic structure for centralized templating
 
-- [ ] T001 Add Jinja2>=3.1.0 to requirements.txt
-- [ ] T002 [P] Create templates/ directory at repository root
-- [ ] T003 [P] Create utils/report_renderer.py skeleton file
+- [x] T001 Add Jinja2>=3.1.0 to requirements.txt
+- [x] T002 [P] Create templates/ directory at repository root
+- [x] T003 [P] Create utils/report_renderer.py skeleton file
 
 ---
 
@@ -29,14 +29,14 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Implement ReportContext dataclass in utils/report_renderer.py with all required fields (tool_name, tool_version, scan_path, scan_timestamp, scan_duration, kpis, sections, warnings, errors, footer_note)
-- [ ] T005 [P] Implement KPICard dataclass in utils/report_renderer.py with fields (title, value, unit, status, icon, tooltip)
-- [ ] T006 [P] Implement ReportSection dataclass in utils/report_renderer.py with fields (title, type, data, html_content, description, collapsible)
-- [ ] T007 [P] Implement WarningMessage dataclass in utils/report_renderer.py with fields (message, details, severity)
-- [ ] T008 [P] Implement ErrorMessage dataclass in utils/report_renderer.py with fields (message, details, actionable_fix)
-- [ ] T009 Create base Jinja2 template in templates/base.html.j2 with header, footer, KPI cards section, content blocks, warning/error sections, and embedded CSS/Chart.js color theme
-- [ ] T010 Implement ReportRenderer class in utils/report_renderer.py with render_report() method that loads Jinja2 template, renders with context, and handles template errors with console fallback
-- [ ] T011 [P] Write unit tests for ReportRenderer in tests/test_report_renderer.py covering successful rendering, template error handling, and atomic file writes
+- [x] T004 Implement ReportContext dataclass in utils/report_renderer.py with all required fields (tool_name, tool_version, scan_path, scan_timestamp, scan_duration, kpis, sections, warnings, errors, footer_note)
+- [x] T005 [P] Implement KPICard dataclass in utils/report_renderer.py with fields (title, value, unit, status, icon, tooltip)
+- [x] T006 [P] Implement ReportSection dataclass in utils/report_renderer.py with fields (title, type, data, html_content, description, collapsible)
+- [x] T007 [P] Implement WarningMessage dataclass in utils/report_renderer.py with fields (message, details, severity)
+- [x] T008 [P] Implement ErrorMessage dataclass in utils/report_renderer.py with fields (message, details, actionable_fix)
+- [x] T009 Create base Jinja2 template in templates/base.html.j2 with header, footer, KPI cards section, content blocks, warning/error sections, and embedded CSS/Chart.js color theme
+- [x] T010 Implement ReportRenderer class in utils/report_renderer.py with render_report() method that loads Jinja2 template, renders with context, and handles template errors with console fallback
+- [x] T011 [P] Write unit tests for ReportRenderer in tests/test_report_renderer.py covering successful rendering, template error handling, and atomic file writes
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -50,17 +50,17 @@
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Create templates/photo_stats.html.j2 that extends base.html.j2 with PhotoStats-specific content blocks (orphaned files section, sidecar status section)
-- [ ] T013 [US1] Create templates/photo_pairing.html.j2 that extends base.html.j2 with Photo Pairing-specific content blocks (filename patterns section, camera usage section)
-- [ ] T014 [US1] Refactor PhotoStats.generate_html_report() in photo_stats.py to build ReportContext from existing analysis data (map current HTML generation logic to KPICard and ReportSection objects)
-- [ ] T015 [US1] Replace PhotoStats HTML generation f-strings in photo_stats.py with ReportRenderer.render_report() call using templates/photo_stats.html.j2
-- [ ] T016 [US1] Add try-except around PhotoStats template rendering in photo_stats.py to catch template errors and display console error message without generating HTML file
-- [ ] T017 [US1] Refactor photo_pairing.generate_html_report() in photo_pairing.py to build ReportContext from existing analysis data (map current HTML generation logic to KPICard and ReportSection objects)
-- [ ] T018 [US1] Replace Photo Pairing HTML generation f-strings in photo_pairing.py with ReportRenderer.render_report() call using templates/photo_pairing.html.j2
-- [ ] T019 [US1] Add try-except around Photo Pairing template rendering in photo_pairing.py to catch template errors and display console error message without generating HTML file
-- [ ] T020 [US1] Update tests/test_photo_stats.py test_generate_html_report() to verify template-based rendering produces HTML with consistent styling elements
-- [ ] T021 [US1] Update tests/test_photo_pairing.py test_generate_report() to verify template-based rendering produces HTML with consistent styling elements
-- [ ] T022 [US1] Add integration test in tests/test_report_renderer.py that generates reports from both tools and validates visual consistency (same CSS classes, same color variables, same Chart.js theme)
+- [x] T012 [US1] Create templates/photo_stats.html.j2 that extends base.html.j2 with PhotoStats-specific content blocks (orphaned files section, sidecar status section)
+- [x] T013 [US1] Create templates/photo_pairing.html.j2 that extends base.html.j2 with Photo Pairing-specific content blocks (filename patterns section, camera usage section)
+- [x] T014 [US1] Refactor PhotoStats.generate_html_report() in photo_stats.py to build ReportContext from existing analysis data (map current HTML generation logic to KPICard and ReportSection objects)
+- [x] T015 [US1] Replace PhotoStats HTML generation f-strings in photo_stats.py with ReportRenderer.render_report() call using templates/photo_stats.html.j2
+- [x] T016 [US1] Add try-except around PhotoStats template rendering in photo_stats.py to catch template errors and display console error message without generating HTML file
+- [x] T017 [US1] Refactor photo_pairing.generate_html_report() in photo_pairing.py to build ReportContext from existing analysis data (map current HTML generation logic to KPICard and ReportSection objects)
+- [x] T018 [US1] Replace Photo Pairing HTML generation f-strings in photo_pairing.py with ReportRenderer.render_report() call using templates/photo_pairing.html.j2
+- [x] T019 [US1] Add try-except around Photo Pairing template rendering in photo_pairing.py to catch template errors and display console error message without generating HTML file
+- [x] T020 [US1] Update tests/test_photo_stats.py test_generate_html_report() to verify template-based rendering produces HTML with consistent styling elements
+- [x] T021 [US1] Update tests/test_photo_pairing.py test_generate_report() to verify template-based rendering produces HTML with consistent styling elements
+- [x] T022 [US1] Add integration test in tests/test_report_renderer.py that generates reports from both tools and validates visual consistency (same CSS classes, same color variables, same Chart.js theme)
 
 **Checkpoint**: At this point, both tools generate visually consistent HTML reports using Jinja2 templates
 
