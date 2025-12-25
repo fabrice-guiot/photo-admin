@@ -618,7 +618,7 @@ class TestHTMLReportGeneration:
 
         assert report_path.exists()
 
-        html_content = report_path.read_text()
+        html_content = report_path.read_text(encoding='utf-8')
 
         # Check key sections exist
         assert '<!DOCTYPE html>' in html_content
@@ -669,7 +669,7 @@ class TestHTMLReportGeneration:
             1.0
         )
 
-        html_content = report_path.read_text()
+        html_content = report_path.read_text(encoding='utf-8')
 
         # With no invalid files, the Invalid Files KPI should show 0 with success status
         assert 'Invalid Files' in html_content

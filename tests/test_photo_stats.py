@@ -409,7 +409,7 @@ class TestHTMLReportGeneration:
         output_file = tmp_path / "test_report.html"
         stats.generate_html_report(str(output_file))
 
-        content = output_file.read_text()
+        content = output_file.read_text(encoding='utf-8')
         # Should NOT contain the removed sections
         assert 'File Type Details' not in content
 
@@ -421,7 +421,7 @@ class TestHTMLReportGeneration:
         output_file = tmp_path / "test_report.html"
         stats.generate_html_report(str(output_file))
 
-        content = output_file.read_text()
+        content = output_file.read_text(encoding='utf-8')
         # Should NOT contain the removed sections
         assert 'XMP Metadata Analysis' not in content
 
@@ -433,7 +433,7 @@ class TestHTMLReportGeneration:
         output_file = tmp_path / "test_report.html"
         stats.generate_html_report(str(output_file))
 
-        content = output_file.read_text()
+        content = output_file.read_text(encoding='utf-8')
         # Should contain the new image-focused section
         assert 'Image Type Distribution' in content
         assert 'Total Images' in content

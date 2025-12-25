@@ -140,7 +140,7 @@ class TestReportRenderer:
         assert output_file.exists()
 
         # Verify content contains expected elements
-        content = output_file.read_text()
+        content = output_file.read_text(encoding='utf-8')
         assert "Test Tool" in content
         assert "Total Files" in content
         assert "100" in content
@@ -250,8 +250,8 @@ class TestVisualConsistency:
         renderer.render_report(photostats_context, "base.html.j2", str(ps_file))
         renderer.render_report(photo_pairing_context, "base.html.j2", str(pp_file))
 
-        ps_content = ps_file.read_text()
-        pp_content = pp_file.read_text()
+        ps_content = ps_file.read_text(encoding='utf-8')
+        pp_content = pp_file.read_text(encoding='utf-8')
 
         # Check for consistent CSS classes
         common_classes = [
@@ -281,8 +281,8 @@ class TestVisualConsistency:
         renderer.render_report(photostats_context, "base.html.j2", str(ps_file))
         renderer.render_report(photo_pairing_context, "base.html.j2", str(pp_file))
 
-        ps_content = ps_file.read_text()
-        pp_content = pp_file.read_text()
+        ps_content = ps_file.read_text(encoding='utf-8')
+        pp_content = pp_file.read_text(encoding='utf-8')
 
         # Check for consistent color theme
         color_vars = [
@@ -312,8 +312,8 @@ class TestVisualConsistency:
         renderer.render_report(photostats_context, "base.html.j2", str(ps_file))
         renderer.render_report(photo_pairing_context, "base.html.j2", str(pp_file))
 
-        ps_content = ps_file.read_text()
-        pp_content = pp_file.read_text()
+        ps_content = ps_file.read_text(encoding='utf-8')
+        pp_content = pp_file.read_text(encoding='utf-8')
 
         # Check for Chart.js color constants
         assert "CHART_COLORS" in ps_content
