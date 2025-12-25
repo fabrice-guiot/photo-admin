@@ -699,19 +699,46 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     parser = argparse.ArgumentParser(
-        description='Analyze photo filenames and generate analytics reports',
+        description="""Photo Pairing - Analyze photo filename patterns and group related files.
+
+Validates filenames against naming conventions, tracks camera usage, identifies
+processing methods, and generates interactive HTML reports with comprehensive analytics.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s /path/to/photos              Analyze folder and generate report
-  %(prog)s ~/Photos/2025-01-Shoot       Analyze specific photo shoot folder
+  %(prog)s /path/to/photos
+      Analyze folder and generate timestamped HTML report
 
-The tool will:
-1. Scan the folder for photo files (based on config)
-2. Group related files by 8-character prefix
-3. Prompt for camera and processing method information (first run)
-4. Generate an interactive HTML report with analytics
-        """
+  %(prog)s ~/Photos/2025-01-Shoot
+      Analyze specific photo shoot folder
+
+  %(prog)s /mnt/external/RAW_Files
+      Analyze photos on external drive
+
+How It Works:
+  1. Scan folder for photo files (based on config)
+  2. Validate filenames against naming convention
+  3. Group related files by 8-character prefix (camera ID + counter)
+  4. Prompt for camera and processing method info (first run)
+  5. Cache results for faster subsequent runs
+  6. Generate interactive HTML report with analytics
+
+Configuration:
+  If no config file exists, the tool will search in this order:
+    1. config/config.yaml (current directory)
+    2. config.yaml (current directory)
+    3. ~/.photo_stats_config.yaml (home directory)
+    4. config/config.yaml (script directory)
+
+  To create a configuration file:
+    cp config/template-config.yaml config/config.yaml
+
+  The tool will prompt interactively to create missing config on first run.
+
+Report Output:
+  Default filename: photo_pairing_report_YYYY-MM-DD_HH-MM-SS.html
+  Reports include: filename validation, camera usage, processing methods, charts
+"""
     )
 
     parser.add_argument(

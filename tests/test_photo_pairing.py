@@ -12,6 +12,8 @@ This module tests the photo pairing functionality including:
 import pytest
 import json
 import tempfile
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from utils.filename_parser import FilenameParser
@@ -928,3 +930,70 @@ processing_methods: {}
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+
+
+# =============================================================================
+# Help Text Tests (T029-T032)
+# =============================================================================
+
+class TestHelpText:
+    """Tests for command-line help text."""
+
+    def test_help_flag_displays_help_and_exits_zero(self):
+        """Test that --help displays help text and exits with code 0."""
+        result = subprocess.run(
+            [sys.executable, 'photo_pairing.py', '--help'],
+            capture_output=True,
+            text=True
+        )
+        
+        assert result.returncode == 0
+        assert 'Photo Pairing' in result.stdout
+        assert 'usage:' in result.stdout
+
+    def test_h_flag_works_identically(self):
+        """Test that -h flag works identically to --help."""
+        help_result = subprocess.run(
+            [sys.executable, 'photo_pairing.py', '--help'],
+            capture_output=True,
+            text=True
+        )
+        
+        h_result = subprocess.run(
+            [sys.executable, 'photo_pairing.py', '-h'],
+            capture_output=True,
+            text=True
+        )
+        
+        assert h_result.returncode == 0
+        assert h_result.stdout == help_result.stdout
+
+    def test_help_contains_required_elements(self):
+        """Test that help text contains description, usage examples, and config notes."""
+        result = subprocess.run(
+            [sys.executable, 'photo_pairing.py', '--help'],
+            capture_output=True,
+            text=True
+        )
+        
+        help_text = result.stdout
+        
+        # Check for description
+        assert 'Photo Pairing' in help_text
+        assert 'filename patterns' in help_text
+        
+        # Check for usage examples
+        assert 'Examples:' in help_text
+        assert '/path/to/photos' in help_text
+        
+        # Check for configuration notes
+        assert 'Configuration:' in help_text
+        assert 'config/config.yaml' in help_text
+        assert 'template-config.yaml' in help_text
+        
+        # Check for report output information
+        assert 'Report Output:' in help_text
+        assert 'photo_pairing_report' in help_text
+        
+        # Check for "How It Works" section
+        assert 'How It Works:' in help_text

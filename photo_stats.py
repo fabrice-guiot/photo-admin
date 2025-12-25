@@ -26,6 +26,7 @@ from collections import defaultdict
 from datetime import datetime
 import xml.etree.ElementTree as ET
 import json
+import argparse
 
 from utils.config_manager import PhotoAdminConfig
 
@@ -432,28 +433,73 @@ class PhotoStats:
 
 def main():
     """Main entry point for the photo statistics tool."""
-    if len(sys.argv) < 2:
-        print("Usage: python photo_stats.py <folder_path> [output_report.html] [config_file.yaml]")
-        print("\nExample: python photo_stats.py /path/to/photos report.html")
-        print("         python photo_stats.py /path/to/photos report.html config/config.yaml")
-        print("\nIf no config file is specified, the tool will look for:")
-        print("  - config/config.yaml (in current directory)")
-        print("  - config.yaml (in current directory)")
-        print("  - ~/.photo_stats_config.yaml (in home directory)")
-        print("  - config/config.yaml (in script directory)")
-        print("\nTo create a configuration file, copy config/template-config.yaml to config/config.yaml")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="""PhotoStats - Analyze photo collections for orphaned files and sidecar issues.
 
-    folder_path = sys.argv[1]
+Scans folders containing DNG, TIFF, CR3, and XMP files, analyzes file pairing,
+and generates comprehensive HTML reports with statistics and visualizations.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s /path/to/photos
+      Analyze folder and generate timestamped HTML report
 
-    # Generate timestamped filename for consistency with Photo Pairing tool
-    if len(sys.argv) > 2:
-        output_path = sys.argv[2]
+  %(prog)s ~/Photos/2025-01-Shoot custom_report.html
+      Analyze folder and save report with custom filename
+
+  %(prog)s /path/to/photos report.html config/my_config.yaml
+      Analyze using custom configuration file
+
+Configuration:
+  If no config file is specified, the tool will search in this order:
+    1. config/config.yaml (current directory)
+    2. config.yaml (current directory)
+    3. ~/.photo_stats_config.yaml (home directory)
+    4. config/config.yaml (script directory)
+
+  To create a configuration file:
+    cp config/template-config.yaml config/config.yaml
+
+Report Output:
+  Default filename: photo_stats_report_YYYY-MM-DD_HH-MM-SS.html
+  Reports include: file statistics, pairing analysis, XMP metadata, charts
+"""
+    )
+
+    parser.add_argument(
+        'folder',
+        type=str,
+        help='Path to folder containing photos to analyze'
+    )
+
+    parser.add_argument(
+        'output',
+        nargs='?',
+        type=str,
+        default=None,
+        help='Output HTML report filename (default: auto-generated with timestamp)'
+    )
+
+    parser.add_argument(
+        'config',
+        nargs='?',
+        type=str,
+        default=None,
+        help='Path to configuration file (default: auto-discovered)'
+    )
+
+    args = parser.parse_args()
+
+    folder_path = args.folder
+
+    # Generate timestamped filename if not specified
+    if args.output:
+        output_path = args.output
     else:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         output_path = f'photo_stats_report_{timestamp}.html'
 
-    config_path = sys.argv[3] if len(sys.argv) > 3 else None
+    config_path = args.config
 
     try:
         stats_tool = PhotoStats(folder_path, config_path)

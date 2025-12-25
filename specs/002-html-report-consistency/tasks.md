@@ -74,16 +74,16 @@
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Refactor PhotoStats argument handling in photo_stats.py from manual sys.argv parsing to argparse.ArgumentParser with description, epilog (usage examples), and RawDescriptionHelpFormatter
-- [ ] T024 [US2] Add help text to PhotoStats argparse in photo_stats.py including tool description (2-3 sentences), argument syntax showing required folder_path, at least 2 usage examples, and config file location notes
-- [ ] T025 [US2] Verify PhotoStats argparse in photo_stats.py recognizes both --help and -h flags (argparse provides this by default)
-- [ ] T026 [US2] Update Photo Pairing argparse help text in photo_pairing.py to include enhanced description, at least 2 usage examples in epilog, and config file location notes (photo_pairing.py already uses argparse, just enhance help content)
-- [ ] T027 [US2] Add test in tests/test_photo_stats.py to verify --help flag displays help text and exits with code 0 using subprocess or pytest capsys
-- [ ] T028 [US2] Add test in tests/test_photo_stats.py to verify -h flag works identically to --help
-- [ ] T029 [US2] Add test in tests/test_photo_pairing.py to verify --help flag displays enhanced help text and exits with code 0
-- [ ] T030 [US2] Add test in tests/test_photo_pairing.py to verify -h flag works identically to --help
-- [ ] T031 [US2] Add test in tests/test_photo_stats.py to verify help text contains required elements (description, usage examples, config notes)
-- [ ] T032 [US2] Add test in tests/test_photo_pairing.py to verify help text contains required elements (description, usage examples, config notes)
+- [x] T023 [US2] Refactor PhotoStats argument handling in photo_stats.py from manual sys.argv parsing to argparse.ArgumentParser with description, epilog (usage examples), and RawDescriptionHelpFormatter
+- [x] T024 [US2] Add help text to PhotoStats argparse in photo_stats.py including tool description (2-3 sentences), argument syntax showing required folder_path, at least 2 usage examples, and config file location notes
+- [x] T025 [US2] Verify PhotoStats argparse in photo_stats.py recognizes both --help and -h flags (argparse provides this by default)
+- [x] T026 [US2] Update Photo Pairing argparse help text in photo_pairing.py to include enhanced description, at least 2 usage examples in epilog, and config file location notes (photo_pairing.py already uses argparse, just enhance help content)
+- [x] T027 [US2] Add test in tests/test_photo_stats.py to verify --help flag displays help text and exits with code 0 using subprocess or pytest capsys
+- [x] T028 [US2] Add test in tests/test_photo_stats.py to verify -h flag works identically to --help
+- [x] T029 [US2] Add test in tests/test_photo_pairing.py to verify --help flag displays enhanced help text and exits with code 0
+- [x] T030 [US2] Add test in tests/test_photo_pairing.py to verify -h flag works identically to --help
+- [x] T031 [US2] Add test in tests/test_photo_stats.py to verify help text contains required elements (description, usage examples, config notes)
+- [x] T032 [US2] Add test in tests/test_photo_pairing.py to verify help text contains required elements (description, usage examples, config notes)
 
 **Checkpoint**: All tools provide comprehensive help text accessible via --help/-h flags
 
