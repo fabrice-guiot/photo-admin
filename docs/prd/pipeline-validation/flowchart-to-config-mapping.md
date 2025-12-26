@@ -1,5 +1,26 @@
 # Flowchart to Configuration Mapping
 
+⚠️ **DEPRECATED - NEEDS UPDATE**
+
+This document is based on the deprecated stage-based configuration model and contains **incorrect JPG terminology**.
+
+**Current Issues:**
+1. Uses "lossless JPG" and "lossy JPG" - **JPG is inherently lossy by design**
+2. Correct terminology: "lowres JPG" (low-resolution) and "hires JPG" (high-resolution)
+3. Based on linear stage model, not current node-based architecture
+
+**Correct Information:**
+- **TIF is the only lossless version** of the final processed image
+- **lowres JPG**: Lower resolution for web browsing (smaller file, may use more aggressive compression)
+- **hires JPG**: Higher resolution for sharing (larger file, less aggressive compression)
+- Both JPG versions can be rebuilt from the TIF file
+
+**Action Required:** This document will be rewritten to reflect the node-based pipeline architecture from `pipeline-config-example.yaml` and `node-architecture-analysis.md`.
+
+---
+
+## Legacy Content (Deprecated)
+
 This document explains how the Photo Processing Pipeline flowchart translates into the `processing_pipelines` configuration.
 
 ---

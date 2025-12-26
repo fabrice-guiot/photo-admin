@@ -28,9 +28,11 @@ Photographers follow complex processing workflows where a single captured image 
 - Camera capture → Raw file (CR3)
 - Import → Metadata application (XMP sidecar)
 - Conversion → Open format (DNG)
-- Processing → Developed files (TIF)
-- Export → Web formats (JPG lossless, JPG lossy)
+- Processing → Developed files (TIF, the only lossless version of final processed image)
+- Export → Web formats (Low-resolution JPG for browsing, High-resolution JPG for sharing)
 - Archive → Two endpoints: Black Box Archive or Browsable Archive
+
+**Note:** JPG format is inherently lossy by design. The distinction between low-resolution and high-resolution JPG is primarily in pixel count and compression aggressiveness, not lossiness. Both can be rebuilt from the TIF file.
 
 **Current tools cannot:**
 1. Validate that a group of files represents a **complete, valid pipeline path**
@@ -1105,8 +1107,8 @@ camera_mappings:
 processing_methods:
   HDR: "High Dynamic Range processing"
   BW: "Black and White conversion"
-  LOSSLESS: "Lossless JPG export"
-  WEB: "Web-optimized JPG export"
+  lowres: "Low-resolution JPG export for web browsing"
+  hires: "High-resolution JPG export for sharing"
 
 # NEW: Processing pipeline configuration
 processing_pipelines:
@@ -1152,13 +1154,13 @@ processing_pipelines:
             - HDR
             - BW
 
-    - id: web_export_lossy
-      name: "Web Export"
+    - id: web_export_hires
+      name: "High-Resolution JPG Export"
       file_types:
         - extension: .jpg
           required: true
           properties:
-            - WEB
+            - hires
 
   paths:
     - id: raw_archive
@@ -1186,7 +1188,7 @@ processing_pipelines:
 
     - id: browsable_archive
       name: "Browsable Archive - Web Ready"
-      description: "Complete workflow with web-optimized exports"
+      description: "Complete workflow with high-resolution JPG exports"
       archival_type: browsable
       stages:
         - capture
@@ -1194,7 +1196,7 @@ processing_pipelines:
         - dng_conversion
         - tone_mapping
         - individual_processing
-        - web_export_lossy
+        - web_export_hires
       validation:
         must_have_all: true
         terminal: true
@@ -1238,15 +1240,16 @@ Camera Capture → Raw File (CR3) → Import → Digital Photo Developing → DN
 
 ### Path 4: Browsable Archive
 ```
-... → TIF → Individual Processing → TIF (processed) → JPG (lossless) → JPG (lossy) → Browsable Archive
+... → TIF → Individual Processing → TIF (processed) → Low-res JPG → High-res JPG → Browsable Archive
 ```
 
 **Files Expected:**
 - `AB3D0001.cr3`
 - `AB3D0001.dng`
 - `AB3D0001.xmp`
-- `AB3D0001.tif` (or `AB3D0001-HDR.tif`)
-- `AB3D0001-WEB.jpg`
+- `AB3D0001.tif` (or `AB3D0001-HDR.tif`, the only lossless final processed image)
+- `AB3D0001-lowres.jpg` (for web browsing)
+- `AB3D0001-hires.jpg` (for sharing)
 
 ### Inconsistent Examples
 

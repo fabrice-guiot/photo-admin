@@ -1,13 +1,16 @@
-# Photo Processing Pipeline Configuration - Example
-# This configuration defines the valid processing workflows for your photo collection
+# Photo Processing Pipeline Configuration - DEPRECATED
+# ⚠️ This stage-based configuration is DEPRECATED
+# ⚠️ Use pipeline-config-example.yaml (node-based architecture) instead
 #
-# Version: 1.0.0
+# Version: 1.0.0 (Deprecated)
 # Date: 2025-12-25
+# Updated: 2025-12-26 (JPG terminology correction)
 #
-# USAGE:
-#   1. Copy the relevant sections to your config/config.yaml file
-#   2. Customize stages and paths to match your workflow
-#   3. Run: python3 pipeline_validation.py /path/to/photos
+# IMPORTANT NOTES:
+#   - JPG format is inherently lossy by design
+#   - "lowres" and "hires" refer to resolution/pixel count, not lossiness
+#   - TIF is the only lossless version of the final processed image
+#   - Both lowres and hires JPG files can be rebuilt from TIF
 
 # ============================================================================
 # PROCESSING PIPELINE CONFIGURATION
@@ -88,35 +91,35 @@ processing_pipelines:
             - PANO      # Panorama stitching
             - FOCUS     # Focus stacking
 
-    # Stage 6: Web Export (Lossless)
-    # High-quality JPG for web display, minimal compression
-    - id: web_export_lossless
-      name: "JPG Export (Lossless)"
-      description: "Export lossless JPG for high-quality web display"
+    # Stage 6: Low-Resolution JPG Export
+    # Low-resolution JPG for fast web browsing
+    - id: web_export_lowres
+      name: "Low-Resolution JPG Export"
+      description: "Export low-resolution JPG for web browsing (smaller file size)"
       file_types:
         - extension: .jpg
           required: true
           properties:
-            - LOSSLESS
+            - lowres
         - extension: .jpeg
           required: false
           properties:
-            - LOSSLESS
+            - lowres
 
-    # Stage 7: Web Export (Lossy)
-    # Optimized JPG for browsable archive, smaller file size
-    - id: web_export_lossy
-      name: "JPG Export (Lossy/Web-Optimized)"
-      description: "Export web-optimized JPG for browsable archive"
+    # Stage 7: High-Resolution JPG Export
+    # High-resolution JPG for sharing with other services
+    - id: web_export_hires
+      name: "High-Resolution JPG Export"
+      description: "Export high-resolution JPG for sharing (larger file size, less aggressive compression)"
       file_types:
         - extension: .jpg
           required: true
           properties:
-            - WEB
+            - hires
         - extension: .jpeg
           required: false
           properties:
-            - WEB
+            - hires
 
 
   # --------------------------------------------------------------------------
@@ -193,7 +196,7 @@ processing_pipelines:
     # Complete workflow from capture through web export
     - id: browsable_archive_path
       name: "Browsable Archive - Complete Workflow"
-      description: "Full processing workflow with web-optimized JPG export"
+      description: "Full processing workflow with high-resolution JPG export"
       archival_type: browsable
       stages:
         - capture
@@ -201,7 +204,7 @@ processing_pipelines:
         - dng_conversion
         - tone_mapping
         - individual_processing  # May include HDR, BW processing
-        - web_export_lossy
+        - web_export_hires
       validation:
         must_have_all: true
         terminal: true
@@ -221,7 +224,7 @@ processing_pipelines:
         - import
         - dng_conversion
         - tone_mapping
-        - web_export_lossy  # Skip individual_processing stage
+        - web_export_hires  # Skip individual_processing stage
       validation:
         must_have_all: true
         terminal: true
