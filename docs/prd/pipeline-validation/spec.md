@@ -82,195 +82,413 @@ Photographers follow complex processing workflows where a single captured image 
 
 ## Functional Requirements
 
-### FR-1: Pipeline Configuration
+### FR-1: Pipeline Configuration (Node-Based Architecture)
 
-**Description:** Allow users to define processing pipeline paths in `config.yaml`
+**Description:** Allow users to define processing pipeline workflows using a directed graph of nodes in `config.yaml`
+
+**Architecture Overview:**
+The pipeline is defined as a directed graph with different node types that represent the complete workflow from camera capture to archival. **File nodes are critical** as they define the actual files that constitute a valid Specific Image in an ImageGroup.
+
+**Node Types:**
+
+1. **Capture**: Start of pipeline (exactly one per pipeline)
+2. **File**: Represents actual files (Image or Metadata) - **CRITICAL FOR VALIDATION**
+3. **Process**: Transforms files via processing methods, can chain and loop
+4. **Pairing**: Combines multiple files (e.g., CR3+XMP)
+5. **Branching**: Conditional path selection (choose ONE output)
+6. **Termination**: End of pipeline, accumulates File nodes = Specific Image
 
 **Configuration Schema:**
 ```yaml
 # Processing pipeline configuration
 processing_pipelines:
-  # Define stages of the processing workflow
-  stages:
-    # Stage 1: Camera Capture
-    - id: capture
-      name: "Camera Capture"
-      file_types:
-        - extension: .cr3
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: false  # XMP may come later
+  version: "v1"
+  nodes:
+    # Capture Node - Start of pipeline
+    - id: "capture_1"
+      type: "Capture"
+      name: "Camera capture"
+      output:
+        - "raw_image_1"
+        - "lowres_jpeg"  # Camera preview
 
-    # Stage 2: Import & Sanction
-    - id: import
-      name: "Import & Lightroom Sanction"
-      file_types:
-        - extension: .cr3
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: true  # XMP must exist after import
+    # File Node - Raw Image (CRITICAL: Defines AB3D0001.CR3 file)
+    - id: "raw_image_1"
+      type: "File"
+      file_type: "Image"
+      extension: ".CR3"
+      name: "Raw Image File (.CR3)"
+      output:
+        - "selection_process"
 
-    # Stage 3: Digital Photo Developing (DNG Conversion)
-    - id: dng_conversion
-      name: "DNG Conversion"
-      file_types:
-        - extension: .dng
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: true
-          inherits_metadata: true  # Can use CR3's XMP or have its own
+    # Process Node - Selection
+    - id: "selection_process"
+      type: "Process"
+      method_ids:
+        - ""  # Empty = no property added to filename
+      name: "Image Selection Process"
+      output:
+        - "raw_image_2"
+        - "xmp_metadata_1"
 
-    # Stage 4: Export & Tone Mapping
-    - id: tone_mapping
-      name: "Tone Mapping in Adobe Lightroom"
-      file_types:
-        - extension: .tif
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: false  # TIF embeds metadata
+    # File Node - Raw Image after Selection (same physical file as raw_image_1)
+    - id: "raw_image_2"
+      type: "File"
+      file_type: "Image"
+      extension: ".CR3"
+      name: "Raw Image File (.CR3 after Selection)"
+      output:
+        - "metadata_pairing"
 
-    # Stage 5: Individual Processing
-    - id: individual_processing
-      name: "Individual Image Processing (Photoshop)"
-      file_types:
-        - extension: .tif
-          required: true
-          properties:  # Can have processing method properties
-            - HDR
-            - BW
-            - PANO
+    # File Node - XMP Metadata (CRITICAL: Defines AB3D0001.XMP file)
+    - id: "xmp_metadata_1"
+      type: "File"
+      file_type: "Metadata"
+      extension: ".XMP"
+      name: "XMP Metadata File"
+      output:
+        - "metadata_pairing"
 
-    # Stage 6: Web Export (Lossless)
-    - id: web_export_lossless
-      name: "JPG Export (Lossless)"
-      file_types:
-        - extension: .jpg
-          required: true
-          properties:
-            - LOSSLESS
+    # Pairing Node - Raw + XMP (validates both files exist)
+    - id: "metadata_pairing"
+      type: "Pairing"
+      name: "Raw + XMP Pairing"
+      output:
+        - "denoise_branching"
 
-    # Stage 7: Web Export (Lossy for browsable)
-    - id: web_export_lossy
-      name: "JPG Export (Lossy)"
-      file_types:
-        - extension: .jpg
-          required: true
-          properties:
-            - WEB
+    # Branching Node - Choose ONE of the following processes
+    - id: "denoise_branching"
+      type: "Branching"
+      name: "Denoise Process Choice"
+      output:
+        - "developing_process"  # Option 1: DNG conversion
+        - "targeted_tone_mapping_process"  # Option 2: Skip to tone mapping
 
-  # Define valid paths through the pipeline
-  paths:
-    # Path 1: Raw Archive (Black Box)
-    - id: raw_archive_path
-      name: "Raw Archive - Black Box"
-      description: "Original raw files with metadata, archived without processing"
-      archival_type: black_box
-      stages:
-        - capture
-        - import
-      validation:
-        must_have_all: true  # All stages required
-        terminal: true       # Valid archival endpoint
+    # Process Node - DNG Conversion with denoise
+    - id: "developing_process"
+      type: "Process"
+      method_ids:
+        - "DxO_DeepPRIME XD2s"
+        - "DxO_DeepPRIME XD3"  # Multiple IDs = branching choice
+      name: "Digital Developing Process with DxO"
+      output:
+        - "openformat_raw_image"
 
-    # Path 2: DNG Archive (Black Box)
-    - id: dng_archive_path
-      name: "DNG Archive - Black Box"
-      description: "Converted to open DNG format with metadata"
-      archival_type: black_box
-      stages:
-        - capture
-        - import
-        - dng_conversion
-      validation:
-        must_have_all: true
-        terminal: true
+    # File Node - DNG Image (CRITICAL: Defines AB3D0001-DxO_DeepPRIME_XD2s.DNG)
+    - id: "openformat_raw_image"
+      type: "File"
+      file_type: "Image"
+      extension: ".DNG"
+      name: "DNG Image File"
+      output:
+        - "targeted_tone_mapping_process"
 
-    # Path 3: Developed Archive (Black Box)
-    - id: developed_archive_path
-      name: "Developed Archive - Black Box"
-      description: "Fully developed TIF files ready for master archive"
-      archival_type: black_box
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        - tone_mapping
-      validation:
-        must_have_all: true
-        terminal: true
+    # Process Node - Tone Mapping
+    - id: "targeted_tone_mapping_process"
+      type: "Process"
+      method_ids:
+        - ""  # No property added
+      name: "Targeted Tone Mapping Process with Adobe Lightroom"
+      output:
+        - "tiff_generation_branching"
 
-    # Path 4: Full Workflow to Browsable Archive
-    - id: browsable_archive_path
-      name: "Browsable Archive - Complete Workflow"
-      description: "Full workflow from capture through web-ready JPG"
-      archival_type: browsable
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        - tone_mapping
-        - individual_processing
-        - web_export_lossy
-      validation:
-        must_have_all: true
-        terminal: true
+    # Branching Node - TIFF Generation options
+    - id: "tiff_generation_branching"
+      type: "Branching"
+      name: "TIFF Generation Process Choice"
+      output:
+        - "tiff_image"  # Direct export
+        - "individual_photoshop_process"  # Photoshop editing
+        - "topaz_process"  # Topaz AI processing
 
-    # Path 5: Partial Processing (Inconsistent - for detection)
-    - id: partial_processing
-      name: "Partial Processing"
-      description: "Incomplete workflow - missing expected files"
-      archival_type: null
-      stages:
-        - capture
-        # Other stages may or may not exist
-      validation:
-        must_have_all: false
-        terminal: false  # NOT a valid archival endpoint
+    # File Node - TIFF Image (CRITICAL: Defines AB3D0001-DxO_DeepPRIME_XD2s.TIF)
+    - id: "tiff_image"
+      type: "File"
+      file_type: "Image"
+      extension: ".TIF"
+      name: "TIFF Image File"
+      output:
+        - "termination_blackbox"  # Can terminate here
+        - "lowres_jpeg"  # Or continue to JPG export
+        - "highres_jpeg"
+
+    # Process Node - Photoshop Edits (can loop back)
+    - id: "individual_photoshop_process"
+      type: "Process"
+      method_ids:
+        - "Edit"
+      name: "Individual Photoshop Edits"
+      output:
+        - "tiff_generation_branching"  # Loop back for more edits
+
+    # Process Node - Topaz AI (can loop back)
+    - id: "topaz_process"
+      type: "Process"
+      method_ids:
+        - "topaz"
+      name: "Topaz Photo AI Process"
+      output:
+        - "tiff_generation_branching"  # Loop back
+
+    # File Node - Low-Res JPEG
+    - id: "lowres_jpeg"
+      type: "File"
+      file_type: "Image"
+      extension: ".JPG"
+      name: "Low-Res JPEG File"
+      output:
+        - "image_group_pairing"
+
+    # File Node - High-Res JPEG
+    - id: "highres_jpeg"
+      type: "File"
+      file_type: "Image"
+      extension: ".JPG"
+      name: "High-Res JPEG File"
+      output:
+        - "image_group_pairing"
+
+    # Pairing Node - Image Group
+    - id: "image_group_pairing"
+      type: "Pairing"
+      name: "Image Group Pairing"
+      output:
+        - "termination_browsable"
+
+    # Termination Node - Black Box Archive
+    # CRITICAL: Accumulates all File nodes from capture_1 to here
+    - id: "termination_blackbox"
+      type: "Termination"
+      name: "Blackbox Termination"
+      output: []
+
+    # Termination Node - Browsable Archive
+    # CRITICAL: Accumulates all File nodes from capture_1 to here
+    - id: "termination_browsable"
+      type: "Termination"
+      name: "Browsable Termination"
+      output: []
+```
+
+**How File Nodes Define Valid Specific Images:**
+
+When validating an ImageGroup, the tool:
+1. Traverses from Capture to each Termination node
+2. **Collects all File nodes encountered on the path**
+3. Generates expected filenames based on processing methods
+4. Compares expected files vs actual files in ImageGroup
+
+**Example Path to termination_blackbox:**
+```
+capture_1 →
+  raw_image_1 (.CR3) →
+  selection_process →
+    raw_image_2 (.CR3) →
+    xmp_metadata_1 (.XMP) →
+  metadata_pairing →
+  denoise_branching →
+  developing_process (DxO_DeepPRIME_XD2s) →
+    openformat_raw_image (.DNG) →
+  targeted_tone_mapping_process →
+  tiff_generation_branching →
+    tiff_image (.TIF) →
+  termination_blackbox
+
+File nodes collected:
+  - raw_image_1: .CR3
+  - raw_image_2: .CR3 (same file, deduplicated)
+  - xmp_metadata_1: .XMP
+  - openformat_raw_image: .DNG
+  - tiff_image: .TIF
+
+Expected Specific Image = {
+  AB3D0001.CR3,
+  AB3D0001.XMP,
+  AB3D0001-DxO_DeepPRIME_XD2s.DNG,
+  AB3D0001-DxO_DeepPRIME_XD2s.TIF
+}
 ```
 
 **Validation Rules:**
-- Each stage must have unique `id`
-- File extensions must match existing `photo_extensions` config
-- Metadata sidecars must match `metadata_extensions`
-- Pipeline paths must reference valid stage IDs
-- At least one path must be marked as `terminal: true` (valid archival endpoint)
+- Exactly one Capture node per pipeline version
+- All node IDs must be unique within version
+- All output references must point to valid node IDs
+- At least one Termination node required
+- File extensions must match `photo_extensions` or `metadata_extensions` config
+- Processing method IDs must match `processing_methods` config
+- No orphaned nodes (all nodes must be reachable from Capture)
+- Pairing nodes must have exactly 2+ input paths
+- Branching nodes must have exactly 2+ output paths
+- Termination nodes must have empty output array
 
 ---
 
-### FR-2: Image Group Analysis
+### FR-2: Image Group Analysis (Node-Based Traversal)
 
-**Description:** Extend Photo Pairing Tool's image grouping to include pipeline validation
+**Description:** Validate ImageGroups by traversing the node-based pipeline and comparing actual files against File nodes collected from Capture to Termination
 
 **Input:**
 - Image groups from Photo Pairing Tool (files with same camera_id + counter)
-- Configuration from `processing_pipelines`
+- Node-based pipeline configuration from `processing_pipelines`
 
 **Processing Logic:**
 ```python
-for each image_group:
-    # 1. Get all file types in group
-    file_types = extract_extensions(image_group.files)
+def validate_imagegroup(image_group, pipeline_config):
+    """
+    Traverse pipeline graph from Capture to each Termination,
+    collecting File nodes to define expected Specific Images.
+    """
+    # 1. Get actual files in ImageGroup
+    actual_files = set(image_group.get_all_filenames())
 
-    # 2. Check metadata linking (from PhotoStats)
-    metadata_links = validate_metadata_sidecars(image_group)
+    # 2. Find Capture and Termination nodes
+    capture_node = find_node_by_type(pipeline_config, 'Capture')
+    termination_nodes = find_nodes_by_type(pipeline_config, 'Termination')
 
-    # 3. Match against pipeline paths
-    matching_paths = []
-    for path in config.processing_pipelines.paths:
-        if group_matches_path(image_group, path):
-            matching_paths.append(path)
+    # 3. For each Termination, traverse and collect File nodes
+    matching_terminations = []
 
-    # 4. Classify group
-    if matching_paths:
-        if any(path.validation.terminal for path in matching_paths):
-            group.status = "CONSISTENT"
-            group.matched_paths = matching_paths
+    for termination in termination_nodes:
+        # Traverse all paths from Capture to this Termination
+        paths = enumerate_all_paths(capture_node, termination, pipeline_config)
+
+        for path in paths:
+            # Collect File nodes encountered on this path
+            file_nodes = [node for node in path if node.type == 'File']
+
+            # Generate expected filenames based on:
+            # - Base filename (camera_id + counter from ImageGroup)
+            # - Processing methods from Process nodes on path
+            # - File extensions from File nodes
+            expected_files = generate_expected_filenames(
+                base=image_group.group_id,  # e.g., "AB3D0001"
+                file_nodes=file_nodes,
+                path=path
+            )
+
+            # Check if actual files match expected files
+            if expected_files == actual_files:
+                matching_terminations.append({
+                    'termination': termination,
+                    'path': path,
+                    'file_nodes': file_nodes,
+                    'completion': 100
+                })
+            elif expected_files.issubset(actual_files):
+                # Partial match: expected files present but extra files exist
+                matching_terminations.append({
+                    'termination': termination,
+                    'path': path,
+                    'file_nodes': file_nodes,
+                    'completion': calculate_completion_percentage(expected_files, actual_files),
+                    'extra_files': actual_files - expected_files
+                })
+
+    # 4. Classify ImageGroup based on matching terminations
+    if matching_terminations:
+        perfect_matches = [m for m in matching_terminations if m['completion'] == 100]
+        if perfect_matches:
+            return {
+                'status': 'CONSISTENT',
+                'matched_terminations': perfect_matches,
+                'archival_ready': True
+            }
         else:
-            group.status = "PARTIAL"
-            group.matched_paths = matching_paths
+            return {
+                'status': 'PARTIAL',
+                'matched_terminations': matching_terminations,
+                'archival_ready': False
+            }
     else:
-        group.status = "INCONSISTENT"
-        group.missing_files = calculate_missing_files(image_group)
+        # No matches: find closest match for helpful error message
+        closest = find_closest_termination(actual_files, termination_nodes, pipeline_config)
+        return {
+            'status': 'INCONSISTENT',
+            'closest_match': closest,
+            'missing_files': closest['expected_files'] - actual_files,
+            'extra_files': actual_files - closest['expected_files'],
+            'archival_ready': False
+        }
+
+
+def enumerate_all_paths(start_node, end_node, pipeline_config):
+    """
+    DFS traversal to enumerate all possible paths from start to end.
+    Handles branching, looping, and parallel outputs.
+    """
+    all_paths = []
+    visited_in_path = set()
+
+    def dfs(current_node, path=[]):
+        # Avoid infinite loops: limit revisits
+        if current_node.id in visited_in_path:
+            # Allow limited looping (e.g., max 3 times)
+            loop_count = sum(1 for n in path if n.id == current_node.id)
+            if loop_count >= 3:
+                return
+
+        visited_in_path.add(current_node.id)
+        new_path = path + [current_node]
+
+        # Terminal condition
+        if current_node.id == end_node.id:
+            all_paths.append(new_path)
+            visited_in_path.remove(current_node.id)
+            return
+
+        # Traverse outputs
+        if current_node.type == 'Branching':
+            # Branching: explore ALL branches (validation checks all possibilities)
+            for output_id in current_node.output:
+                next_node = pipeline_config.get_node(output_id)
+                dfs(next_node, new_path)
+        else:
+            # Normal node: follow all outputs (parallel execution)
+            for output_id in current_node.output:
+                next_node = pipeline_config.get_node(output_id)
+                dfs(next_node, new_path)
+
+        visited_in_path.remove(current_node.id)
+
+    dfs(start_node)
+    return all_paths
+
+
+def generate_expected_filenames(base, file_nodes, path):
+    """
+    Generate expected filenames for File nodes based on processing methods.
+
+    Args:
+        base: Base filename (camera_id + counter), e.g., "AB3D0001"
+        file_nodes: List of File nodes from path
+        path: Complete path including Process nodes
+
+    Returns:
+        Set of expected filenames
+    """
+    expected = set()
+
+    # Track accumulated processing methods from Process nodes
+    accumulated_methods = []
+
+    for node in path:
+        if node.type == 'Process':
+            # Process nodes add their method_id to the filename
+            for method_id in node.method_ids:
+                if method_id != "":  # Empty string = no property added
+                    accumulated_methods.append(method_id)
+
+        elif node.type == 'File':
+            # Construct filename from base + accumulated methods + extension
+            if accumulated_methods:
+                method_str = '-'.join(accumulated_methods)
+                filename = f"{base}-{method_str}{node.extension}"
+            else:
+                filename = f"{base}{node.extension}"
+
+            expected.add(filename)
+
+    return expected
 ```
 
 **Output Structure:**
