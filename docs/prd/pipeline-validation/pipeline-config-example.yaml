@@ -1,391 +1,223 @@
-# Photo Processing Pipeline Configuration - Example
-# This configuration defines the valid processing workflows for your photo collection
-#
-# Version: 1.0.0
-# Date: 2025-12-25
-#
-# USAGE:
-#   1. Copy the relevant sections to your config/config.yaml file
-#   2. Customize stages and paths to match your workflow
-#   3. Run: python3 pipeline_validation.py /path/to/photos
-
-# ============================================================================
+# =========================================================================
 # PROCESSING PIPELINE CONFIGURATION
-# ============================================================================
+# =========================================================================
 
 processing_pipelines:
 
-  # --------------------------------------------------------------------------
-  # PIPELINE STAGES
-  # --------------------------------------------------------------------------
-  # Define each stage in your processing workflow
-  # Each stage specifies what file types are expected and metadata requirements
+  # -----------------------------------------------------------------------
+  # PIPELINE VERSIONS
+  # -----------------------------------------------------------------------
+  # Each version will be used to attempt different Image group analysis
+  # A Pipeline is made of nodes of different types:
+  #   - Capture: The Capture node represents the start of the Pipeline. 
+  #              There can be only one node of this type in a Pipeline.
+  #   - File: File nodes represent the File format generated along a path
+  #           of the Pipeline. These Files are used as interface between
+  #           Processes. Each File node will have either an Image File type
+  #           or a Metadata File type (from the list of File extensions in
+  #           the config file).
+  #   - Process: Process nodes generate transformations of the Files 
+  #              through a Processing Method (as identified in config.yaml)
+  #              and eventually generate a new File. Process can be chained
+  #              together (a Process can follow immediately another Process
+  #              without a File interface). These chains can form loops
+  #              and therefore the same Process can be applied multiple 
+  #              times. A Process preserves the name of the input File in
+  #              the output, only appending its Processing Method ID to
+  #              the output File (which can have a different type/extension
+  #              then the inbound File). Due to the possibility of loops, 
+  #              the same Processing Method can be appended more than once
+  #              in the output File's name (with the limitation of the 
+  #              number of loops already analyzed in the Photo Pairing 
+  #              Tool).
+  #   - Pairing: Pairing nodes take multiple Files to form a Pair, like
+  #              the .CR3 + .XMP use case already covered in PhotoStats
+  #   - Branching: Branching nodes represent a point of the Workflow where
+  #                a choice between Processes is made. Only one of the
+  #                following Process nodes will be selected when passing
+  #                through the branch, but because it is possible to loop 
+  #                back to the branching Node, the choice can be repeated
+  #                with different outcomes. On the opposite side of this,
+  #                when a node's output links to multiple following nodes
+  #                without a Branching node in between, all of these
+  #                will be executed: the path actually branches in parallel
+  #                subpaths.
+  #   - Termination: Termination nodes are where the Processing Pipeline
+  #                  ends. There can be multiple Terminations in a Pipeline
+  #                  and they will all be considered as reached if parallel
+  #                  paths or subpaths lead to them. A Termination node 
+  #                  accumulates all the Files which were generated along
+  #                  the paths which lead from the Capture to that 
+  #                  Termination to form a Specific Image in an Image
+  #                  Group as defined in the Photo Pairing Data Model.
+  #                  A valid Specific Image in an Image Group is one
+  #                  that contains all the individual Files that were 
+  #                  produced along a certain Path between Capture and one 
+  #                  Termination in a specific Pipeline.
+  # -----------------------------------------------------------------------
+  
+  version: "v1"
+  nodes:
 
-  stages:
+    # Capture Node
+    - id: "capture_1" 
+      type: "Capture"
+      name: "Camera capture"
+      output: 
+        - "raw_image_1"
+        - "lowres_jpeg"
+        
+    # File Node - Raw Image
+    - id: "raw_image_1"
+      type: "File"
+      file_type: "Image"
+      extension: ".CR3"
+      name: "Raw Image File (.CR3)"
+      output:
+        - "selection_process" 
 
-    # Stage 1: Camera Capture
-    # Initial raw file from camera, metadata may not exist yet
-    - id: capture
-      name: "Camera Capture"
-      description: "Original raw file from camera memory card"
-      file_types:
-        - extension: .cr3
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: false  # XMP created during import
+    # Process Node - Selection
+    - id: "selection_process"
+      type: "Process"
+      method_ids: 
+        - ""
+      name: "Image Selection Process"
+      output:
+        - "raw_image_2" 
+        - "xmp_metadata_1"
 
-    # Stage 2: Import & Lightroom Sanction
-    # File imported to Lightroom, metadata editing begins
-    - id: import
-      name: "Import & Lightroom Sanction"
-      description: "File imported and sanctioned in Adobe Lightroom"
-      file_types:
-        - extension: .cr3
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: true   # XMP MUST exist after import
+    # File Node - Raw Image after Selection
+    - id: "raw_image_2"
+      type: "File"
+      file_type: "Image"
+      extension: ".CR3"
+      name: "Raw Image File (.CR3 after Selection)"
+      output:
+        - "metadata_pairing"  
 
-    # Stage 3: DNG Conversion (Digital Photo Developing)
-    # Proprietary raw format converted to open DNG format
-    - id: dng_conversion
-      name: "DNG Conversion"
-      description: "Convert proprietary raw to open DNG format"
-      file_types:
-        - extension: .dng
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: true
-          inherits_metadata: true   # Can share XMP with CR3
+    # File Node - XMP Metadata
+    - id: "xmp_metadata_1"
+      type: "File"
+      file_type: "Metadata"
+      extension: ".XMP"
+      name: "XMP Metadata File"
+      output:
+        - "metadata_pairing"  
 
-    # Stage 4: Tone Mapping & Export from Lightroom
-    # Develop raw file to TIF for advanced editing
-    - id: tone_mapping
-      name: "Tone Mapping in Adobe Lightroom"
-      description: "Export developed image as TIF from Lightroom"
-      file_types:
-        - extension: .tif
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: false  # TIF typically embeds metadata
-        - extension: .tiff  # Allow both extensions
-          required: false
-          metadata_sidecar: .xmp
-          metadata_required: false
+    # Pairing Node - Raw + XMP
+    - id: "metadata_pairing"
+      type: "Pairing"
+      name: "Raw + XMP Pairing"
+      output: 
+        - "denoise_branching" 
 
-    # Stage 5: Individual Image Processing
-    # Advanced editing in Photoshop with processing methods
-    - id: individual_processing
-      name: "Individual Image Processing (Photoshop)"
-      description: "Advanced processing with specific methods (HDR, BW, etc.)"
-      file_types:
-        - extension: .tif
-          required: true
-          metadata_sidecar: .xmp
-          metadata_required: false
-          properties:  # Processing method identifiers
-            - HDR       # High Dynamic Range
-            - BW        # Black and White conversion
-            - PANO      # Panorama stitching
-            - FOCUS     # Focus stacking
+    # Branching Node - Denoise Choice
+    - id: "denoise_branching"
+      type: "Branching"
+      name: "Denoise Process Choice"
+      output:   
+        - "developing_process" 
+        - "targeted_tone_mapping_process" 
 
-    # Stage 6: Web Export (Lossless)
-    # High-quality JPG for web display, minimal compression
-    - id: web_export_lossless
-      name: "JPG Export (Lossless)"
-      description: "Export lossless JPG for high-quality web display"
-      file_types:
-        - extension: .jpg
-          required: true
-          properties:
-            - LOSSLESS
-        - extension: .jpeg
-          required: false
-          properties:
-            - LOSSLESS
+    # Process Node - Developing
+    - id: "developing_process"
+      type: "Process"
+      method_ids:
+        - "DxO_DeepPRIME XD2s"
+        - "DxO_DeepPRIME XD3"
+      name: "Digital Developing Process with DxO"
+      output:
+        - "openformat_raw_image"
 
-    # Stage 7: Web Export (Lossy)
-    # Optimized JPG for browsable archive, smaller file size
-    - id: web_export_lossy
-      name: "JPG Export (Lossy/Web-Optimized)"
-      description: "Export web-optimized JPG for browsable archive"
-      file_types:
-        - extension: .jpg
-          required: true
-          properties:
-            - WEB
-        - extension: .jpeg
-          required: false
-          properties:
-            - WEB
+    # File Node - OpenFormat Raw Image
+    - id: "openformat_raw_image"
+      type: "File"
+      file_type: "Image"
+      extension: ".DNG"
+      name: "DNG Image File"
+      output:
+        - "targeted_tone_mapping_process"
 
+    # Process Node - Targeted Tone Mapping
+    - id: "targeted_tone_mapping_process"
+      type: "Process"
+      method_ids:
+        - ""
+      name: "Targeted Tone Mapping Process with Adobe Lightroom"
+      output:
+        - "tiff_generation_branching"
 
-  # --------------------------------------------------------------------------
-  # PIPELINE PATHS
-  # --------------------------------------------------------------------------
-  # Define valid sequences of stages that constitute complete workflows
-  # Each path represents a specific archival strategy
+    # Branching Node - TIFF Generation Choice
+    - id: "tiff_generation_branching"
+      type: "Branching"
+      name: "TIFF Generation Process Choice"
+      output:   
+        - "tiff_image"
+        - "individual_photoshop_process"
+        - "topaz_process"
 
-  paths:
+    # File Node - TIFF Image
+    - id: "tiff_image"
+      type: "File"
+      file_type: "Image"
+      extension: ".TIF" 
+      name: "TIFF Image File"
+      output: 
+        - "termination_blackbox"
+        - "lowres_jpeg"
+        - "highres_jpeg"
 
-    # ========================================================================
-    # BLACK BOX ARCHIVE PATHS
-    # ========================================================================
-    # These paths create master archives for long-term preservation
-    # Files are stored without expectation of frequent access
+    # Process Node - Individual Photoshop Edits
+    - id: "individual_photoshop_process"
+      type: "Process"
+      method_ids:
+        - "Edit"
+      name: "Individual Photoshop Edits"
+      output:
+        - "tiff_generation_branching"
 
-    # Path 1: Raw Archive
-    # Minimal processing, original raw + metadata
-    - id: raw_archive_path
-      name: "Raw Archive - Black Box"
-      description: "Original CR3 raw files with XMP metadata, no conversion"
-      archival_type: black_box
-      stages:
-        - capture
-        - import
-      validation:
-        must_have_all: true   # All files from all stages required
-        terminal: true        # Valid archival endpoint
-        allow_extra_files: true  # OK to have additional files
+    # Process Node - Topaz Photo AI
+    - id: "topaz_process"
+      type: "Process"
+      method_ids:
+        - "topaz"
+      name: "Topaz Photo AI Process"
+      output:
+        - "tiff_generation_branching"
 
-    # Path 2: DNG Archive
-    # Converted to open format for long-term preservation
-    - id: dng_archive_path
-      name: "DNG Archive - Black Box"
-      description: "Converted to open DNG format with metadata for preservation"
-      archival_type: black_box
-      stages:
-        - capture       # Original CR3 (optional, may be deleted after conversion)
-        - import        # XMP metadata
-        - dng_conversion  # DNG file
-      validation:
-        must_have_all: true
-        terminal: true
-        allow_extra_files: true
-        optional_stages:  # These stages optional for this path
-          - capture  # CR3 may be deleted after DNG conversion
+    # File Node - Low-Res JPEG
+    - id: "lowres_jpeg"
+      type: "File"
+      file_type: "Image"
+      extension: ".JPG"
+      name: "Low-Res JPEG File"
+      output: 
+        - "image_group_pairing"
 
-    # Path 3: Developed Master Archive
-    # Fully developed TIF files for master archive
-    - id: developed_archive_path
-      name: "Developed Master Archive - Black Box"
-      description: "Fully tone-mapped TIF files ready for master archive"
-      archival_type: black_box
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        - tone_mapping
-      validation:
-        must_have_all: true
-        terminal: true
-        allow_extra_files: true
-        optional_stages:
-          - capture  # CR3 may be deleted
+    # File Node - High-Res JPEG
+    - id: "highres_jpeg"
+      type: "File"
+      file_type: "Image"
+      extension: ".JPG"
+      name: "High-Res JPEG File"
+      output: 
+        - "image_group_pairing"
 
+    # Pairing Node - Image Group Pairing
+    - id: "image_group_pairing"
+      type: "Pairing"
+      name: "Image Group Pairing"
+      output: 
+        - "termination_browsable"
 
-    # ========================================================================
-    # BROWSABLE ARCHIVE PATHS
-    # ========================================================================
-    # These paths create web-accessible archives for browsing and sharing
-    # Includes web-optimized JPG files
+    # Termination Node - Blackbox Termination
+    - id: "termination_blackbox"
+      type: "Termination"
+      name: "Blackbox Termination"
+      output: []
 
-    # Path 4: Full Browsable Workflow
-    # Complete workflow from capture through web export
-    - id: browsable_archive_path
-      name: "Browsable Archive - Complete Workflow"
-      description: "Full processing workflow with web-optimized JPG export"
-      archival_type: browsable
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        - tone_mapping
-        - individual_processing  # May include HDR, BW processing
-        - web_export_lossy
-      validation:
-        must_have_all: true
-        terminal: true
-        allow_extra_files: true
-        optional_stages:
-          - capture         # Original CR3 may be deleted
-          - individual_processing  # Not all images need advanced processing
-
-    # Path 5: Simple Browsable Archive
-    # Simplified workflow, skip individual processing
-    - id: simple_browsable_path
-      name: "Simple Browsable Archive"
-      description: "Simplified workflow without advanced processing"
-      archival_type: browsable
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        - tone_mapping
-        - web_export_lossy  # Skip individual_processing stage
-      validation:
-        must_have_all: true
-        terminal: true
-        allow_extra_files: true
-        optional_stages:
-          - capture
-
-
-    # ========================================================================
-    # PARTIAL/WORK-IN-PROGRESS PATHS
-    # ========================================================================
-    # These paths represent incomplete workflows, used for detection only
-
-    # Path 6: In-Progress Import
-    # Files captured but not yet imported/sanctioned
-    - id: partial_import
-      name: "Partial - Awaiting Import"
-      description: "Files captured but not yet imported to Lightroom"
-      archival_type: null  # Not ready for archival
-      stages:
-        - capture  # Only capture stage completed
-      validation:
-        must_have_all: false  # May have only some files
-        terminal: false       # NOT a valid archival endpoint
-
-    # Path 7: In-Progress Conversion
-    # Imported but not yet converted to DNG
-    - id: partial_conversion
-      name: "Partial - Awaiting DNG Conversion"
-      description: "Files imported but not yet converted to DNG"
-      archival_type: null
-      stages:
-        - capture
-        - import
-        # Missing dng_conversion
-      validation:
-        must_have_all: false
-        terminal: false
-
-    # Path 8: In-Progress Development
-    # DNG created but not yet developed to TIF
-    - id: partial_development
-      name: "Partial - Awaiting Development"
-      description: "DNG files created but not yet developed to TIF"
-      archival_type: null
-      stages:
-        - capture
-        - import
-        - dng_conversion
-        # Missing tone_mapping
-      validation:
-        must_have_all: false
-        terminal: false
-
-
-# ============================================================================
-# VALIDATION RULES
-# ============================================================================
-# Additional validation constraints
-
-validation_rules:
-
-  # Require XMP for specific file types
-  require_xmp_for:
-    - .cr3  # CR3 files MUST have XMP after import stage
-
-  # Allow XMP sharing between file types
-  allow_shared_xmp:
-    - source: .cr3
-      target: .dng
-      # CR3 and DNG can share the same XMP file
-
-  # Metadata inheritance rules
-  metadata_inheritance:
-    - from_stage: import
-      to_stages:
-        - dng_conversion
-        - tone_mapping
-      # XMP created at import can be used by subsequent stages
-
-  # Properties must match between stages
-  property_matching:
-    enabled: true
-    # If AB3D0001-HDR.tif exists, earlier files should be AB3D0001.* (base image)
-    # Processing properties added only at individual_processing stage
-
-
-# ============================================================================
-# REPORTING OPTIONS
-# ============================================================================
-
-reporting:
-
-  # Group inconsistent groups by missing stage
-  group_by_missing_stage: true
-
-  # Show recommended actions for inconsistent groups
-  show_recommendations: true
-
-  # Include file size statistics
-  include_file_sizes: true
-
-  # Highlight archival-ready groups
-  highlight_archival_ready: true
-
-  # Show pipeline visualization in report
-  show_pipeline_diagram: true
-
-  # Output formats
-  formats:
-    - html  # Interactive HTML report (default)
-    - json  # Machine-readable JSON
-    # - csv   # CSV export (future)
-
-
-# ============================================================================
-# PERFORMANCE OPTIONS
-# ============================================================================
-
-performance:
-
-  # Cache validation results
-  enable_cache: true
-  cache_duration_hours: 24
-
-  # Parallel processing
-  parallel_processing: true
-  max_workers: 4
-
-  # Memory optimization
-  process_in_batches: true
-  batch_size: 1000
-
-
-# ============================================================================
-# NOTES
-# ============================================================================
-
-# Naming Conventions:
-#   - Stage IDs: lowercase_with_underscores
-#   - Path IDs: lowercase_with_underscores
-#   - Property names: UPPERCASE (HDR, BW, WEB)
-#
-# File Extensions:
-#   - All extensions must be defined in photo_extensions
-#   - Extensions are case-insensitive (.CR3 = .cr3)
-#
-# Metadata Sidecars:
-#   - XMP files match base filename (AB3D0001.cr3 → AB3D0001.xmp)
-#   - XMP can be shared between multiple file types
-#   - XMP with properties (AB3D0001-HDR.xmp) for specific variants
-#
-# Processing Properties:
-#   - Added after counter: AB3D0001-HDR.tif
-#   - Multiple properties: AB3D0001-HDR-BW.tif
-#   - Separate images: AB3D0001-2.cr3 (NOT a processing property)
-#
-# Archival Types:
-#   - black_box: Long-term preservation, infrequent access
-#   - browsable: Web-accessible, frequent browsing
-#   - null: Work-in-progress, not archival-ready
-#
-# Validation Behavior:
-#   - terminal: true = Valid archival endpoint
-#   - terminal: false = Incomplete workflow, needs more processing
-#   - must_have_all: true = All stage files required
-#   - allow_extra_files: true = OK to have files from later stages
+    # Termination Node - Browsable Termination  
+    - id: "termination_browsable"
+      type: "Termination"
+      name: "Browsable Termination"
+      output: []

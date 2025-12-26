@@ -2,34 +2,53 @@
 
 **Status:** Draft PRD - Awaiting Review
 **Created:** 2025-12-25
+**Updated:** 2025-12-26 (Node-Based Architecture)
 **Branch:** `claude/analyze-photo-pipeline-D5tdA`
 
 ---
 
 ## Quick Start
 
-This directory contains the complete Product Requirements Document (PRD) for a new pipeline validation tool that analyzes photo collections against defined processing workflows.
+This directory contains the complete Product Requirements Document (PRD) for a new pipeline validation tool that analyzes photo collections against defined processing workflows using a **node-based directed graph architecture**.
 
-### 📄 Documents
+### 📄 Key Documents
 
-1. **[spec.md](spec.md)** - Complete PRD (70 pages)
+1. **[node-architecture-analysis.md](node-architecture-analysis.md)** - Architecture Deep Dive ⭐ **START HERE**
+   - **Critical insight: File nodes define valid Specific Images**
+   - Detailed explanation of 6 node types (Capture, File, Process, Pairing, Branching, Termination)
+   - Path traversal algorithms with examples
+   - Integration with Photo Pairing Tool's ImageGroup structure
+   - Edge cases and implementation implications
+
+2. **[spec.md](spec.md)** - Complete PRD with Node-Based Architecture
    - Executive summary and goals
-   - Functional requirements (FR-1 through FR-5)
+   - **FR-1: Node-based pipeline configuration** (replaces stage-based model)
+   - **FR-2: Graph traversal validation algorithm**
    - Technical design and architecture
    - Testing strategy and success metrics
    - Timeline and future enhancements
 
-2. **[pipeline-config-example.yaml](pipeline-config-example.yaml)** - Sample Configuration
-   - Complete example pipeline configuration
+3. **[pipeline-config-example.yaml](pipeline-config-example.yaml)** - Official Configuration Example
+   - Complete v1 pipeline with all 6 node types
+   - Real-world workflow: Camera → DNG → TIF → JPG → Archive
+   - Supports branching (denoise options), looping (iterative edits), parallel paths
    - Heavily commented with explanations
-   - Ready to copy into `config/config.yaml`
-   - Includes 7 pipeline paths (4 terminal, 3 partial)
+   - Ready to adapt for your workflow
 
-3. **[flowchart-to-config-mapping.md](flowchart-to-config-mapping.md)** - Implementation Guide
-   - Step-by-step mapping from your flowchart to configuration
-   - Detailed validation examples
-   - Integration with existing tools
-   - Best practices and recommendations
+4. **[photo_processing_pipeline_configuration_proposal.md](photo_processing_pipeline_configuration_proposal.md)** - Configuration Proposal Document
+   - Detailed explanation of the node-based configuration structure
+   - Visual pipeline diagrams (horizontal and vertical views)
+   - Complete annotated example with all node types
+
+5. **[flowchart-to-config-mapping.md](flowchart-to-config-mapping.md)** - Implementation Guide ⚠️ **NEEDS UPDATE**
+   - ⚠️ Currently based on deprecated stage-based model
+   - Will be updated to reflect node-based architecture
+   - Kept for legacy reference and comparison
+
+6. **[pipeline-config-deprecated.yaml](pipeline-config-deprecated.yaml)** - Deprecated Configuration
+   - Original linear stage-based model
+   - Superseded by node-based architecture in pipeline-config-example.yaml
+   - Kept for reference only
 
 ---
 
@@ -58,26 +77,28 @@ The Pipeline Validation Tool extends existing capabilities to validate that phot
 
 ### Key Features
 
-1. **Pipeline Configuration**
-   - Define processing stages (capture, import, develop, export)
-   - Configure valid paths through your workflow
-   - Support multiple archival endpoints (Black Box, Browsable)
+1. **Node-Based Pipeline Configuration**
+   - Define workflows as directed graphs with 6 node types
+   - **File nodes** explicitly represent actual files in filesystem
+   - Support branching (conditional paths), looping (iterative processing), parallel execution
+   - Multiple termination endpoints (Black Box Archive, Browsable Archive)
 
-2. **Image Group Validation**
-   - Classify groups as CONSISTENT, PARTIAL, or INCONSISTENT
-   - Identify missing files with actionable recommendations
-   - Determine archival readiness
+2. **Image Group Validation via Graph Traversal**
+   - Traverse pipeline from Capture to Termination nodes
+   - **Collect File nodes = expected files for Specific Image**
+   - Compare actual ImageGroup files vs expected File nodes
+   - Classify as CONSISTENT, PARTIAL, or INCONSISTENT
 
-3. **Metadata Integration**
+3. **Metadata Integration (PhotoStats + Pairing)**
    - Reuses PhotoStats' CR3→XMP linking logic
-   - Stage-aware metadata validation
+   - Pairing nodes validate metadata files exist
    - Supports shared XMP files (CR3 and DNG use same XMP)
 
 4. **Comprehensive Reporting**
    - Interactive HTML reports (Jinja2 templates)
    - Pipeline visualizations (Chart.js)
-   - Statistics on archival readiness
-   - Lists of incomplete groups with remediation steps
+   - Statistics on archival readiness by termination type
+   - Lists of incomplete groups with specific missing files identified
 
 ---
 
