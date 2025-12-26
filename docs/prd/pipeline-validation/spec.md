@@ -841,6 +841,490 @@ def validate_metadata_at_stage(file, stage_config):
 
 ---
 
+### FR-6: Analysis Result Caching and Cache Invalidation
+
+**Description:** Persist pipeline validation analysis results in the analyzed folder with intelligent cache invalidation based on pipeline definition changes, folder content changes, and manual edits.
+
+**Motivation:**
+
+Pipeline validation involves complex graph traversal operations that can be time-consuming for large photo collections. Additionally, photographers may iterate on pipeline definitions as they refine their workflows. A robust caching strategy ensures:
+1. **Performance:** Avoid re-analyzing unchanged folders
+2. **Iteration:** Allow pipeline definition updates without full re-scan
+3. **Transparency:** Detect and handle manual edits to cached data
+4. **Reliability:** Ensure cached results stay in sync with current state
+
+**Cache File Location:**
+
+Analysis results are persisted in the analyzed folder:
+```
+/path/to/photos/
+├── .photo_pairing_cache.json          # Existing Photo Pairing cache
+└── .pipeline_validation_cache.json    # NEW: Pipeline validation cache
+```
+
+**Cache Structure:**
+
+```python
+{
+    "cache_version": "1.0",
+    "analysis_timestamp": "2025-12-25T14:30:00Z",
+
+    # Hash of folder contents (reuse from Photo Pairing Tool)
+    "folder_content_hash": "sha256:abc123...",
+
+    # NEW: Hash of pipeline definition to detect pipeline changes
+    "pipeline_definition_hash": "sha256:def456...",
+
+    # NEW: Hash of Photo Pairing cache to detect manual edits
+    "photo_pairing_cache_hash": "sha256:ghi789...",
+
+    # NEW: Hash of this cache file's results to detect manual edits
+    "results_hash": "sha256:jkl012...",
+
+    # Pipeline config metadata
+    "pipeline_config": {
+        "version": "v1",
+        "node_count": 25,
+        "termination_count": 2,
+        "config_path": "/path/to/config.yaml"
+    },
+
+    # Photo Pairing cache metadata
+    "photo_pairing_cache": {
+        "path": ".photo_pairing_cache.json",
+        "timestamp": "2025-12-25T14:25:00Z",
+        "imagegroup_count": 1247
+    },
+
+    # Validation results (per Specific Image)
+    "results": {
+        "total_specific_images": 1582,
+        "summary": {
+            "consistent": 1120,
+            "partial": 315,
+            "inconsistent": 147
+        },
+        "specific_images": [
+            {
+                "unique_id": "AB3D0001",
+                "status": "CONSISTENT",
+                # ... full validation result structure from FR-2
+            },
+            # ... all other Specific Images
+        ]
+    }
+}
+```
+
+**Hash Calculation:**
+
+**1. Pipeline Definition Hash:**
+```python
+def calculate_pipeline_hash(pipeline_config):
+    """
+    Calculate hash of pipeline definition to detect changes.
+
+    Includes:
+    - All node definitions (id, type, properties, outputs)
+    - Node ordering (affects traversal)
+    - Processing method mappings
+    """
+    # Serialize pipeline nodes in deterministic order
+    pipeline_data = {
+        'version': pipeline_config.version,
+        'nodes': sorted(pipeline_config.nodes, key=lambda n: n.id),
+        'processing_methods': sorted(pipeline_config.processing_methods.items())
+    }
+
+    # Calculate SHA-256 hash of JSON representation
+    json_str = json.dumps(pipeline_data, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+```
+
+**2. Folder Content Hash:**
+```python
+def calculate_folder_hash(folder_path):
+    """
+    Reuse Photo Pairing Tool's folder content hash.
+
+    Based on:
+    - File paths (relative to folder)
+    - File sizes
+    - File modification times
+    """
+    # This already exists in Photo Pairing Tool
+    return photo_pairing.calculate_folder_hash(folder_path)
+```
+
+**3. Photo Pairing Cache Hash:**
+```python
+def calculate_cache_file_hash(cache_path):
+    """
+    Hash the Photo Pairing cache file to detect manual edits.
+
+    Excludes timestamp fields to avoid false positives.
+    """
+    with open(cache_path, 'r') as f:
+        cache_data = json.load(f)
+
+    # Remove volatile fields
+    cache_data.pop('scan_timestamp', None)
+    cache_data.pop('analysis_timestamp', None)
+
+    # Hash the stable data
+    json_str = json.dumps(cache_data, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+```
+
+**4. Results Hash:**
+```python
+def calculate_results_hash(results):
+    """
+    Hash the validation results to detect manual edits.
+
+    Excludes timestamp fields.
+    """
+    # Remove volatile fields
+    results_copy = results.copy()
+    results_copy.pop('analysis_timestamp', None)
+
+    # Hash the stable results
+    json_str = json.dumps(results_copy, sort_keys=True, separators=(',', ':'))
+    return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+```
+
+**Cache Invalidation Logic:**
+
+```python
+def determine_cache_validity(folder_path, pipeline_config):
+    """
+    Determine what needs to be regenerated based on cache state.
+
+    Returns:
+        CacheStatus with recommended actions
+    """
+    cache_path = folder_path / '.pipeline_validation_cache.json'
+    photo_pairing_cache_path = folder_path / '.photo_pairing_cache.json'
+
+    # Check if caches exist
+    if not cache_path.exists():
+        return CacheStatus(
+            valid=False,
+            reason="No pipeline validation cache found",
+            action="REGENERATE_ALL"
+        )
+
+    if not photo_pairing_cache_path.exists():
+        return CacheStatus(
+            valid=False,
+            reason="No Photo Pairing cache found",
+            action="REGENERATE_ALL"
+        )
+
+    # Load cached data
+    cached_data = load_cache(cache_path)
+
+    # Calculate current hashes
+    current_pipeline_hash = calculate_pipeline_hash(pipeline_config)
+    current_folder_hash = calculate_folder_hash(folder_path)
+    current_photo_pairing_hash = calculate_cache_file_hash(photo_pairing_cache_path)
+    current_results_hash = calculate_results_hash(cached_data['results'])
+
+    # Check for changes
+    pipeline_changed = (current_pipeline_hash != cached_data['pipeline_definition_hash'])
+    folder_changed = (current_folder_hash != cached_data['folder_content_hash'])
+    photo_pairing_edited = (current_photo_pairing_hash != cached_data['photo_pairing_cache_hash'])
+    results_edited = (current_results_hash != cached_data['results_hash'])
+
+    # Scenario 1: Everything unchanged
+    if not (pipeline_changed or folder_changed or photo_pairing_edited or results_edited):
+        return CacheStatus(
+            valid=True,
+            reason="All caches valid and unchanged",
+            action="USE_CACHE"
+        )
+
+    # Scenario 2: Only pipeline definition changed
+    if pipeline_changed and not (folder_changed or photo_pairing_edited or results_edited):
+        return CacheStatus(
+            valid=False,
+            reason="Pipeline definition changed",
+            action="REUSE_PHOTO_PAIRING",
+            details={
+                'photo_pairing_valid': True,
+                'pipeline_hash_old': cached_data['pipeline_definition_hash'],
+                'pipeline_hash_new': current_pipeline_hash
+            }
+        )
+
+    # Scenario 3: Folder content changed
+    if folder_changed:
+        return CacheStatus(
+            valid=False,
+            reason="Folder content changed (files added/removed/modified)",
+            action="REGENERATE_ALL",
+            details={
+                'folder_hash_old': cached_data['folder_content_hash'],
+                'folder_hash_new': current_folder_hash
+            }
+        )
+
+    # Scenario 4: Photo Pairing cache manually edited
+    if photo_pairing_edited and not folder_changed:
+        return CacheStatus(
+            valid=False,
+            reason="Photo Pairing cache appears to have been manually edited",
+            action="ASK_USER_PHOTO_PAIRING",
+            details={
+                'cache_hash_old': cached_data['photo_pairing_cache_hash'],
+                'cache_hash_new': current_photo_pairing_hash
+            }
+        )
+
+    # Scenario 5: Pipeline validation results manually edited
+    if results_edited and not (pipeline_changed or folder_changed):
+        return CacheStatus(
+            valid=False,
+            reason="Pipeline validation results appear to have been manually edited",
+            action="ASK_USER_RESULTS",
+            details={
+                'results_hash_old': cached_data['results_hash'],
+                'results_hash_new': current_results_hash
+            }
+        )
+
+    # Scenario 6: Multiple changes (complex case)
+    if pipeline_changed and (photo_pairing_edited or results_edited):
+        return CacheStatus(
+            valid=False,
+            reason="Multiple changes detected (pipeline + manual edits)",
+            action="ASK_USER_COMPLEX",
+            details={
+                'pipeline_changed': pipeline_changed,
+                'photo_pairing_edited': photo_pairing_edited,
+                'results_edited': results_edited
+            }
+        )
+
+    # Default: regenerate to be safe
+    return CacheStatus(
+        valid=False,
+        reason="Unknown cache state",
+        action="REGENERATE_ALL"
+    )
+```
+
+**User Prompts for Cache Conflicts:**
+
+**Prompt 1: Photo Pairing Cache Edited**
+```
+⚠ Warning: Photo Pairing cache appears to have been manually edited
+
+The cached photo pairing results (.photo_pairing_cache.json) have changed
+since the last pipeline validation, but the folder content hash is unchanged.
+
+This suggests manual edits to the cache file.
+
+Options:
+  1. Trust edited cache and regenerate pipeline validation
+  2. Discard edited cache and re-run Photo Pairing Tool
+  3. Cancel and review changes manually
+
+Enter choice (1-3): _
+```
+
+**Prompt 2: Pipeline Results Edited**
+```
+⚠ Warning: Pipeline validation results appear to have been manually edited
+
+The cached pipeline validation results (.pipeline_validation_cache.json)
+have changed, but neither the pipeline definition nor folder content changed.
+
+This suggests manual edits to the results.
+
+Options:
+  1. Keep edited results (skip analysis)
+  2. Discard edited results and regenerate validation
+  3. Cancel and review changes manually
+
+Enter choice (1-3): _
+```
+
+**Prompt 3: Pipeline Definition Changed**
+```
+ℹ Pipeline definition has changed since last analysis
+
+Old pipeline hash: abc123...
+New pipeline hash: def456...
+
+Changes detected in pipeline configuration.
+Photo Pairing cache is still valid and can be reused.
+
+Options:
+  1. Reuse Photo Pairing cache and regenerate validation (recommended)
+  2. Re-run Photo Pairing Tool from scratch
+  3. Skip analysis and use old cached results
+
+Enter choice (1-3): _
+```
+
+**Prompt 4: Complex Changes**
+```
+⚠ Multiple changes detected:
+  - Pipeline definition changed: YES
+  - Photo Pairing cache edited: YES
+  - Validation results edited: NO
+
+This is a complex scenario requiring careful handling.
+
+Recommended action: Discard all caches and regenerate from scratch
+
+Options:
+  1. Regenerate everything (recommended)
+  2. Trust Photo Pairing cache, regenerate validation
+  3. Cancel and review manually
+
+Enter choice (1-3): _
+```
+
+**Cache Reuse Workflow:**
+
+```python
+def run_pipeline_validation(folder_path, pipeline_config, force_regenerate=False):
+    """
+    Main validation workflow with intelligent caching.
+
+    Args:
+        folder_path: Path to folder to analyze
+        pipeline_config: Pipeline configuration
+        force_regenerate: If True, ignore cache and regenerate
+
+    Returns:
+        Validation results
+    """
+    # Check cache validity
+    if not force_regenerate:
+        cache_status = determine_cache_validity(folder_path, pipeline_config)
+
+        if cache_status.action == "USE_CACHE":
+            print("✓ Using cached pipeline validation results")
+            return load_cache(folder_path / '.pipeline_validation_cache.json')['results']
+
+        elif cache_status.action == "REUSE_PHOTO_PAIRING":
+            print(f"ℹ {cache_status.reason}")
+            print("  Reusing Photo Pairing cache, regenerating pipeline validation...")
+
+            # Load Photo Pairing results from cache
+            photo_pairing_results = load_cache(
+                folder_path / '.photo_pairing_cache.json'
+            )['imagegroups']
+
+            # Run pipeline validation only
+            results = validate_all_imagegroups(photo_pairing_results, pipeline_config)
+
+            # Save new cache
+            save_cache(folder_path, results, pipeline_config, photo_pairing_results)
+
+            return results
+
+        elif cache_status.action == "REGENERATE_ALL":
+            print(f"ℹ {cache_status.reason}")
+            print("  Regenerating Photo Pairing and pipeline validation...")
+
+            # Fall through to full regeneration below
+
+        elif cache_status.action == "ASK_USER_PHOTO_PAIRING":
+            choice = prompt_user_photo_pairing_conflict(cache_status)
+
+            if choice == 1:  # Trust edited cache
+                photo_pairing_results = load_cache(
+                    folder_path / '.photo_pairing_cache.json'
+                )['imagegroups']
+                results = validate_all_imagegroups(photo_pairing_results, pipeline_config)
+                save_cache(folder_path, results, pipeline_config, photo_pairing_results)
+                return results
+
+            elif choice == 2:  # Discard and re-run
+                pass  # Fall through to full regeneration
+
+            else:  # Cancel
+                sys.exit(0)
+
+        elif cache_status.action == "ASK_USER_RESULTS":
+            choice = prompt_user_results_conflict(cache_status)
+
+            if choice == 1:  # Keep edited results
+                return load_cache(folder_path / '.pipeline_validation_cache.json')['results']
+
+            elif choice == 2:  # Discard and regenerate
+                pass  # Fall through to regeneration
+
+            else:  # Cancel
+                sys.exit(0)
+
+        elif cache_status.action == "ASK_USER_COMPLEX":
+            choice = prompt_user_complex_conflict(cache_status)
+
+            if choice == 1:  # Regenerate all
+                pass  # Fall through
+
+            elif choice == 2:  # Trust Photo Pairing cache
+                photo_pairing_results = load_cache(
+                    folder_path / '.photo_pairing_cache.json'
+                )['imagegroups']
+                results = validate_all_imagegroups(photo_pairing_results, pipeline_config)
+                save_cache(folder_path, results, pipeline_config, photo_pairing_results)
+                return results
+
+            else:  # Cancel
+                sys.exit(0)
+
+    # Full regeneration: Photo Pairing + Pipeline Validation
+    print("Running Photo Pairing Tool...")
+    photo_pairing_results = run_photo_pairing(folder_path)
+
+    print("Running Pipeline Validation...")
+    results = validate_all_imagegroups(photo_pairing_results, pipeline_config)
+
+    # Save both caches
+    save_cache(folder_path, results, pipeline_config, photo_pairing_results)
+
+    return results
+```
+
+**CLI Flags for Cache Control:**
+
+```bash
+# Use cache if valid (default)
+python3 pipeline_validation.py /path/to/photos
+
+# Force regeneration, ignore cache
+python3 pipeline_validation.py /path/to/photos --force-regenerate
+
+# Show cache status without running analysis
+python3 pipeline_validation.py /path/to/photos --cache-status
+
+# Clear cache and regenerate
+python3 pipeline_validation.py /path/to/photos --clear-cache
+```
+
+**Benefits:**
+
+1. **Performance:** Avoid re-analyzing unchanged folders (can save minutes on large collections)
+2. **Pipeline Iteration:** Photographers can refine pipeline definitions without waiting for full re-scan
+3. **Transparency:** Users are informed when caches are reused or invalidated
+4. **Manual Edit Detection:** Protects against accidental cache corruption or manual tweaks
+5. **Granular Invalidation:** Only regenerates what's necessary (Photo Pairing vs Pipeline Validation)
+
+**Edge Cases:**
+
+1. **Cache version mismatch:** If cache format changes between tool versions, automatically regenerate
+2. **Missing Photo Pairing cache:** Fall back to full regeneration
+3. **Corrupted cache files:** Catch JSON parse errors and regenerate
+4. **Concurrent execution:** Use file locking to prevent cache corruption from parallel runs
+
+---
+
 ## Technical Design
 
 ### Architecture
