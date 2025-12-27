@@ -610,6 +610,383 @@ def flatten_imagegroups_to_specific_images(imagegroups: List[Dict[str, Any]]) ->
     return specific_images
 
 
+# =============================================================================
+# Core Validation Engine - Path Enumeration and File Validation
+# =============================================================================
+
+@dataclass
+class PathState:
+    """
+    State tracking for DFS traversal through pipeline graph.
+
+    Used to track iteration counts per Process node to prevent infinite loops.
+
+    Attributes:
+        node_iterations: Dictionary mapping Process node IDs to iteration count
+        current_suffix: Accumulated suffix from all Process nodes traversed
+    """
+    node_iterations: Dict[str, int] = field(default_factory=dict)
+    current_suffix: str = ""
+
+
+def enumerate_all_paths(pipeline: PipelineConfig) -> List[List[Dict[str, Any]]]:
+    """
+    Enumerate all possible paths from Capture to Termination nodes using DFS.
+
+    This function traverses the pipeline graph depth-first, exploring all branches
+    and handling loops with truncation after MAX_ITERATIONS per Process node.
+
+    Args:
+        pipeline: PipelineConfig object with all nodes
+
+    Returns:
+        List of paths, where each path is a list of node dictionaries containing:
+        - node_id: Node identifier
+        - node_type: Type of node (Capture, File, Process, etc.)
+        - extension: File extension (for File nodes)
+        - method_ids: Processing methods (for Process nodes)
+        - truncated: Whether this path was truncated due to loop limit
+        - iteration_count: Number of times Process node was visited
+
+    Example path:
+        [
+            {'node_id': 'capture', 'node_type': 'Capture'},
+            {'node_id': 'raw_image', 'node_type': 'File', 'extension': '.CR3'},
+            {'node_id': 'process', 'node_type': 'Process', 'method_ids': ['Edit'], 'iteration_count': 1},
+            {'node_id': 'termination', 'node_type': 'Termination', 'truncated': False}
+        ]
+    """
+    # Find Capture node
+    capture_nodes = [n for n in pipeline.nodes if isinstance(n, CaptureNode)]
+    if not capture_nodes:
+        return []
+
+    capture_node = capture_nodes[0]
+    all_paths = []
+
+    def dfs(node_id: str, current_path: List[Dict[str, Any]], state: PathState):
+        """Depth-first search to enumerate all paths."""
+        if node_id not in pipeline.nodes_by_id:
+            return
+
+        node = pipeline.nodes_by_id[node_id]
+
+        # Build node info for path
+        node_info = {
+            'node_id': node.id,
+            'node_type': node.type
+        }
+
+        # Add type-specific fields
+        if isinstance(node, FileNode):
+            node_info['extension'] = node.extension
+        elif isinstance(node, ProcessNode):
+            node_info['method_ids'] = node.method_ids
+            # Track iteration count for this Process node
+            iteration_count = state.node_iterations.get(node.id, 0) + 1
+            node_info['iteration_count'] = iteration_count
+        elif isinstance(node, TerminationNode):
+            node_info['termination_type'] = node.termination_type
+            node_info['truncated'] = False
+
+        # Add node to current path
+        current_path.append(node_info)
+
+        # If this is a Termination node, save the complete path
+        if isinstance(node, TerminationNode):
+            all_paths.append(current_path.copy())
+            current_path.pop()
+            return
+
+        # Handle Process nodes - check loop limit
+        if isinstance(node, ProcessNode):
+            iteration_count = state.node_iterations.get(node.id, 0) + 1
+
+            if iteration_count > MAX_ITERATIONS:
+                # Truncate this path - mark termination as truncated
+                truncated_termination = {
+                    'node_id': f'truncated_from_{node.id}',
+                    'node_type': 'Termination',
+                    'termination_type': 'TRUNCATED',
+                    'truncated': True,
+                    'truncation_note': f'Path truncated after {MAX_ITERATIONS} iterations of {node.id}'
+                }
+                current_path.append(truncated_termination)
+                all_paths.append(current_path.copy())
+                current_path.pop()  # Remove truncation marker
+                current_path.pop()  # Remove process node
+                return
+
+            # Update iteration count
+            new_state = PathState(
+                node_iterations=state.node_iterations.copy(),
+                current_suffix=state.current_suffix
+            )
+            new_state.node_iterations[node.id] = iteration_count
+        else:
+            new_state = state
+
+        # Explore all output nodes
+        for output_id in node.output:
+            dfs(output_id, current_path, new_state)
+
+        # Backtrack
+        current_path.pop()
+
+    # Start DFS from Capture node
+    initial_state = PathState()
+    dfs(capture_node.id, [], initial_state)
+
+    return all_paths
+
+
+def generate_expected_files(path: List[Dict[str, Any]], base_filename: str) -> List[str]:
+    """
+    Generate list of expected files for a specific image following a pipeline path.
+
+    This function walks through a pipeline path and builds filenames with appropriate
+    suffixes from Process nodes.
+
+    Args:
+        path: List of node dictionaries from enumerate_all_paths()
+        base_filename: Base filename (e.g., "AB3D0001" or "AB3D0001-2")
+
+    Returns:
+        List of expected filenames
+
+    Example:
+        path = [
+            {'node_type': 'Capture'},
+            {'node_type': 'File', 'extension': '.CR3'},
+            {'node_type': 'Process', 'method_ids': ['DxO_DeepPRIME_XD2s']},
+            {'node_type': 'File', 'extension': '.DNG'},
+            {'node_type': 'Termination'}
+        ]
+        base_filename = 'AB3D0001'
+
+        Returns: ['AB3D0001.CR3', 'AB3D0001-DxO_DeepPRIME_XD2s.DNG']
+    """
+    expected_files = []
+    current_suffix = ""
+
+    for node in path:
+        node_type = node.get('node_type')
+
+        if node_type == 'File':
+            # Generate filename with accumulated suffix
+            extension = node.get('extension', '')
+            if current_suffix:
+                filename = f"{base_filename}{current_suffix}{extension}"
+            else:
+                filename = f"{base_filename}{extension}"
+            expected_files.append(filename)
+
+        elif node_type == 'Process':
+            # Add processing method suffixes
+            method_ids = node.get('method_ids', [])
+            for method_id in method_ids:
+                if method_id:  # Empty string means no suffix
+                    current_suffix += f"-{method_id}"
+
+    return expected_files
+
+
+def classify_validation_status(actual_files: set, expected_files: set) -> ValidationStatus:
+    """
+    Classify validation status by comparing actual vs expected files.
+
+    Classification rules:
+    - CONSISTENT: All expected files present, no extra files
+    - CONSISTENT_WITH_WARNING: All expected files present, but extra files exist
+    - PARTIAL: Some (but not all) expected files present
+    - INCONSISTENT: No expected files present (completely wrong)
+
+    Args:
+        actual_files: Set of actual filenames found
+        expected_files: Set of expected filenames from pipeline
+
+    Returns:
+        ValidationStatus enum value
+    """
+    missing_files = expected_files - actual_files
+    extra_files = actual_files - expected_files
+
+    # INCONSISTENT: No expected files present at all
+    if not actual_files or len(actual_files & expected_files) == 0:
+        return ValidationStatus.INCONSISTENT
+
+    # PARTIAL: Some expected files missing
+    if missing_files:
+        return ValidationStatus.PARTIAL
+
+    # CONSISTENT-WITH-WARNING: All expected files present, but extra files exist
+    if extra_files:
+        return ValidationStatus.CONSISTENT_WITH_WARNING
+
+    # CONSISTENT: Perfect match
+    return ValidationStatus.CONSISTENT
+
+
+def validate_specific_image(
+    specific_image: SpecificImage,
+    pipeline: PipelineConfig
+) -> ValidationResult:
+    """
+    Validate a single SpecificImage against all pipeline paths.
+
+    This function:
+    1. Enumerates all paths from Capture to Termination
+    2. For each path, generates expected files
+    3. Compares actual files vs expected files
+    4. Classifies status for each termination
+    5. Returns aggregated ValidationResult
+
+    Args:
+        specific_image: SpecificImage object with actual files
+        pipeline: PipelineConfig with all nodes
+
+    Returns:
+        ValidationResult with termination_matches and overall_status
+    """
+    # Enumerate all paths through pipeline
+    all_paths = enumerate_all_paths(pipeline)
+
+    # Group paths by termination node
+    paths_by_termination = {}
+    for path in all_paths:
+        if path:
+            # Last node should be termination
+            term_node = path[-1]
+            term_id = term_node.get('node_id')
+            if term_id not in paths_by_termination:
+                paths_by_termination[term_id] = []
+            paths_by_termination[term_id].append(path)
+
+    # Validate against each termination
+    termination_matches = []
+    actual_files_set = set(specific_image.actual_files)
+
+    for term_id, paths in paths_by_termination.items():
+        # Get all expected files across all paths to this termination
+        all_expected_files = set()
+        for path in paths:
+            expected_files = generate_expected_files(path, specific_image.unique_id)
+            all_expected_files.update(expected_files)
+
+        # Classify status
+        status = classify_validation_status(actual_files_set, all_expected_files)
+
+        # Calculate completion percentage
+        if all_expected_files:
+            found_expected = actual_files_set & all_expected_files
+            completion_percentage = (len(found_expected) / len(all_expected_files)) * 100
+        else:
+            completion_percentage = 0.0
+
+        # Find missing and extra files
+        missing_files = sorted(list(all_expected_files - actual_files_set))
+        extra_files = sorted(list(actual_files_set - all_expected_files))
+
+        # Check if any path was truncated
+        truncated = any(
+            node.get('truncated', False) for path in paths for node in path
+        )
+        truncation_note = None
+        if truncated:
+            for path in paths:
+                for node in path:
+                    if node.get('truncation_note'):
+                        truncation_note = node['truncation_note']
+                        break
+
+        # Get termination type
+        term_node = paths[0][-1] if paths else {}
+        termination_type = term_node.get('termination_type', term_id)
+
+        # Create TerminationMatchResult
+        term_match = TerminationMatchResult(
+            termination_id=term_id,
+            termination_type=termination_type,
+            status=status,
+            completion_percentage=completion_percentage,
+            missing_files=missing_files,
+            extra_files=extra_files,
+            truncated=truncated,
+            truncation_note=truncation_note
+        )
+        termination_matches.append(term_match)
+
+    # Determine overall status (worst status across all terminations)
+    status_priority = {
+        ValidationStatus.INCONSISTENT: 4,
+        ValidationStatus.PARTIAL: 3,
+        ValidationStatus.CONSISTENT_WITH_WARNING: 2,
+        ValidationStatus.CONSISTENT: 1
+    }
+
+    if termination_matches:
+        overall_status = max(
+            termination_matches,
+            key=lambda tm: status_priority[tm.status]
+        ).status
+    else:
+        overall_status = ValidationStatus.INCONSISTENT
+
+    # Determine archival readiness
+    archival_ready_for = [
+        tm.termination_type
+        for tm in termination_matches
+        if tm.status in (ValidationStatus.CONSISTENT, ValidationStatus.CONSISTENT_WITH_WARNING)
+    ]
+
+    # Create ValidationResult
+    return ValidationResult(
+        unique_id=specific_image.unique_id,
+        group_id=specific_image.group_id,
+        camera_id=specific_image.camera_id,
+        counter=specific_image.counter,
+        suffix=specific_image.suffix,
+        actual_files=specific_image.actual_files,
+        termination_matches=termination_matches,
+        overall_status=overall_status,
+        archival_ready_for=archival_ready_for
+    )
+
+
+def validate_all_images(
+    specific_images: List[SpecificImage],
+    pipeline: PipelineConfig,
+    show_progress: bool = True
+) -> List[ValidationResult]:
+    """
+    Validate all SpecificImages against pipeline.
+
+    Args:
+        specific_images: List of SpecificImage objects to validate
+        pipeline: PipelineConfig with all nodes
+        show_progress: Whether to display progress indicators
+
+    Returns:
+        List of ValidationResult objects
+    """
+    validation_results = []
+    total = len(specific_images)
+
+    for i, specific_image in enumerate(specific_images, 1):
+        if show_progress and total > 10:
+            # Show progress for large collections
+            if i % 100 == 0 or i == total:
+                print(f"  Validating images: {i}/{total} ({(i/total)*100:.1f}%)", end='\r')
+
+        result = validate_specific_image(specific_image, pipeline)
+        validation_results.append(result)
+
+    if show_progress and total > 10:
+        print()  # New line after progress
+
+    return validation_results
+
+
 def setup_signal_handlers():
     """
     Setup graceful CTRL+C (SIGINT) handling.

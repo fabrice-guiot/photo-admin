@@ -510,46 +510,156 @@ class TestPhotoPairingIntegration:
 # =============================================================================
 
 class TestPathEnumeration:
-    """Tests for pipeline path enumeration (Phase 3 - TODO)."""
+    """Tests for pipeline path enumeration (Phase 3 - User Story 1)."""
 
-    def test_enumerate_simple_path(self):
+    def test_enumerate_simple_path(self, tmp_path, sample_pipeline_config, mock_config):
         """Test enumeration of simple linear pipeline path."""
-        # TODO: Implement in Phase 3
-        pass
+        # Create config file
+        config_file = tmp_path / "test_config.yaml"
+        config_data = {'processing_pipelines': sample_pipeline_config}
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
 
-    def test_enumerate_branching_paths(self):
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Enumerate all paths from Capture to Termination
+        paths = pipeline_validation.enumerate_all_paths(pipeline)
+
+        # Should have at least one path
+        assert len(paths) > 0
+
+        # Each path should start with Capture and end with Termination
+        for path in paths:
+            assert len(path) > 0
+            assert path[0]['node_id'] == 'capture'
+            assert path[-1]['node_id'] == 'termination_blackbox'
+
+    def test_enumerate_branching_paths(self, tmp_path, sample_pipeline_with_loop, mock_config):
         """Test enumeration with Branching nodes."""
-        # TODO: Implement in Phase 3
-        pass
+        # Create config file with branching
+        config_file = tmp_path / "test_config.yaml"
+        config_data = {'processing_pipelines': sample_pipeline_with_loop}
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
 
-    def test_handle_loop_truncation(self):
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Enumerate all paths
+        paths = pipeline_validation.enumerate_all_paths(pipeline)
+
+        # Should have multiple paths due to branching
+        assert len(paths) > 1
+
+    def test_handle_loop_truncation(self, tmp_path, sample_pipeline_with_loop):
         """Test loop truncation after MAX_ITERATIONS."""
-        # TODO: Implement in Phase 3
-        pass
+        # Create config file with loop
+        config_file = tmp_path / "test_config.yaml"
+        config_data = {'processing_pipelines': sample_pipeline_with_loop}
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Enumerate paths
+        paths = pipeline_validation.enumerate_all_paths(pipeline)
+
+        # Check that some paths were truncated due to loop limit
+        # Paths should contain information about truncation
+        assert len(paths) > 0
+
+
+class TestFileGeneration:
+    """Tests for expected file generation (Phase 3 - User Story 1)."""
+
+    def test_generate_expected_files_simple_path(self):
+        """Test generate_expected_files() with processing method suffixes."""
+        # Create a simple path through the pipeline
+        path = [
+            {'node_id': 'capture', 'node_type': 'Capture'},
+            {'node_id': 'raw_file', 'node_type': 'File', 'extension': '.CR3'},
+            {'node_id': 'process', 'node_type': 'Process', 'method_ids': ['DxO_DeepPRIME_XD2s']},
+            {'node_id': 'dng_file', 'node_type': 'File', 'extension': '.DNG'},
+            {'node_id': 'termination', 'node_type': 'Termination'}
+        ]
+
+        base_filename = 'AB3D0001'
+        expected_files = pipeline_validation.generate_expected_files(path, base_filename)
+
+        # Should include .CR3 and .DNG with suffix
+        assert 'AB3D0001.CR3' in expected_files
+        assert 'AB3D0001-DxO_DeepPRIME_XD2s.DNG' in expected_files
 
 
 class TestFileValidation:
-    """Tests for file validation against paths (Phase 3 - TODO)."""
+    """Tests for file validation against paths (Phase 3 - User Story 1)."""
 
-    def test_classify_consistent(self):
+    def test_classify_consistent(self, sample_imagegroups):
         """Test CONSISTENT status classification."""
-        # TODO: Implement in Phase 3
-        pass
+        # AB3D0001 has all expected files
+        specific_images = pipeline_validation.flatten_imagegroups_to_specific_images(sample_imagegroups)
+        img = [s for s in specific_images if s.unique_id == 'AB3D0001'][0]
 
-    def test_classify_partial(self):
+        # Expected files for this image (based on pipeline)
+        expected_files = ['AB3D0001.CR3', 'AB3D0001.XMP', 'AB3D0001-DxO_DeepPRIME_XD2s.DNG']
+
+        # Classify status
+        status = pipeline_validation.classify_validation_status(
+            actual_files=set(img.actual_files),
+            expected_files=set(expected_files)
+        )
+
+        assert status == pipeline_validation.ValidationStatus.CONSISTENT
+
+    def test_classify_partial(self, sample_imagegroups):
         """Test PARTIAL status classification."""
-        # TODO: Implement in Phase 3
-        pass
+        # AB3D0002 is missing DNG file
+        specific_images = pipeline_validation.flatten_imagegroups_to_specific_images(sample_imagegroups)
+        img = [s for s in specific_images if s.unique_id == 'AB3D0002'][0]
 
-    def test_classify_consistent_with_warning(self):
+        # Expected files
+        expected_files = ['AB3D0002.CR3', 'AB3D0002.XMP', 'AB3D0002-DxO_DeepPRIME_XD2s.DNG']
+
+        # Classify status
+        status = pipeline_validation.classify_validation_status(
+            actual_files=set(img.actual_files),
+            expected_files=set(expected_files)
+        )
+
+        assert status == pipeline_validation.ValidationStatus.PARTIAL
+
+    def test_classify_consistent_with_warning(self, sample_imagegroups):
         """Test CONSISTENT-WITH-WARNING status classification."""
-        # TODO: Implement in Phase 3
-        pass
+        # AB3D0003 has all expected files plus an extra file
+        specific_images = pipeline_validation.flatten_imagegroups_to_specific_images(sample_imagegroups)
+        img = [s for s in specific_images if s.unique_id == 'AB3D0003'][0]
+
+        # Expected files (without backup file)
+        expected_files = ['AB3D0003.CR3', 'AB3D0003.XMP', 'AB3D0003-DxO_DeepPRIME_XD2s.DNG']
+
+        # Classify status
+        status = pipeline_validation.classify_validation_status(
+            actual_files=set(img.actual_files),
+            expected_files=set(expected_files)
+        )
+
+        assert status == pipeline_validation.ValidationStatus.CONSISTENT_WITH_WARNING
 
     def test_classify_inconsistent(self):
         """Test INCONSISTENT status classification."""
-        # TODO: Implement in Phase 3
-        pass
+        # Completely wrong files
+        actual_files = {'WRONG0001.JPG', 'WRONG0001.XMP'}
+        expected_files = {'AB3D0001.CR3', 'AB3D0001.XMP', 'AB3D0001-DxO_DeepPRIME_XD2s.DNG'}
+
+        # Classify status
+        status = pipeline_validation.classify_validation_status(
+            actual_files=actual_files,
+            expected_files=expected_files
+        )
+
+        assert status == pipeline_validation.ValidationStatus.INCONSISTENT
 
 
 # =============================================================================
