@@ -12,6 +12,7 @@ This module tests the pipeline validation functionality including:
 
 import pytest
 import json
+import yaml
 import tempfile
 import subprocess
 import sys
@@ -371,36 +372,137 @@ class TestPrerequisiteValidation:
 # =============================================================================
 
 class TestPipelineConfigLoading:
-    """Tests for pipeline configuration loading (Phase 2 - TODO)."""
+    """Tests for pipeline configuration loading (Phase 2)."""
 
-    def test_load_pipeline_from_config(self):
+    def test_load_pipeline_from_config(self, tmp_path, sample_pipeline_config):
         """Test loading pipeline configuration from config.yaml."""
-        # TODO: Implement in Phase 2
-        pass
+        # Create test config file
+        config_file = tmp_path / "test_config.yaml"
+        config_data = {
+            'photo_extensions': ['.cr3', '.dng'],
+            'metadata_extensions': ['.xmp'],
+            'processing_methods': {
+                'DxO_DeepPRIME_XD2s': 'DNG Conversion'
+            },
+            'processing_pipelines': sample_pipeline_config
+        }
 
-    def test_validate_pipeline_structure(self):
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Verify pipeline loaded correctly
+        assert len(pipeline.nodes) == 7
+        assert len(pipeline.nodes_by_id) == 7
+
+        # Verify node types
+        assert isinstance(pipeline.nodes_by_id['capture'], pipeline_validation.CaptureNode)
+        assert isinstance(pipeline.nodes_by_id['raw_image_1'], pipeline_validation.FileNode)
+        assert isinstance(pipeline.nodes_by_id['selection_process'], pipeline_validation.ProcessNode)
+        assert isinstance(pipeline.nodes_by_id['termination_blackbox'], pipeline_validation.TerminationNode)
+
+    def test_validate_pipeline_structure(self, tmp_path, sample_pipeline_config, mock_config):
         """Test validation of pipeline node structure."""
-        # TODO: Implement in Phase 2
-        pass
+        # Create test config file
+        config_file = tmp_path / "test_config.yaml"
+        config_data = {
+            'processing_pipelines': sample_pipeline_config
+        }
 
-    def test_detect_invalid_node_references(self):
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Validate structure
+        errors = pipeline_validation.validate_pipeline_structure(pipeline, mock_config)
+
+        # Should have no errors
+        assert len(errors) == 0
+
+    def test_detect_invalid_node_references(self, tmp_path, mock_config):
         """Test detection of invalid output node references."""
-        # TODO: Implement in Phase 2
-        pass
+        # Create pipeline with invalid reference
+        invalid_pipeline_config = {
+            'nodes': [
+                {
+                    'id': 'capture',
+                    'type': 'Capture',
+                    'name': 'Camera Capture',
+                    'output': ['raw_image', 'non_existent_node']  # Invalid reference
+                },
+                {
+                    'id': 'raw_image',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'Raw File',
+                    'output': []
+                }
+            ]
+        }
+
+        config_file = tmp_path / "invalid_config.yaml"
+        config_data = {
+            'processing_pipelines': invalid_pipeline_config
+        }
+
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Validate structure - should detect invalid reference
+        errors = pipeline_validation.validate_pipeline_structure(pipeline, mock_config)
+
+        assert len(errors) > 0
+        assert any('non_existent_node' in err for err in errors)
 
 
 class TestPhotoPairingIntegration:
-    """Tests for Photo Pairing integration (Phase 2 - TODO)."""
+    """Tests for Photo Pairing integration (Phase 2)."""
 
-    def test_load_photo_pairing_cache(self):
+    def test_load_photo_pairing_cache(self, temp_photo_folder):
         """Test loading Photo Pairing cache file."""
-        # TODO: Implement in Phase 2
-        pass
+        # Load ImageGroups from cache
+        imagegroups = pipeline_validation.load_or_generate_imagegroups(temp_photo_folder, force_regenerate=False)
 
-    def test_flatten_imagegroups_to_specific_images(self):
+        # Verify ImageGroups loaded
+        assert len(imagegroups) == 2
+        assert imagegroups[0]['group_id'] == 'AB3D0001'
+        assert imagegroups[1]['group_id'] == 'AB3D0002'
+
+    def test_flatten_imagegroups_to_specific_images(self, sample_imagegroups):
         """Test flattening ImageGroups to SpecificImages."""
-        # TODO: Implement in Phase 2
-        pass
+        # Flatten ImageGroups
+        specific_images = pipeline_validation.flatten_imagegroups_to_specific_images(sample_imagegroups)
+
+        # Verify flattening - 3 groups with 1 separate image each = 3 SpecificImages
+        assert len(specific_images) == 3  # AB3D0001, AB3D0002, AB3D0003
+
+        # Check first image (AB3D0001 base image)
+        img1 = [img for img in specific_images if img.unique_id == 'AB3D0001'][0]
+        assert img1.group_id == 'AB3D0001'
+        assert img1.camera_id == 'AB3D'
+        assert img1.counter == '0001'
+        assert img1.suffix == ''
+        assert 'AB3D0001.CR3' in img1.actual_files
+        assert 'AB3D0001.XMP' in img1.actual_files
+
+        # Check second image (AB3D0002)
+        img2 = [img for img in specific_images if img.unique_id == 'AB3D0002'][0]
+        assert img2.group_id == 'AB3D0002'
+        assert img2.suffix == ''
+        assert 'AB3D0002.CR3' in img2.actual_files
+
+        # Check third image (AB3D0003)
+        img3 = [img for img in specific_images if img.unique_id == 'AB3D0003'][0]
+        assert img3.group_id == 'AB3D0003'
+        assert img3.suffix == ''
+        assert 'AB3D0003-backup.CR3' in img3.actual_files  # Extra file
 
 
 # =============================================================================
