@@ -29,115 +29,119 @@ import pipeline_validation
 
 @pytest.fixture
 def sample_pipeline_config():
-    """Sample pipeline configuration for testing."""
+    """Sample pipeline configuration for testing (versioned structure)."""
     return {
-        'nodes': [
-            {
-                'id': 'capture',
-                'type': 'Capture',
-                'name': 'Camera Capture',
-                'output': ['raw_image_1', 'xmp_metadata_1']
-            },
-            {
-                'id': 'raw_image_1',
-                'type': 'File',
-                'extension': '.CR3',
-                'name': 'Canon Raw File',
-                'output': ['selection_process']
-            },
-            {
-                'id': 'xmp_metadata_1',
-                'type': 'File',
-                'extension': '.XMP',
-                'name': 'XMP Metadata',
-                'output': []
-            },
-            {
-                'id': 'selection_process',
-                'type': 'Process',
-                'method_ids': [''],
-                'name': 'Image Selection',
-                'output': ['dng_conversion']
-            },
-            {
-                'id': 'dng_conversion',
-                'type': 'Process',
-                'method_ids': ['DxO_DeepPRIME_XD2s'],
-                'name': 'DNG Conversion',
-                'output': ['openformat_raw_image']
-            },
-            {
-                'id': 'openformat_raw_image',
-                'type': 'File',
-                'extension': '.DNG',
-                'name': 'DNG File',
-                'output': ['termination_blackbox']
-            },
-            {
-                'id': 'termination_blackbox',
-                'type': 'Termination',
-                'termination_type': 'Black Box Archive',
-                'name': 'Black Box Archive Ready',
-                'output': []
-            }
-        ]
+        'default': {
+            'nodes': [
+                {
+                    'id': 'capture',
+                    'type': 'Capture',
+                    'name': 'Camera Capture',
+                    'output': ['raw_image_1', 'xmp_metadata_1']
+                },
+                {
+                    'id': 'raw_image_1',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'Canon Raw File',
+                    'output': ['selection_process']
+                },
+                {
+                    'id': 'xmp_metadata_1',
+                    'type': 'File',
+                    'extension': '.XMP',
+                    'name': 'XMP Metadata',
+                    'output': []
+                },
+                {
+                    'id': 'selection_process',
+                    'type': 'Process',
+                    'method_ids': [''],
+                    'name': 'Image Selection',
+                    'output': ['dng_conversion']
+                },
+                {
+                    'id': 'dng_conversion',
+                    'type': 'Process',
+                    'method_ids': ['DxO_DeepPRIME_XD2s'],
+                    'name': 'DNG Conversion',
+                    'output': ['openformat_raw_image']
+                },
+                {
+                    'id': 'openformat_raw_image',
+                    'type': 'File',
+                    'extension': '.DNG',
+                    'name': 'DNG File',
+                    'output': ['termination_blackbox']
+                },
+                {
+                    'id': 'termination_blackbox',
+                    'type': 'Termination',
+                    'termination_type': 'Black Box Archive',
+                    'name': 'Black Box Archive Ready',
+                    'output': []
+                }
+            ]
+        }
     }
 
 
 @pytest.fixture
 def sample_pipeline_with_loop():
-    """Sample pipeline with a loop (Branching node that loops back)."""
+    """Sample pipeline with a loop (Branching node that loops back) - versioned structure."""
     return {
-        'nodes': [
-            {
-                'id': 'capture',
-                'type': 'Capture',
-                'name': 'Camera Capture',
-                'output': ['raw_image']
-            },
-            {
-                'id': 'raw_image',
-                'type': 'File',
-                'extension': '.CR3',
-                'name': 'Canon Raw File',
-                'output': ['edit_process']
-            },
-            {
-                'id': 'edit_process',
-                'type': 'Process',
-                'method_ids': ['Edit'],
-                'name': 'Photoshop Editing',
-                'output': ['branching_decision']
-            },
-            {
-                'id': 'branching_decision',
-                'type': 'Branching',
-                'condition_description': 'User decides: Create TIFF or continue editing',
-                'name': 'TIFF Generation Decision',
-                'output': ['generate_tiff', 'edit_process']  # Second output loops back
-            },
-            {
-                'id': 'generate_tiff',
-                'type': 'Process',
-                'method_ids': [''],
-                'name': 'Generate TIFF',
-                'output': ['tiff_file']
-            },
-            {
-                'id': 'tiff_file',
-                'type': 'File',
-                'extension': '.TIF',
-                'name': 'TIFF File',
-                'output': ['termination']
-            },
-            {
-                'id': 'termination',
-                'type': 'Termination',
-                'termination_type': 'Black Box Archive',
-                'name': 'Archive Ready',
-                'output': []
-            }
-        ]
+        'default': {
+            'nodes': [
+                {
+                    'id': 'capture',
+                    'type': 'Capture',
+                    'name': 'Camera Capture',
+                    'output': ['raw_image']
+                },
+                {
+                    'id': 'raw_image',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'Canon Raw File',
+                    'output': ['edit_process']
+                },
+                {
+                    'id': 'edit_process',
+                    'type': 'Process',
+                    'method_ids': ['Edit'],
+                    'name': 'Photoshop Editing',
+                    'output': ['branching_decision']
+                },
+                {
+                    'id': 'branching_decision',
+                    'type': 'Branching',
+                    'condition_description': 'User decides: Create TIFF or continue editing',
+                    'name': 'TIFF Generation Decision',
+                    'output': ['generate_tiff', 'edit_process']  # Second output loops back
+                },
+                {
+                    'id': 'generate_tiff',
+                    'type': 'Process',
+                    'method_ids': [''],
+                    'name': 'Generate TIFF',
+                    'output': ['tiff_file']
+                },
+                {
+                    'id': 'tiff_file',
+                    'type': 'File',
+                    'extension': '.TIF',
+                    'name': 'TIFF File',
+                    'output': ['termination']
+                },
+                {
+                    'id': 'termination',
+                    'type': 'Termination',
+                    'termination_type': 'Black Box Archive',
+                    'name': 'Archive Ready',
+                    'output': []
+                }
+            ]
+        }
     }
 
 
@@ -427,21 +431,23 @@ class TestPipelineConfigLoading:
         """Test detection of invalid output node references."""
         # Create pipeline with invalid reference
         invalid_pipeline_config = {
-            'nodes': [
-                {
-                    'id': 'capture',
-                    'type': 'Capture',
-                    'name': 'Camera Capture',
-                    'output': ['raw_image', 'non_existent_node']  # Invalid reference
-                },
-                {
-                    'id': 'raw_image',
-                    'type': 'File',
-                    'extension': '.CR3',
-                    'name': 'Raw File',
-                    'output': []
-                }
-            ]
+            'default': {
+                'nodes': [
+                    {
+                        'id': 'capture',
+                        'type': 'Capture',
+                        'name': 'Camera Capture',
+                        'output': ['raw_image', 'non_existent_node']  # Invalid reference
+                    },
+                    {
+                        'id': 'raw_image',
+                        'type': 'File',
+                        'extension': '.CR3',
+                        'name': 'Raw File',
+                        'output': []
+                    }
+                ]
+            }
         }
 
         config_file = tmp_path / "invalid_config.yaml"
@@ -673,56 +679,58 @@ class TestCustomPipelines:
         """Test integration with custom processing methods."""
         # Create pipeline with custom processing methods
         custom_pipeline = {
-            'nodes': [
-                {
-                    'id': 'capture',
-                    'type': 'Capture',
-                    'name': 'Camera Capture',
-                    'output': ['raw_file']
-                },
-                {
-                    'id': 'raw_file',
-                    'type': 'File',
-                    'extension': '.CR3',
-                    'name': 'Raw File',
-                    'output': ['dxo_process']
-                },
-                {
-                    'id': 'dxo_process',
-                    'type': 'Process',
-                    'method_ids': ['DxO_DeepPRIME_XD2s'],
-                    'name': 'DxO Processing',
-                    'output': ['dng_file']
-                },
-                {
-                    'id': 'dng_file',
-                    'type': 'File',
-                    'extension': '.DNG',
-                    'name': 'DNG File',
-                    'output': ['photoshop_process']
-                },
-                {
-                    'id': 'photoshop_process',
-                    'type': 'Process',
-                    'method_ids': ['Edit'],
-                    'name': 'Photoshop Editing',
-                    'output': ['tiff_file']
-                },
-                {
-                    'id': 'tiff_file',
-                    'type': 'File',
-                    'extension': '.TIF',
-                    'name': 'TIFF File',
-                    'output': ['termination']
-                },
-                {
-                    'id': 'termination',
-                    'type': 'Termination',
-                    'termination_type': 'Final Output',
-                    'name': 'Final Output Ready',
-                    'output': []
-                }
-            ]
+            'default': {
+                'nodes': [
+                    {
+                        'id': 'capture',
+                        'type': 'Capture',
+                        'name': 'Camera Capture',
+                        'output': ['raw_file']
+                    },
+                    {
+                        'id': 'raw_file',
+                        'type': 'File',
+                        'extension': '.CR3',
+                        'name': 'Raw File',
+                        'output': ['dxo_process']
+                    },
+                    {
+                        'id': 'dxo_process',
+                        'type': 'Process',
+                        'method_ids': ['DxO_DeepPRIME_XD2s'],
+                        'name': 'DxO Processing',
+                        'output': ['dng_file']
+                    },
+                    {
+                        'id': 'dng_file',
+                        'type': 'File',
+                        'extension': '.DNG',
+                        'name': 'DNG File',
+                        'output': ['photoshop_process']
+                    },
+                    {
+                        'id': 'photoshop_process',
+                        'type': 'Process',
+                        'method_ids': ['Edit'],
+                        'name': 'Photoshop Editing',
+                        'output': ['tiff_file']
+                    },
+                    {
+                        'id': 'tiff_file',
+                        'type': 'File',
+                        'extension': '.TIF',
+                        'name': 'TIFF File',
+                        'output': ['termination']
+                    },
+                    {
+                        'id': 'termination',
+                        'type': 'Termination',
+                        'termination_type': 'Final Output',
+                        'name': 'Final Output Ready',
+                        'output': []
+                    }
+                ]
+            }
         }
 
         # Create config file
@@ -755,57 +763,59 @@ class TestCustomPipelines:
         """Test that Pairing nodes are handled correctly in pipeline."""
         # Create pipeline with Pairing node (HDR)
         pairing_pipeline = {
-            'nodes': [
-                {
-                    'id': 'capture',
-                    'type': 'Capture',
-                    'name': 'Camera Capture',
-                    'output': ['raw_file_1', 'raw_file_2', 'raw_file_3']
-                },
-                {
-                    'id': 'raw_file_1',
-                    'type': 'File',
-                    'extension': '.CR3',
-                    'name': 'HDR Exposure 1',
-                    'output': ['hdr_pairing']
-                },
-                {
-                    'id': 'raw_file_2',
-                    'type': 'File',
-                    'extension': '.CR3',
-                    'name': 'HDR Exposure 2',
-                    'output': ['hdr_pairing']
-                },
-                {
-                    'id': 'raw_file_3',
-                    'type': 'File',
-                    'extension': '.CR3',
-                    'name': 'HDR Exposure 3',
-                    'output': ['hdr_pairing']
-                },
-                {
-                    'id': 'hdr_pairing',
-                    'type': 'Pairing',
-                    'pairing_type': 'HDR',
-                    'input_count': 3,
-                    'name': 'HDR Merge',
-                    'output': ['merged_dng']
-                },
-                {
-                    'id': 'merged_dng',
-                    'type': 'File',
-                    'extension': '.DNG',
-                    'name': 'Merged DNG',
-                    'output': ['termination']
-                },
-                {
-                    'id': 'termination',
-                    'type': 'Termination',
-                    'termination_type': 'HDR Archive',
-                    'name': 'HDR Archive Ready',
-                    'output': []
-                }
-            ]
+            'default': {
+                'nodes': [
+                    {
+                        'id': 'capture',
+                        'type': 'Capture',
+                        'name': 'Camera Capture',
+                        'output': ['raw_file_1', 'raw_file_2', 'raw_file_3']
+                    },
+                    {
+                        'id': 'raw_file_1',
+                        'type': 'File',
+                        'extension': '.CR3',
+                        'name': 'HDR Exposure 1',
+                        'output': ['hdr_pairing']
+                    },
+                    {
+                        'id': 'raw_file_2',
+                        'type': 'File',
+                        'extension': '.CR3',
+                        'name': 'HDR Exposure 2',
+                        'output': ['hdr_pairing']
+                    },
+                    {
+                        'id': 'raw_file_3',
+                        'type': 'File',
+                        'extension': '.CR3',
+                        'name': 'HDR Exposure 3',
+                        'output': ['hdr_pairing']
+                    },
+                    {
+                        'id': 'hdr_pairing',
+                        'type': 'Pairing',
+                        'pairing_type': 'HDR',
+                        'input_count': 3,
+                        'name': 'HDR Merge',
+                        'output': ['merged_dng']
+                    },
+                    {
+                        'id': 'merged_dng',
+                        'type': 'File',
+                        'extension': '.DNG',
+                        'name': 'Merged DNG',
+                        'output': ['termination']
+                    },
+                    {
+                        'id': 'termination',
+                        'type': 'Termination',
+                        'termination_type': 'HDR Archive',
+                        'name': 'HDR Archive Ready',
+                        'output': []
+                    }
+                ]
+            }
         }
 
         # Create config file

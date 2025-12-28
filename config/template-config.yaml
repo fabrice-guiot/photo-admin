@@ -72,83 +72,85 @@ processing_methods:
 # Pipeline Validation Tool Configuration
 # Defines expected photo processing workflows as directed graphs
 # Used by pipeline_validation.py to validate file completeness
+# Multiple pipeline versions can be defined (e.g., default, v2, experimental)
 processing_pipelines:
-  nodes:
-    # --- CAPTURE NODE (Starting Point) ---
-    - id: "capture"
-      type: "Capture"
-      name: "Camera Capture"
-      output: ["raw_image_1", "xmp_metadata_1"]
+  default:
+    nodes:
+      # --- CAPTURE NODE (Starting Point) ---
+      - id: "capture"
+        type: "Capture"
+        name: "Camera Capture"
+        output: ["raw_image_1", "xmp_metadata_1"]
 
-    # --- FILE NODES (Expected Files) ---
-    - id: "raw_image_1"
-      type: "File"
-      extension: ".CR3"
-      name: "Canon Raw File"
-      output: ["selection_process"]
+      # --- FILE NODES (Expected Files) ---
+      - id: "raw_image_1"
+        type: "File"
+        extension: ".CR3"
+        name: "Canon Raw File"
+        output: ["selection_process"]
 
-    - id: "xmp_metadata_1"
-      type: "File"
-      extension: ".XMP"
-      name: "XMP Metadata Sidecar"
-      output: []  # Terminal file node (always present)
+      - id: "xmp_metadata_1"
+        type: "File"
+        extension: ".XMP"
+        name: "XMP Metadata Sidecar"
+        output: []  # Terminal file node (always present)
 
-    # --- PROCESS NODES (Editing/Conversion Steps) ---
-    - id: "selection_process"
-      type: "Process"
-      method_ids: [""]  # Empty string means no suffix added (selection only)
-      name: "Image Selection"
-      output: ["dng_conversion"]
+      # --- PROCESS NODES (Editing/Conversion Steps) ---
+      - id: "selection_process"
+        type: "Process"
+        method_ids: [""]  # Empty string means no suffix added (selection only)
+        name: "Image Selection"
+        output: ["dng_conversion"]
 
-    - id: "dng_conversion"
-      type: "Process"
-      method_ids: ["DxO_DeepPRIME_XD2s"]  # Adds "-DxO_DeepPRIME_XD2s" suffix
-      name: "DNG Conversion with DeepPRIME"
-      output: ["openformat_raw_image", "xmp_metadata_2"]
+      - id: "dng_conversion"
+        type: "Process"
+        method_ids: ["DxO_DeepPRIME_XD2s"]  # Adds "-DxO_DeepPRIME_XD2s" suffix
+        name: "DNG Conversion with DeepPRIME"
+        output: ["openformat_raw_image", "xmp_metadata_2"]
 
-    - id: "openformat_raw_image"
-      type: "File"
-      extension: ".DNG"
-      name: "Open Format Raw (DNG)"
-      output: ["individual_photoshop_process"]
+      - id: "openformat_raw_image"
+        type: "File"
+        extension: ".DNG"
+        name: "Open Format Raw (DNG)"
+        output: ["individual_photoshop_process"]
 
-    - id: "xmp_metadata_2"
-      type: "File"
-      extension: ".XMP"
-      name: "DNG Metadata Sidecar"
-      output: []
+      - id: "xmp_metadata_2"
+        type: "File"
+        extension: ".XMP"
+        name: "DNG Metadata Sidecar"
+        output: []
 
-    - id: "individual_photoshop_process"
-      type: "Process"
-      method_ids: ["Edit"]  # Adds "-Edit" suffix (can loop: -Edit-Edit-Edit...)
-      name: "Photoshop Editing"
-      output: ["tiff_generation_branching"]
+      - id: "individual_photoshop_process"
+        type: "Process"
+        method_ids: ["Edit"]  # Adds "-Edit" suffix (can loop: -Edit-Edit-Edit...)
+        name: "Photoshop Editing"
+        output: ["tiff_generation_branching"]
 
-    # --- BRANCHING NODE (Conditional Path) ---
-    - id: "tiff_generation_branching"
-      type: "Branching"
-      condition_description: "User decides: Create final TIFF or continue editing"
-      name: "TIFF Generation Decision"
-      output: ["generate_tiff_process", "individual_photoshop_process"]  # Second output creates loop
+      # --- BRANCHING NODE (Conditional Path) ---
+      - id: "tiff_generation_branching"
+        type: "Branching"
+        condition_description: "User decides: Create final TIFF or continue editing"
+        name: "TIFF Generation Decision"
+        output: ["generate_tiff_process", "individual_photoshop_process"]  # Second output creates loop
 
-    - id: "generate_tiff_process"
-      type: "Process"
-      method_ids: [""]  # No suffix (TIFF generation preserves filename)
-      name: "Generate Final TIFF"
-      output: ["tiff_image"]
+      - id: "generate_tiff_process"
+        type: "Process"
+        method_ids: [""]  # No suffix (TIFF generation preserves filename)
+        name: "Generate Final TIFF"
+        output: ["tiff_image"]
 
-    - id: "tiff_image"
-      type: "File"
-      extension: ".TIF"
-      name: "Final TIFF File"
-      output: ["termination_blackbox"]
+      - id: "tiff_image"
+        type: "File"
+        extension: ".TIF"
+        name: "Final TIFF File"
+        output: ["termination_blackbox"]
 
-    # --- TERMINATION NODE (Archival Ready) ---
-    - id: "termination_blackbox"
-      type: "Termination"
-      termination_type: "Black Box Archive"
-      name: "Black Box Archive Ready"
-      output: []  # Termination nodes have no outputs
+      # --- TERMINATION NODE (Archival Ready) ---
+      - id: "termination_blackbox"
+        type: "Termination"
+        termination_type: "Black Box Archive"
+        name: "Black Box Archive Ready"
+        output: []  # Termination nodes have no outputs
 
 # Notes on Pipeline Validation:
 # 1. Validation enumerates ALL paths from Capture to Termination nodes

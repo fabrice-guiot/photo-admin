@@ -339,12 +339,14 @@ def parse_node_from_yaml(node_dict: Dict[str, Any]) -> PipelineNode:
         raise ValueError(f"Unknown node type: {node_type} (node: {node_id})")
 
 
-def load_pipeline_config(config_path: Path) -> PipelineConfig:
+def load_pipeline_config(config_path: Path, pipeline_name: str = 'default') -> PipelineConfig:
     """
     Load pipeline configuration from YAML config file.
 
     Args:
         config_path: Path to configuration file (config.yaml)
+        pipeline_name: Name of the pipeline to load (default: 'default')
+                      Supports versioned pipelines (e.g., 'default', 'v2', 'experimental')
 
     Returns:
         PipelineConfig object with all parsed nodes
@@ -371,13 +373,22 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
     if not processing_pipelines:
         raise ValueError("Missing 'processing_pipelines' section in configuration file")
 
-    # Extract nodes list
-    nodes_list = processing_pipelines.get('nodes')
+    # Extract specific pipeline (versioned structure)
+    pipeline_config = processing_pipelines.get(pipeline_name)
+    if not pipeline_config:
+        available = list(processing_pipelines.keys())
+        raise ValueError(
+            f"Pipeline '{pipeline_name}' not found in configuration. "
+            f"Available pipelines: {', '.join(available)}"
+        )
+
+    # Extract nodes list from the pipeline
+    nodes_list = pipeline_config.get('nodes')
     if not nodes_list:
-        raise ValueError("Missing 'nodes' list in processing_pipelines section")
+        raise ValueError(f"Missing 'nodes' list in pipeline '{pipeline_name}'")
 
     if not isinstance(nodes_list, list):
-        raise ValueError("'nodes' must be a list")
+        raise ValueError(f"'nodes' must be a list in pipeline '{pipeline_name}'")
 
     # Parse each node
     nodes = []
@@ -386,7 +397,7 @@ def load_pipeline_config(config_path: Path) -> PipelineConfig:
             node = parse_node_from_yaml(node_dict)
             nodes.append(node)
         except ValueError as e:
-            raise ValueError(f"Error parsing node at index {i}: {e}")
+            raise ValueError(f"Error parsing node at index {i} in pipeline '{pipeline_name}': {e}")
 
     # Create and return PipelineConfig
     return PipelineConfig(nodes=nodes)
@@ -1153,31 +1164,33 @@ def main():
 
     # Load pipeline configuration from config.yaml
     try:
-        pipeline = load_pipeline_config(config_file_path)
+        pipeline = load_pipeline_config(config_file_path, pipeline_name='default')
         print(f"  Loaded {len(pipeline.nodes)} pipeline nodes from {config_file_path}")
+        print(f"  Using pipeline: default")
     except ValueError as e:
         print(f"⚠ Error loading pipeline configuration: {e}")
         print()
-        print("Please ensure your config.yaml has a processing_pipelines section:")
+        print("Please ensure your config.yaml has a processing_pipelines section with versioned pipelines:")
         print()
         print("  processing_pipelines:")
-        print("    nodes:")
-        print("      - id: capture")
-        print("        type: Capture")
-        print("        name: Camera Capture")
-        print("        output: [raw_file, xmp_file]")
+        print("    default:")
+        print("      nodes:")
+        print("        - id: capture")
+        print("          type: Capture")
+        print("          name: Camera Capture")
+        print("          output: [raw_file, xmp_file]")
         print()
-        print("      - id: raw_file")
-        print("        type: File")
-        print("        name: Canon Raw File")
-        print("        extension: .CR3")
-        print("        output: [processing_step]")
+        print("        - id: raw_file")
+        print("          type: File")
+        print("          name: Canon Raw File")
+        print("          extension: .CR3")
+        print("          output: [processing_step]")
         print()
-        print("      - id: termination")
-        print("        type: Termination")
-        print("        name: Archive Ready")
-        print("        termination_type: Black Box Archive")
-        print("        output: []")
+        print("        - id: termination")
+        print("          type: Termination")
+        print("          name: Archive Ready")
+        print("          termination_type: Black Box Archive")
+        print("          output: []")
         print()
         print(f"See config/template-config.yaml for a complete example.")
         print()
