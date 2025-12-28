@@ -2190,3 +2190,130 @@ class TestPairingNodes:
                 idx_p1 = node_ids.index('pairing1')
                 idx_p2 = node_ids.index('pairing2')
                 assert idx_p1 < idx_p2, "pairing1 should be processed before pairing2"
+
+    def test_early_termination_before_second_pairing(self):
+        """Test that paths terminating before second pairing node are preserved."""
+        from utils.config_manager import PhotoAdminConfig
+
+        # Create pipeline with 2 pairing nodes where some paths can terminate early
+        config_data = {
+            'processing_pipelines': {
+                'early_termination_test': {
+                    'nodes': [
+                        {
+                            'id': 'capture',
+                            'type': 'Capture',
+                            'name': 'Capture',
+                            'output': ['file1', 'file2']
+                        },
+                        # First pairing node inputs
+                        {
+                            'id': 'file1',
+                            'type': 'File',
+                            'extension': '.CR3',
+                            'name': 'File 1',
+                            'output': ['pairing1']
+                        },
+                        {
+                            'id': 'file2',
+                            'type': 'File',
+                            'extension': '.XMP',
+                            'name': 'File 2',
+                            'output': ['pairing1']
+                        },
+                        # First pairing outputs to branching node
+                        {
+                            'id': 'pairing1',
+                            'type': 'Pairing',
+                            'name': 'Pairing 1',
+                            'pairing_type': 'Metadata',
+                            'input_count': 2,
+                            'output': ['branching1']
+                        },
+                        # Branching: can either terminate early OR continue to pairing2
+                        {
+                            'id': 'branching1',
+                            'type': 'Branching',
+                            'name': 'Branching 1',
+                            'condition_description': 'User decides: terminate or continue',
+                            'output': ['termination_early', 'file4', 'file5']
+                        },
+                        # Path that terminates early (before pairing2)
+                        {
+                            'id': 'termination_early',
+                            'type': 'Termination',
+                            'name': 'Early Termination',
+                            'termination_type': 'Black Box',
+                            'output': []
+                        },
+                        # Paths that continue to pairing2
+                        {
+                            'id': 'file4',
+                            'type': 'File',
+                            'extension': '.DNG',
+                            'name': 'File 4',
+                            'output': ['pairing2']
+                        },
+                        {
+                            'id': 'file5',
+                            'type': 'File',
+                            'extension': '.JPG',
+                            'name': 'File 5',
+                            'output': ['pairing2']
+                        },
+                        # Second pairing node
+                        {
+                            'id': 'pairing2',
+                            'type': 'Pairing',
+                            'name': 'Pairing 2',
+                            'pairing_type': 'ImageGroup',
+                            'input_count': 2,
+                            'output': ['termination_late']
+                        },
+                        {
+                            'id': 'termination_late',
+                            'type': 'Termination',
+                            'name': 'Late Termination',
+                            'termination_type': 'Browsable',
+                            'output': []
+                        }
+                    ]
+                }
+            }
+        }
+
+        with patch.object(PhotoAdminConfig, '_load_config', return_value=config_data):
+            config = PhotoAdminConfig()
+            pipeline = pipeline_validation.load_pipeline_config(config, 'early_termination_test')
+
+            paths = pipeline_validation.enumerate_paths_with_pairing(pipeline)
+
+            # Should have paths to both terminations
+            assert len(paths) > 0, "Should enumerate at least one path"
+
+            # Categorize paths by termination
+            early_term_paths = []
+            late_term_paths = []
+
+            for path in paths:
+                node_ids = [n['node_id'] for n in path]
+                last_node = path[-1]
+
+                if last_node['node_id'] == 'termination_early':
+                    early_term_paths.append(path)
+                    # Early termination should NOT include pairing2
+                    assert 'pairing2' not in node_ids, "Early termination should not include pairing2"
+                    # But should include pairing1
+                    assert 'pairing1' in node_ids, "Early termination should include pairing1"
+                elif last_node['node_id'] == 'termination_late':
+                    late_term_paths.append(path)
+                    # Late termination should include both pairing nodes
+                    assert 'pairing1' in node_ids, "Late termination should include pairing1"
+                    assert 'pairing2' in node_ids, "Late termination should include pairing2"
+
+            # Verify we found both types
+            assert len(early_term_paths) > 0, "Should have paths with early termination"
+            assert len(late_term_paths) > 0, "Should have paths with late termination"
+
+            print(f"\nEarly termination paths: {len(early_term_paths)}")
+            print(f"Late termination paths: {len(late_term_paths)}")

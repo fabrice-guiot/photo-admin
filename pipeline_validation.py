@@ -972,6 +972,9 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
     initial_state = PathState()
     current_frontier = [(initial_path, initial_state, capture_node.id)]
 
+    # NEW: Collect paths that terminate before reaching later pairing nodes
+    all_completed_paths = []
+
     # Process each pairing node in topological order
     for pairing_node in pairing_nodes:
         input1_id, input2_id = pairing_inputs[pairing_node.id]
@@ -981,14 +984,16 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
 
         for seed_path, seed_state, start_node_id in current_frontier:
             # DFS from start_node to pairing_node (treating pairing as termination)
-            paths = dfs_to_target_node(
+            # Returns: (incomplete_paths, completed_paths)
+            incomplete, completed = dfs_to_target_node(
                 start_node_id=start_node_id,
                 target_node_id=pairing_node.id,
                 current_path=seed_path.copy(),
                 state=seed_state,
                 pipeline=pipeline
             )
-            paths_to_pairing.extend(paths)
+            paths_to_pairing.extend(incomplete)
+            all_completed_paths.extend(completed)  # NEW: Save early terminations
 
         # Group paths by which input they arrived on
         branch1_paths = []
@@ -1027,7 +1032,8 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
         )
         final_paths.extend(paths)
 
-    return final_paths
+    # Return all paths: early terminations + final paths
+    return all_completed_paths + final_paths
 
 
 def dfs_to_target_node(
@@ -1036,13 +1042,17 @@ def dfs_to_target_node(
     current_path: List[Dict[str, Any]],
     state: PathState,
     pipeline: PipelineConfig
-) -> List[tuple]:
+) -> tuple:
     """
     DFS from start node to target node (treating target as temporary termination).
 
-    Returns list of (path, state, arrived_from_node_id) tuples.
+    Returns:
+        Tuple of (incomplete_paths, completed_paths):
+        - incomplete_paths: List of (path, state, arrived_from_node_id) that reached target
+        - completed_paths: List of complete paths that reached termination nodes before target
     """
-    all_paths = []
+    incomplete_paths = []  # Paths that reached the target pairing node
+    completed_paths = []   # Paths that reached termination nodes early
 
     def dfs(node_id: str, path: List[Dict[str, Any]], current_state: PathState, came_from: str):
         if node_id not in pipeline.nodes_by_id:
@@ -1050,9 +1060,22 @@ def dfs_to_target_node(
 
         node = pipeline.nodes_by_id[node_id]
 
-        # If we reached target, save path
+        # If we reached target pairing node, save as incomplete path
         if node_id == target_node_id:
-            all_paths.append((path.copy(), current_state, came_from))
+            incomplete_paths.append((path.copy(), current_state, came_from))
+            return
+
+        # NEW: If we reached a termination node, save as completed path
+        if isinstance(node, TerminationNode):
+            # This is a complete path that terminated before reaching target
+            node_info = {
+                'node_id': node.id,
+                'node_type': 'Termination',
+                'termination_type': node.termination_type
+            }
+            path.append(node_info)
+            completed_paths.append(path.copy())
+            path.pop()
             return
 
         # Build node info
@@ -1080,7 +1103,7 @@ def dfs_to_target_node(
                     'truncation_note': f'Pairing node {node_id} encountered multiple times (loops not allowed)'
                 }
                 path.append(truncated_termination)
-                all_paths.append((path.copy(), current_state, came_from))
+                completed_paths.append(path.copy())  # Truncated paths are "complete"
                 path.pop()
                 return
 
@@ -1105,7 +1128,7 @@ def dfs_to_target_node(
                     'truncation_note': f'Path truncated after {MAX_ITERATIONS} iterations of {node.id}'
                 }
                 path.append(truncated_termination)
-                all_paths.append((path.copy(), current_state, came_from))
+                completed_paths.append(path.copy())  # Truncated paths are "complete"
                 path.pop()
                 path.pop()
                 return
@@ -1129,7 +1152,7 @@ def dfs_to_target_node(
     # Start DFS from start_node
     dfs(start_node_id, current_path, state, start_node_id)
 
-    return all_paths
+    return (incomplete_paths, completed_paths)
 
 
 def dfs_to_termination_nodes(
