@@ -1141,18 +1141,82 @@ def main():
     print(f"Analyzing: {args.folder_path}")
     print()
 
-    # TODO: Phase 2 - Load pipeline configuration
-    # TODO: Phase 2 - Load Photo Pairing results
-    # TODO: Phase 2 - Flatten ImageGroups to SpecificImages
+    # Phase 2: Load configuration and data
+    print("Loading configuration...")
+    config = PhotoAdminConfig(config_path=args.config)
 
-    # TODO: Phase 3 (US1) - Enumerate all paths through pipeline
-    # TODO: Phase 3 (US1) - Validate each SpecificImage against paths
-    # TODO: Phase 3 (US1) - Classify validation status
+    # Load pipeline configuration from config.yaml
+    if not hasattr(config, 'processing_pipelines') or not config.processing_pipelines:
+        print("⚠ Error: No processing_pipelines defined in configuration")
+        print("  Please add a processing_pipelines section to your config.yaml")
+        print()
+        print("Example:")
+        print("  processing_pipelines:")
+        print("    default:")
+        print("      nodes:")
+        print("        - node_id: capture")
+        print("          node_type: Capture")
+        print("        - node_id: raw_file")
+        print("          node_type: File")
+        print("          extension: .CR3")
+        print("        ...")
+        print()
+        return 1
 
-    # TODO: Phase 4 (US2) - Support all 6 node types
-    # TODO: Phase 4 (US2) - Handle Branching and Pairing nodes
+    # Get the default pipeline (or first available)
+    pipeline_name = 'default'
+    if pipeline_name not in config.processing_pipelines:
+        pipeline_name = list(config.processing_pipelines.keys())[0]
 
-    # TODO: Phase 5 (US3) - Handle counter looping with suffixes
+    print(f"  Using pipeline: {pipeline_name}")
+
+    # Parse pipeline configuration
+    pipeline = load_pipeline_config(config, pipeline_name)
+    print(f"  Loaded {len(pipeline.nodes)} pipeline nodes")
+    print()
+
+    # Phase 2: Load Photo Pairing results
+    print("Loading Photo Pairing results...")
+    imagegroups = load_imagegroups_from_cache(args.folder_path)
+    print(f"  Loaded {len(imagegroups)} image groups")
+
+    # Phase 2: Flatten to SpecificImages
+    specific_images = flatten_imagegroups_to_specific_images(imagegroups)
+    print(f"  Flattened to {len(specific_images)} specific images")
+    print()
+
+    # Phase 3 & 4: Validate images against pipeline
+    print("Validating images against pipeline...")
+    print(f"  Pipeline supports all 6 node types (Phases 3 & 4 complete)")
+    validation_results = validate_all_images(specific_images, pipeline, show_progress=True)
+    print()
+    print(f"  Validated {len(validation_results)} images")
+    print()
+
+    # Display summary statistics
+    status_counts = {
+        ValidationStatus.CONSISTENT: 0,
+        ValidationStatus.CONSISTENT_WITH_WARNING: 0,
+        ValidationStatus.PARTIAL: 0,
+        ValidationStatus.INCONSISTENT: 0
+    }
+
+    for result in validation_results:
+        # Count the most severe status across all terminations
+        worst_status = ValidationStatus.CONSISTENT
+        for term_result in result.termination_results:
+            if term_result.status.value > worst_status.value:
+                worst_status = term_result.status
+        status_counts[worst_status] += 1
+
+    print("Validation Summary:")
+    print(f"  ✓ Consistent: {status_counts[ValidationStatus.CONSISTENT]}")
+    print(f"  ⚠ Consistent with warnings: {status_counts[ValidationStatus.CONSISTENT_WITH_WARNING]}")
+    print(f"  ⚠ Partial: {status_counts[ValidationStatus.PARTIAL]}")
+    print(f"  ✗ Inconsistent: {status_counts[ValidationStatus.INCONSISTENT]}")
+    print()
+
+    # TODO: Phase 5 (US3) - Handle counter looping with suffixes (currently basic support exists)
 
     # TODO: Phase 6 (US4) - Implement caching with SHA256 hashing
     # TODO: Phase 6 (US4) - Cache invalidation logic
@@ -1160,9 +1224,10 @@ def main():
     # TODO: Phase 7 (US5) - Generate HTML report
     # TODO: Phase 7 (US5) - Chart.js visualizations
 
-    print("✓ Pipeline validation complete (placeholder)")
+    print("✓ Pipeline validation complete")
     print()
-    print("Note: This is a skeleton implementation. Core functionality pending.")
+    print(f"Note: HTML report generation pending (Phase 7)")
+    print(f"      Validation results available in memory")
 
     return 0
 
