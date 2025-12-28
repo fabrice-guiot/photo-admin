@@ -1429,37 +1429,71 @@ def validate_specific_image(
     actual_files_set = set(specific_image.actual_files)
 
     for term_id, paths in paths_by_termination.items():
-        # Get all expected files across all paths to this termination
-        all_expected_files = set()
+        # NEW APPROACH: Evaluate each path independently and find the BEST match
+        # An image group is CONSISTENT if AT LEAST ONE path produces the same files
+
+        path_evaluations = []
+
         for path in paths:
             expected_files = generate_expected_files(path, specific_image.unique_id)
-            all_expected_files.update(expected_files)
+            expected_files_set = set(expected_files)
 
-        # Classify status
-        status = classify_validation_status(actual_files_set, all_expected_files)
+            # Classify status for this specific path
+            path_status = classify_validation_status(actual_files_set, expected_files_set)
 
-        # Calculate completion percentage
-        if all_expected_files:
-            found_expected = actual_files_set & all_expected_files
-            completion_percentage = (len(found_expected) / len(all_expected_files)) * 100
-        else:
-            completion_percentage = 0.0
+            # Calculate metrics for this path
+            missing = expected_files_set - actual_files_set
+            extra = actual_files_set - expected_files_set
 
-        # Find missing and extra files
-        missing_files = sorted(list(all_expected_files - actual_files_set))
-        extra_files = sorted(list(actual_files_set - all_expected_files))
+            if expected_files_set:
+                found_expected = actual_files_set & expected_files_set
+                completion = (len(found_expected) / len(expected_files_set)) * 100
+            else:
+                completion = 0.0
 
-        # Check if any path was truncated
-        truncated = any(
-            node.get('truncated', False) for path in paths for node in path
-        )
-        truncation_note = None
-        if truncated:
-            for path in paths:
+            # Check if this path was truncated
+            path_truncated = any(node.get('truncated', False) for node in path)
+            truncation_note = None
+            if path_truncated:
                 for node in path:
                     if node.get('truncation_note'):
                         truncation_note = node['truncation_note']
                         break
+
+            path_evaluations.append({
+                'path': path,
+                'status': path_status,
+                'expected_files': expected_files_set,
+                'missing_files': missing,
+                'extra_files': extra,
+                'completion_percentage': completion,
+                'truncated': path_truncated,
+                'truncation_note': truncation_note,
+                'path_depth': len([n for n in path if n.get('node_type') not in ('Capture', 'Termination')])
+            })
+
+        # Find the BEST status (CONSISTENT > CONSISTENT_WITH_WARNING > PARTIAL > INCONSISTENT)
+        status_priority = {
+            ValidationStatus.CONSISTENT: 1,
+            ValidationStatus.CONSISTENT_WITH_WARNING: 2,
+            ValidationStatus.PARTIAL: 3,
+            ValidationStatus.INCONSISTENT: 4
+        }
+
+        best_eval = min(path_evaluations, key=lambda e: (
+            status_priority[e['status']],  # Best status first
+            len(e['missing_files']),        # Fewest missing files second
+            e['path_depth']                 # Shortest path third
+        ))
+
+        # Use the best match for reporting
+        status = best_eval['status']
+        completion_percentage = best_eval['completion_percentage']
+        missing_files = sorted(list(best_eval['missing_files']))
+        extra_files = sorted(list(best_eval['extra_files']))
+        truncated = best_eval['truncated']
+        truncation_note = best_eval['truncation_note']
+        all_expected_files = best_eval['expected_files']
 
         # Get termination type
         term_node = paths[0][-1] if paths else {}

@@ -1056,13 +1056,18 @@ class TestCounterLooping:
         primary_result = [r for r in results if r.unique_id == 'AB3D0001'][0]
         second_result = [r for r in results if r.unique_id == 'AB3D0001-2'][0]
 
-        # Primary image should be CONSISTENT
+        # Primary image should be CONSISTENT_WITH_WARNING
+        # (With best-path selection: Path1 expects {CR3}, Path2 expects {XMP},
+        #  but actual has {CR3, XMP}, so both paths have extra files)
         primary_status = primary_result.termination_matches[0].status
-        assert primary_status == pipeline_validation.ValidationStatus.CONSISTENT
+        assert primary_status == pipeline_validation.ValidationStatus.CONSISTENT_WITH_WARNING
 
-        # Second capture should be PARTIAL (missing XMP)
+        # Second capture should be CONSISTENT
+        # (With best-path selection: Path1 expects {CR3}, actual={CR3} → CONSISTENT,
+        #  Path2 expects {XMP}, actual={CR3} → INCONSISTENT,
+        #  Best status is CONSISTENT from Path1)
         second_status = second_result.termination_matches[0].status
-        assert second_status == pipeline_validation.ValidationStatus.PARTIAL
+        assert second_status == pipeline_validation.ValidationStatus.CONSISTENT
 
 
 # =============================================================================
