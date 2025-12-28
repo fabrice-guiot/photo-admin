@@ -1534,20 +1534,22 @@ def build_graph_visualization_table(pipeline: PipelineConfig, config: PhotoAdmin
     Build graph visualization table for debugging pipeline traversal.
 
     Generates a sample base filename and shows all paths through the pipeline
-    with expected files for each termination.
+    with node IDs, depth, expected files, and truncation status.
 
     Args:
         pipeline: PipelineConfig object
         config: PhotoAdminConfig object
 
     Returns:
-        ReportSection with table showing termination types and expected files
+        ReportSection with table showing path details
 
     Example table:
-        | Path # | Termination Type | Expected Files                                    |
-        |--------|------------------|---------------------------------------------------|
-        | 1      | Black Box        | AB3D0742.CR3, AB3D0742.XMP, AB3D0742-Edit.DNG ... |
-        | 2      | TRUNCATED        | AB3D0742.CR3, AB3D0742.XMP, ...                   |
+        | Path # | Node Path      | Depth | Termination Type | Expected Files    | Truncated |
+        |--------|----------------|-------|------------------|-------------------|-----------|
+        | 1      | capture        | 3     | Black Box        | AB3D0742.CR3      | No        |
+        |        | ->raw_image_1  |       |                  | AB3D0742.XMP      |           |
+        |        | ->process      |       |                  | AB3D0742-Edit.DNG |           |
+        |        | ->termination  |       |                  |                   |           |
     """
     from utils.report_renderer import ReportSection
 
@@ -1558,7 +1560,7 @@ def build_graph_visualization_table(pipeline: PipelineConfig, config: PhotoAdmin
     all_paths = enumerate_all_paths(pipeline)
 
     # Build table rows
-    headers = ["Path #", "Termination Type", "Expected Files", "Truncated"]
+    headers = ["Path #", "Node Path", "Depth", "Termination Type", "Expected Files", "Truncated"]
     rows = []
 
     for i, path in enumerate(all_paths, 1):
@@ -1569,12 +1571,33 @@ def build_graph_visualization_table(pipeline: PipelineConfig, config: PhotoAdmin
             truncated = termination_node.get('truncated', False)
             truncated_str = "Yes" if truncated else "No"
 
-            # Generate expected files for this path
+            # Build node path string with newlines before arrows
+            node_ids = [node.get('node_id', 'unknown') for node in path]
+            if len(node_ids) > 0:
+                # First node ID without arrow, then newline before each subsequent arrow
+                node_path_parts = [node_ids[0]]
+                for node_id in node_ids[1:]:
+                    node_path_parts.append(f"\n->{node_id}")
+                node_path_str = "".join(node_path_parts)
+            else:
+                node_path_str = "(empty path)"
+
+            # Calculate depth (all nodes except first Capture and last Termination)
+            # Depth = total nodes - 2 (Capture and Termination)
+            # Minimum depth is 0 (just Capture -> Termination)
+            depth = max(0, len(path) - 2)
+
+            # Generate expected files for this path with newlines between files
             expected_files = generate_expected_files(path, sample_base_filename)
-            files_str = ", ".join(expected_files) if expected_files else "(no files)"
+            if expected_files:
+                files_str = "\n".join(expected_files)
+            else:
+                files_str = "(no files)"
 
             row = [
                 str(i),
+                node_path_str,
+                str(depth),
                 termination_type,
                 files_str,
                 truncated_str
@@ -1590,8 +1613,9 @@ def build_graph_visualization_table(pipeline: PipelineConfig, config: PhotoAdmin
             'rows': rows
         },
         description=f"This table shows all {len(all_paths)} paths enumerated through the pipeline graph using "
-                   f"sample base filename '{sample_base_filename}'. Each path represents a possible workflow "
-                   f"from Capture to Termination. Use this to debug graph traversal and verify expected files."
+                   f"sample base filename '{sample_base_filename}'. Each path shows the node traversal sequence, "
+                   f"depth (nodes excluding Capture/Termination), expected files, and whether the path was truncated "
+                   f"due to loop limits. Use this to debug graph traversal and verify expected files."
     )
 
     return section

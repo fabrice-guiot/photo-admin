@@ -1628,6 +1628,8 @@ class TestGraphVisualization:
             # Verify table headers
             headers = section.data['headers']
             assert 'Path #' in headers
+            assert 'Node Path' in headers
+            assert 'Depth' in headers
             assert 'Termination Type' in headers
             assert 'Expected Files' in headers
             assert 'Truncated' in headers
@@ -1638,7 +1640,22 @@ class TestGraphVisualization:
 
             # Verify row structure
             first_row = rows[0]
-            assert len(first_row) == 4  # Path #, Termination Type, Expected Files, Truncated
+            assert len(first_row) == 6  # Path #, Node Path, Depth, Termination Type, Expected Files, Truncated
+
+            # Verify node path contains arrows (except for first node)
+            node_path = first_row[1]
+            if len(node_path.split('\n')) > 1:  # Multi-node path
+                assert '->' in node_path
+
+            # Verify depth is a number
+            depth = first_row[2]
+            assert depth.isdigit()
+            assert int(depth) >= 0
+
+            # Verify expected files contain newlines between files (if multiple files)
+            expected_files = first_row[4]
+            # At minimum should have some content
+            assert len(expected_files) > 0
 
     def test_max_iterations_applied_to_file_nodes(self):
         """Test MAX_ITERATIONS is applied to File nodes (not just Process nodes)."""
