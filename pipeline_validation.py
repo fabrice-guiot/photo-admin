@@ -458,9 +458,11 @@ def validate_pipeline_structure(pipeline: PipelineConfig, config) -> List[str]:
         if isinstance(node, FileNode):
             ext_lower = node.extension.lower()
             if ext_lower not in valid_extensions:
+                # Convert sets to sorted list for display
+                all_valid_extensions = sorted(config.photo_extensions | config.metadata_extensions)
                 errors.append(
                     f"File node '{node.id}' has invalid extension '{node.extension}'. "
-                    f"Must be one of: {', '.join(config.photo_extensions + config.metadata_extensions)}"
+                    f"Must be one of: {', '.join(all_valid_extensions)}"
                 )
 
     # Check 7: Processing method_ids validation
