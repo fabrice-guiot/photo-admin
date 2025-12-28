@@ -261,7 +261,7 @@ def temp_photo_folder(tmp_path):
 def mock_config():
     """Mock PhotoAdminConfig for testing."""
     config = MagicMock()
-    config.photo_extensions = ['.cr3', '.dng', '.tiff']
+    config.photo_extensions = ['.cr3', '.dng', '.tiff', '.tif']
     config.metadata_extensions = ['.xmp']
     config.camera_mappings = {
         'AB3D': [{'name': 'Canon EOS R5', 'serial_number': '12345'}]
@@ -660,6 +660,177 @@ class TestFileValidation:
         )
 
         assert status == pipeline_validation.ValidationStatus.INCONSISTENT
+
+
+# =============================================================================
+# Phase 4: Custom Pipeline Tests (User Story 2)
+# =============================================================================
+
+class TestCustomPipelines:
+    """Tests for custom pipeline configurations (Phase 4 - User Story 2)."""
+
+    def test_custom_processing_methods(self, tmp_path, mock_config):
+        """Test integration with custom processing methods."""
+        # Create pipeline with custom processing methods
+        custom_pipeline = {
+            'nodes': [
+                {
+                    'id': 'capture',
+                    'type': 'Capture',
+                    'name': 'Camera Capture',
+                    'output': ['raw_file']
+                },
+                {
+                    'id': 'raw_file',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'Raw File',
+                    'output': ['dxo_process']
+                },
+                {
+                    'id': 'dxo_process',
+                    'type': 'Process',
+                    'method_ids': ['DxO_DeepPRIME_XD2s'],
+                    'name': 'DxO Processing',
+                    'output': ['dng_file']
+                },
+                {
+                    'id': 'dng_file',
+                    'type': 'File',
+                    'extension': '.DNG',
+                    'name': 'DNG File',
+                    'output': ['photoshop_process']
+                },
+                {
+                    'id': 'photoshop_process',
+                    'type': 'Process',
+                    'method_ids': ['Edit'],
+                    'name': 'Photoshop Editing',
+                    'output': ['tiff_file']
+                },
+                {
+                    'id': 'tiff_file',
+                    'type': 'File',
+                    'extension': '.TIF',
+                    'name': 'TIFF File',
+                    'output': ['termination']
+                },
+                {
+                    'id': 'termination',
+                    'type': 'Termination',
+                    'termination_type': 'Final Output',
+                    'name': 'Final Output Ready',
+                    'output': []
+                }
+            ]
+        }
+
+        # Create config file
+        config_file = tmp_path / "custom_config.yaml"
+        config_data = {'processing_pipelines': custom_pipeline}
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Validate structure
+        errors = pipeline_validation.validate_pipeline_structure(pipeline, mock_config)
+        assert len(errors) == 0
+
+        # Enumerate paths
+        paths = pipeline_validation.enumerate_all_paths(pipeline)
+        assert len(paths) > 0
+
+        # Generate expected files for a test image
+        path = paths[0]
+        expected_files = pipeline_validation.generate_expected_files(path, 'AB3D0001')
+
+        # Should have all files with correct suffixes
+        assert 'AB3D0001.CR3' in expected_files
+        assert 'AB3D0001-DxO_DeepPRIME_XD2s.DNG' in expected_files
+        assert 'AB3D0001-DxO_DeepPRIME_XD2s-Edit.TIF' in expected_files
+
+    def test_pairing_node_in_pipeline(self, tmp_path, mock_config):
+        """Test that Pairing nodes are handled correctly in pipeline."""
+        # Create pipeline with Pairing node (HDR)
+        pairing_pipeline = {
+            'nodes': [
+                {
+                    'id': 'capture',
+                    'type': 'Capture',
+                    'name': 'Camera Capture',
+                    'output': ['raw_file_1', 'raw_file_2', 'raw_file_3']
+                },
+                {
+                    'id': 'raw_file_1',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'HDR Exposure 1',
+                    'output': ['hdr_pairing']
+                },
+                {
+                    'id': 'raw_file_2',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'HDR Exposure 2',
+                    'output': ['hdr_pairing']
+                },
+                {
+                    'id': 'raw_file_3',
+                    'type': 'File',
+                    'extension': '.CR3',
+                    'name': 'HDR Exposure 3',
+                    'output': ['hdr_pairing']
+                },
+                {
+                    'id': 'hdr_pairing',
+                    'type': 'Pairing',
+                    'pairing_type': 'HDR',
+                    'input_count': 3,
+                    'name': 'HDR Merge',
+                    'output': ['merged_dng']
+                },
+                {
+                    'id': 'merged_dng',
+                    'type': 'File',
+                    'extension': '.DNG',
+                    'name': 'Merged DNG',
+                    'output': ['termination']
+                },
+                {
+                    'id': 'termination',
+                    'type': 'Termination',
+                    'termination_type': 'HDR Archive',
+                    'name': 'HDR Archive Ready',
+                    'output': []
+                }
+            ]
+        }
+
+        # Create config file
+        config_file = tmp_path / "pairing_config.yaml"
+        config_data = {'processing_pipelines': pairing_pipeline}
+        with open(config_file, 'w') as f:
+            yaml.dump(config_data, f)
+
+        # Load pipeline
+        pipeline = pipeline_validation.load_pipeline_config(config_file)
+
+        # Verify Pairing node was parsed correctly
+        pairing_node = pipeline.nodes_by_id.get('hdr_pairing')
+        assert pairing_node is not None
+        assert isinstance(pairing_node, pipeline_validation.PairingNode)
+        assert pairing_node.pairing_type == 'HDR'
+        assert pairing_node.input_count == 3
+
+        # Validate structure should pass
+        errors = pipeline_validation.validate_pipeline_structure(pipeline, mock_config)
+        assert len(errors) == 0
+
+        # Enumerate paths - should handle Pairing node
+        paths = pipeline_validation.enumerate_all_paths(pipeline)
+        assert len(paths) > 0
 
 
 # =============================================================================
