@@ -1493,7 +1493,10 @@ def validate_specific_image(
 
     # Validate against each termination
     termination_matches = []
-    actual_files_set = set(specific_image.actual_files)
+
+    # Normalize filenames to lowercase for case-insensitive comparison
+    # (filesystems like APFS, NTFS, FAT32 are case-insensitive)
+    actual_files_set = set(f.lower() for f in specific_image.actual_files)
 
     for term_id, paths in paths_by_termination.items():
         # NEW APPROACH: Evaluate each path independently and find the BEST match
@@ -1507,12 +1510,13 @@ def validate_specific_image(
                 continue
 
             expected_files = generate_expected_files(path, specific_image.unique_id)
-            expected_files_set = set(expected_files)
+            # Normalize expected files to lowercase for comparison
+            expected_files_set = set(f.lower() for f in expected_files)
 
-            # Classify status for this specific path
+            # Classify status for this specific path (case-insensitive)
             path_status = classify_validation_status(actual_files_set, expected_files_set)
 
-            # Calculate metrics for this path
+            # Calculate metrics for this path (case-insensitive)
             missing = expected_files_set - actual_files_set
             extra = actual_files_set - expected_files_set
 
@@ -1525,9 +1529,10 @@ def validate_specific_image(
             path_evaluations.append({
                 'path': path,
                 'status': path_status,
-                'expected_files': expected_files_set,
-                'missing_files': missing,
-                'extra_files': extra,
+                'expected_files': expected_files_set,  # Lowercase for comparison
+                'expected_files_original': set(expected_files),  # Original case for display
+                'missing_files': missing,  # Lowercase
+                'extra_files': extra,  # Lowercase
                 'completion_percentage': completion,
                 'truncated': False,  # All truncated paths already filtered
                 'truncation_note': None,
@@ -1555,9 +1560,9 @@ def validate_specific_image(
         # Use the best match for reporting
         status = best_eval['status']
         completion_percentage = best_eval['completion_percentage']
-        missing_files = sorted(list(best_eval['missing_files']))
-        extra_files = sorted(list(best_eval['extra_files']))
-        all_expected_files = best_eval['expected_files']
+        missing_files_lower = best_eval['missing_files']
+        extra_files_lower = best_eval['extra_files']
+        all_expected_files_original = best_eval['expected_files_original']
 
         # Get termination type
         term_node = paths[0][-1] if paths else {}
@@ -1565,15 +1570,16 @@ def validate_specific_image(
 
         # Create TerminationMatchResult
         # Note: truncated is always False for actual validation (truncated paths are excluded)
+        # Use original-case expected files for display
         term_match = TerminationMatchResult(
             termination_id=term_id,
             termination_type=termination_type,
             status=status,
             completion_percentage=completion_percentage,
-            expected_files=sorted(list(all_expected_files)),
+            expected_files=sorted(list(all_expected_files_original)),
             actual_files=specific_image.actual_files,
-            missing_files=missing_files,
-            extra_files=extra_files,
+            missing_files=sorted(list(missing_files_lower)),
+            extra_files=sorted(list(extra_files_lower)),
             truncated=False,
             truncation_note=None
         )
