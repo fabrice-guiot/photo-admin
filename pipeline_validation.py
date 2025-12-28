@@ -32,6 +32,9 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any, Union
 from enum import Enum
 
+# Import shared configuration manager
+from utils.config_manager import PhotoAdminConfig
+
 # Tool version (semantic versioning)
 TOOL_VERSION = "1.0.0"
 
