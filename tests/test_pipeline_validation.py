@@ -1455,60 +1455,112 @@ class TestHTMLReportGeneration:
         assert context.scan_duration >= 0
 
         # Verify KPIs exist
-        assert len(context.kpis) >= 4  # Total, Consistent, Partial, Warning
+        # Expected: Total, Overall Consistent, and per-termination (Ready, Partial, With Warnings)
+        # Test data: 1 CONSISTENT, 1 PARTIAL, 1 CONSISTENT-WITH-WARNING for Black Box Archive
+        assert len(context.kpis) >= 5  # Total, Overall Consistent, Ready, Partial, With Warnings
+
         total_kpi = next(kpi for kpi in context.kpis if 'Total' in kpi.title)
         assert total_kpi.value == '3'
 
-        consistent_kpi = next(kpi for kpi in context.kpis if 'Consistent' in kpi.title)
-        assert consistent_kpi.value == '1'
-        assert consistent_kpi.status == 'success'
+        # Check for Overall Consistent KPI
+        overall_consistent_kpi = next(kpi for kpi in context.kpis if 'Overall Consistent' in kpi.title)
+        assert overall_consistent_kpi.value == '1'
+        assert overall_consistent_kpi.status == 'success'
 
-        # Verify sections exist
-        assert len(context.sections) >= 2  # At least pie chart and table
+        # Check for per-termination KPIs
+        ready_kpis = [kpi for kpi in context.kpis if 'Ready' in kpi.title]
+        assert len(ready_kpis) >= 1
+        black_box_ready = next((kpi for kpi in ready_kpis if 'Black Box Archive' in kpi.title), None)
+        assert black_box_ready is not None
+        assert black_box_ready.value == '2'  # 1 CONSISTENT + 1 CONSISTENT-WITH-WARNING
+
+        # Check for Partial KPI
+        partial_kpis = [kpi for kpi in context.kpis if 'Partial' in kpi.title]
+        assert len(partial_kpis) >= 1
+        black_box_partial = next((kpi for kpi in partial_kpis if 'Black Box Archive' in kpi.title), None)
+        assert black_box_partial is not None
+        assert black_box_partial.value == '1'
+
+        # Check for With Warnings KPI
+        warning_kpis = [kpi for kpi in context.kpis if 'With Warnings' in kpi.title]
+        assert len(warning_kpis) >= 1
+        black_box_warnings = next((kpi for kpi in warning_kpis if 'Black Box Archive' in kpi.title), None)
+        assert black_box_warnings is not None
+        assert black_box_warnings.value == '1'
+
+        # Verify sections exist - should include overall chart + per-termination charts + tables
+        assert len(context.sections) >= 3  # Overall chart, termination chart, and tables
+
+        # Check for Overall status chart
+        overall_chart = next((s for s in context.sections if s.title == 'Status Distribution - Overall'), None)
+        assert overall_chart is not None
+        assert overall_chart.type == 'chart_pie'
+
+        # Check for termination-specific chart
+        term_charts = [s for s in context.sections if 'Status Distribution - Black Box Archive' in s.title]
+        assert len(term_charts) >= 1
 
     def test_chart_data_generation(self):
-        """Test T057: Chart data generation for pie and bar charts."""
-        # Create sample validation results
+        """Test T057: Chart data generation for pie charts (overall + per-termination)."""
+        # Create sample validation results with termination details
         validation_results = [
             {
                 'unique_id': 'AB3D0001',
                 'status': 'CONSISTENT',
-                'termination_matches': [{'status': 'CONSISTENT'}]
+                'termination_matches': [
+                    {'termination_id': 'term1', 'termination_type': 'Black Box Archive', 'status': 'CONSISTENT'}
+                ]
             },
             {
                 'unique_id': 'AB3D0002',
                 'status': 'CONSISTENT',
-                'termination_matches': [{'status': 'CONSISTENT'}]
+                'termination_matches': [
+                    {'termination_id': 'term1', 'termination_type': 'Black Box Archive', 'status': 'CONSISTENT'}
+                ]
             },
             {
                 'unique_id': 'AB3D0003',
                 'status': 'PARTIAL',
-                'termination_matches': [{'status': 'PARTIAL'}]
+                'termination_matches': [
+                    {'termination_id': 'term1', 'termination_type': 'Black Box Archive', 'status': 'PARTIAL'}
+                ]
             },
             {
                 'unique_id': 'AB3D0004',
                 'status': 'CONSISTENT_WITH_WARNING',
-                'termination_matches': [{'status': 'CONSISTENT_WITH_WARNING'}]
+                'termination_matches': [
+                    {'termination_id': 'term1', 'termination_type': 'Black Box Archive', 'status': 'CONSISTENT_WITH_WARNING'}
+                ]
             }
         ]
 
-        # Test pie chart data
-        pie_section = pipeline_validation.build_status_distribution_chart(validation_results)
-        assert pie_section.type == 'chart_pie'
-        assert pie_section.title == 'Status Distribution'
-        assert 'labels' in pie_section.data
-        assert 'values' in pie_section.data
+        # Test chart sections - should include overall + per-termination charts
+        chart_sections = pipeline_validation.build_chart_sections(validation_results)
+        assert len(chart_sections) >= 2  # Overall + at least one termination
 
-        # Verify data structure
-        labels = pie_section.data['labels']
+        # Check overall chart
+        overall_chart = next((s for s in chart_sections if s.title == 'Status Distribution - Overall'), None)
+        assert overall_chart is not None
+        assert overall_chart.type == 'chart_pie'
+        assert 'labels' in overall_chart.data
+        assert 'values' in overall_chart.data
+
+        # Verify overall chart data
+        labels = overall_chart.data['labels']
+        values = overall_chart.data['values']
         assert 'CONSISTENT' in labels
         assert 'PARTIAL' in labels
-        assert 'CONSISTENT-WITH-WARNING' in labels
-
-        values = pie_section.data['values']
+        assert 'CONSISTENT_WITH_WARNING' in labels
         assert values[labels.index('CONSISTENT')] == 2
         assert values[labels.index('PARTIAL')] == 1
-        assert values[labels.index('CONSISTENT-WITH-WARNING')] == 1
+        assert values[labels.index('CONSISTENT_WITH_WARNING')] == 1
+
+        # Check termination-specific chart
+        term_chart = next((s for s in chart_sections if 'Black Box Archive' in s.title), None)
+        assert term_chart is not None
+        assert term_chart.type == 'chart_pie'
+        assert 'labels' in term_chart.data
+        assert 'values' in term_chart.data
 
     def test_html_report_generation_integration(self, tmp_path):
         """Test T058: Integration test for HTML report with timestamped filename."""

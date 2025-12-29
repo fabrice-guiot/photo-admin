@@ -1538,7 +1538,7 @@ def validate_specific_image(
             if term_node.get('termination_type') == 'TRUNCATED':
                 continue
 
-            term_id = term_node.get('node_id')
+            term_id = term_node.get('node_id')  # Path dicts use 'node_id' key
             if term_id not in paths_by_termination:
                 paths_by_termination[term_id] = []
             paths_by_termination[term_id].append(path)
@@ -2311,6 +2311,8 @@ def build_kpi_cards(validation_results: list) -> List:
     """
     Build KPI cards for executive summary statistics.
 
+    Shows overall status plus per-termination statistics.
+
     Args:
         validation_results: List of ValidationResult dictionaries
 
@@ -2321,14 +2323,37 @@ def build_kpi_cards(validation_results: list) -> List:
 
     total_groups = len(validation_results)
 
-    # Count by status
+    # Count by overall status
     consistent = sum(1 for r in validation_results if r.get('status') == 'CONSISTENT')
     partial = sum(1 for r in validation_results if r.get('status') == 'PARTIAL')
     inconsistent = sum(1 for r in validation_results if r.get('status') == 'INCONSISTENT')
     warning = sum(1 for r in validation_results if r.get('status') == 'CONSISTENT_WITH_WARNING')
 
-    # Calculate archival readiness (count of groups reaching termination)
-    archival_ready = consistent + warning
+    # Collect per-termination statistics
+    termination_stats = {}
+    for result in validation_results:
+        for match in result.get('termination_matches', []):
+            term_id = match.get('termination_id')
+            term_type = match.get('termination_type')
+            match_status = match.get('status')
+
+            if term_id not in termination_stats:
+                termination_stats[term_id] = {
+                    'type': term_type,
+                    'consistent': 0,
+                    'partial': 0,
+                    'inconsistent': 0,
+                    'warning': 0
+                }
+
+            if match_status == 'CONSISTENT':
+                termination_stats[term_id]['consistent'] += 1
+            elif match_status == 'PARTIAL':
+                termination_stats[term_id]['partial'] += 1
+            elif match_status == 'INCONSISTENT':
+                termination_stats[term_id]['inconsistent'] += 1
+            elif match_status == 'CONSISTENT_WITH_WARNING':
+                termination_stats[term_id]['warning'] += 1
 
     kpis = [
         KPICard(
@@ -2338,38 +2363,57 @@ def build_kpi_cards(validation_results: list) -> List:
             icon="📊"
         ),
         KPICard(
-            title="Consistent",
+            title="Overall Consistent",
             value=str(consistent),
             status="success",
             unit=f"{(consistent/total_groups*100):.1f}%" if total_groups > 0 else "0%",
             icon="✓",
-            tooltip="All expected files present, pipeline complete"
+            tooltip="Groups consistent with ALL termination methods"
         ),
-        KPICard(
-            title="Partial",
-            value=str(partial),
-            status="danger",
-            unit=f"{(partial/total_groups*100):.1f}%" if total_groups > 0 else "0%",
-            icon="⚠",
-            tooltip="Missing expected files, pipeline incomplete"
-        ),
-        KPICard(
-            title="With Warnings",
-            value=str(warning),
-            status="warning",
-            unit=f"{(warning/total_groups*100):.1f}%" if total_groups > 0 else "0%",
-            icon="!",
-            tooltip="All expected files present, but extra files detected"
-        ),
-        KPICard(
-            title="Archival Ready",
-            value=str(archival_ready),
-            status="success" if archival_ready == total_groups else "warning",
-            unit=f"{(archival_ready/total_groups*100):.1f}%" if total_groups > 0 else "0%",
-            icon="📦",
-            tooltip="Groups that reached at least one termination node"
-        )
     ]
+
+    # Add per-termination KPIs (Ready, Partial, With Warnings)
+    for term_id, stats in sorted(termination_stats.items()):
+        term_type = stats['type']
+
+        # Ready KPI (CONSISTENT + CONSISTENT-WITH-WARNING)
+        term_ready = stats['consistent'] + stats['warning']
+        kpis.append(
+            KPICard(
+                title=f"{term_type} Ready",
+                value=str(term_ready),
+                status="success" if term_ready == total_groups else "warning",
+                unit=f"{(term_ready/total_groups*100):.1f}%" if total_groups > 0 else "0%",
+                icon="📦",
+                tooltip=f"Groups ready for {term_type} (CONSISTENT or CONSISTENT-WITH-WARNING)"
+            )
+        )
+
+        # Partial KPI (if any partial groups)
+        if stats['partial'] > 0:
+            kpis.append(
+                KPICard(
+                    title=f"{term_type} Partial",
+                    value=str(stats['partial']),
+                    status="warning",
+                    unit=f"{(stats['partial']/total_groups*100):.1f}%" if total_groups > 0 else "0%",
+                    icon="⚠",
+                    tooltip=f"Groups partially ready for {term_type} (missing some files)"
+                )
+            )
+
+        # With Warnings KPI (if any warnings)
+        if stats['warning'] > 0:
+            kpis.append(
+                KPICard(
+                    title=f"{term_type} With Warnings",
+                    value=str(stats['warning']),
+                    status="warning",
+                    unit=f"{(stats['warning']/total_groups*100):.1f}%" if total_groups > 0 else "0%",
+                    icon="⚠",
+                    tooltip=f"Groups ready for {term_type} but with extra files"
+                )
+            )
 
     return kpis
 
@@ -2421,18 +2465,93 @@ def build_chart_sections(validation_results: list) -> List:
     """
     Build chart sections for visualizations.
 
+    Creates overall status distribution chart, then one per termination.
+
     Args:
         validation_results: List of ValidationResult dictionaries
 
     Returns:
         List of ReportSection objects with chart data
     """
+    from utils.report_renderer import ReportSection
     sections = []
 
-    # Add pie chart for status distribution
-    sections.append(build_status_distribution_chart(validation_results))
+    status_colors = {
+        'CONSISTENT': 'rgba(75, 192, 192, 0.8)',
+        'CONSISTENT-WITH-WARNING': 'rgba(255, 159, 64, 0.8)',
+        'PARTIAL': 'rgba(255, 206, 86, 0.8)',
+        'INCONSISTENT': 'rgba(255, 99, 132, 0.8)'
+    }
 
-    # TODO: Add bar chart for groups per path (future enhancement)
+    # 1. Overall Status Distribution Chart (worst status across all terminations)
+    overall_stats = {}
+    for result in validation_results:
+        status = result.get('status')
+        overall_stats[status] = overall_stats.get(status, 0) + 1
+
+    # Filter out zero values
+    filtered_overall = {str(k): int(v) for k, v in overall_stats.items() if v > 0}
+
+    if filtered_overall:
+        overall_chart_data = {
+            'labels': list(filtered_overall.keys()),
+            'values': list(filtered_overall.values()),
+            'colors': [status_colors.get(status, 'rgba(128, 128, 128, 0.8)')
+                      for status in filtered_overall.keys()]
+        }
+
+        sections.append(ReportSection(
+            title="Status Distribution - Overall",
+            type="chart_pie",
+            data=overall_chart_data,
+            description="Overall status (worst across all termination methods)"
+        ))
+
+    # 2. Per-Termination Status Distribution Charts
+    termination_stats = {}
+    for result in validation_results:
+        for match in result.get('termination_matches', []):
+            term_id = match.get('termination_id')
+            term_type = match.get('termination_type')
+            match_status = match.get('status')
+
+            if term_id not in termination_stats:
+                termination_stats[term_id] = {
+                    'type': term_type,
+                    'CONSISTENT': 0,
+                    'PARTIAL': 0,
+                    'INCONSISTENT': 0,
+                    'CONSISTENT-WITH-WARNING': 0
+                }
+
+            if match_status in termination_stats[term_id]:
+                termination_stats[term_id][match_status] += 1
+
+    # Create one pie chart per termination
+    for term_id, stats in sorted(termination_stats.items()):
+        term_type = stats['type']
+
+        # Filter out zero values and ensure JSON serializable (exclude 'type' key)
+        filtered_stats = {str(k): int(v) for k, v in stats.items()
+                         if k != 'type' and v > 0}
+
+        if not filtered_stats:
+            # Skip if no data for this termination
+            continue
+
+        chart_data = {
+            'labels': list(filtered_stats.keys()),
+            'values': list(filtered_stats.values()),
+            'colors': [status_colors.get(status, 'rgba(128, 128, 128, 0.8)')
+                      for status in filtered_stats.keys()]
+        }
+
+        sections.append(ReportSection(
+            title=f"Status Distribution - {term_type}",
+            type="chart_pie",
+            data=chart_data,
+            description=f"Status distribution for {term_type} archival method"
+        ))
 
     return sections
 
@@ -2480,47 +2599,50 @@ def build_table_sections(validation_results: list) -> List:
         # Build table rows (list of lists for base template)
         rows = []
         for group in groups:
-            # Get first termination match for display
             termination_matches = group.get('termination_matches', [])
-            if termination_matches:
-                match = termination_matches[0]
+
+            # For PARTIAL groups: show each PARTIAL termination match as separate row
+            # (Don't show CONSISTENT matches in the PARTIAL table)
+            if status == 'PARTIAL':
+                # Filter to only PARTIAL matches
+                partial_matches = [m for m in termination_matches if m.get('status') == 'PARTIAL']
+                matches_to_show = partial_matches if partial_matches else termination_matches[:1]
+            else:
+                # For other statuses, show first match
+                matches_to_show = termination_matches[:1]
+
+            for match in matches_to_show:
                 termination_type = match.get('termination_type', 'Unknown')
                 expected_files = match.get('expected_files', [])
                 actual_files = match.get('actual_files', [])
                 missing_files = match.get('missing_files', [])
                 extra_files = match.get('extra_files', [])
-            else:
-                termination_type = 'None'
-                expected_files = []
-                actual_files = []
-                missing_files = []
-                extra_files = []
 
-            group_id = group.get('unique_id', group.get('group_id', 'Unknown'))
+                group_id = group.get('unique_id', group.get('group_id', 'Unknown'))
 
-            # Build file list with symbols (plain text, no HTML)
-            files_list = []
-            for f in actual_files:
-                files_list.append(f'✓ {f}')
-            for f in missing_files:
-                files_list.append(f'✗ {f}')
-            for f in extra_files:
-                files_list.append(f'⚠ {f}')
+                # Build file list with symbols (plain text, no HTML)
+                files_list = []
+                for f in actual_files:
+                    files_list.append(f'✓ {f}')
+                for f in missing_files:
+                    files_list.append(f'✗ {f}')
+                for f in extra_files:
+                    files_list.append(f'⚠ {f}')
 
-            # Join with newlines for display
-            files_display = '\n'.join(files_list) if files_list else '(no files)'
+                # Join with newlines for display
+                files_display = '\n'.join(files_list) if files_list else '(no files)'
 
-            row = [
-                group_id,
-                status,
-                termination_type,
-                len(expected_files),
-                len(actual_files),
-                len(missing_files),
-                len(extra_files),
-                files_display
-            ]
-            rows.append(row)
+                row = [
+                    group_id,
+                    match.get('status', status),  # Show per-match status
+                    termination_type,
+                    len(expected_files),
+                    len(actual_files),
+                    len(missing_files),
+                    len(extra_files),
+                    files_display
+                ]
+                rows.append(row)
 
         table_data = {
             'headers': ['Group ID', 'Status', 'Termination', 'Expected', 'Actual', 'Missing', 'Extra', 'Files'],
@@ -2817,11 +2939,51 @@ def main():
                 worst_status = term_match.status
         status_counts[worst_status] += 1
 
+    # Calculate per-termination statistics
+    termination_stats = {}
+    for result in validation_results:
+        for term_match in result.termination_matches:
+            term_id = term_match.termination_id
+            term_type = term_match.termination_type
+            match_status = term_match.status
+
+            if term_id not in termination_stats:
+                termination_stats[term_id] = {
+                    'type': term_type,
+                    'consistent': 0,
+                    'warning': 0,
+                    'partial': 0,
+                    'inconsistent': 0
+                }
+
+            if match_status == ValidationStatus.CONSISTENT:
+                termination_stats[term_id]['consistent'] += 1
+            elif match_status == ValidationStatus.CONSISTENT_WITH_WARNING:
+                termination_stats[term_id]['warning'] += 1
+            elif match_status == ValidationStatus.PARTIAL:
+                termination_stats[term_id]['partial'] += 1
+            elif match_status == ValidationStatus.INCONSISTENT:
+                termination_stats[term_id]['inconsistent'] += 1
+
+    total_images = len(validation_results)
+
     print("Validation Summary:")
-    print(f"  ✓ Consistent: {status_counts[ValidationStatus.CONSISTENT]}")
-    print(f"  ⚠ Consistent with warnings: {status_counts[ValidationStatus.CONSISTENT_WITH_WARNING]}")
-    print(f"  ⚠ Partial: {status_counts[ValidationStatus.PARTIAL]}")
-    print(f"  ✗ Inconsistent: {status_counts[ValidationStatus.INCONSISTENT]}")
+    print(f"  Overall Status (worst across all terminations):")
+    print(f"    ✓ Consistent: {status_counts[ValidationStatus.CONSISTENT]}")
+    print(f"    ⚠ Consistent with warnings: {status_counts[ValidationStatus.CONSISTENT_WITH_WARNING]}")
+    print(f"    ⚠ Partial: {status_counts[ValidationStatus.PARTIAL]}")
+    print(f"    ✗ Inconsistent: {status_counts[ValidationStatus.INCONSISTENT]}")
+    print()
+
+    print("  Per-Termination Statistics:")
+    for term_id, stats in sorted(termination_stats.items()):
+        ready_count = stats['consistent'] + stats['warning']
+        ready_pct = (ready_count / total_images * 100) if total_images > 0 else 0
+        print(f"    {stats['type']}: {ready_count}/{total_images} ready ({ready_pct:.1f}%)")
+        print(f"      ✓ Consistent: {stats['consistent']}, "
+              f"⚠ Warning: {stats['warning']}, "
+              f"⚠ Partial: {stats['partial']}, "
+              f"✗ Inconsistent: {stats['inconsistent']}")
     print()
 
     # Phase 7 (US5): Generate HTML report
@@ -2840,6 +3002,7 @@ def main():
         termination_matches_dict = []
         for term_match in result.termination_matches:
             termination_matches_dict.append({
+                'termination_id': term_match.termination_id,
                 'termination_type': term_match.termination_type,
                 'status': term_match.status.name,
                 'expected_files': term_match.expected_files,
