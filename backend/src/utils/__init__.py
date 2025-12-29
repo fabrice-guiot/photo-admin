@@ -5,6 +5,7 @@ This package contains shared utilities used across the application:
 - crypto: Credential encryption/decryption (Fernet)
 - cache: File listing cache with collection-aware TTL
 - job_queue: Job queue for sequential analysis execution
+- logging_config: Structured logging setup with JSON format
 """
 
 from backend.src.utils.crypto import (
@@ -28,6 +29,13 @@ from backend.src.utils.job_queue import (
     init_job_queue,
     create_job_id,
 )
+from backend.src.utils.logging_config import (
+    configure_logging,
+    get_logger,
+    init_logging,
+    JSONFormatter,
+    ConsoleFormatter,
+)
 
 __all__ = [
     # Crypto
@@ -48,4 +56,10 @@ __all__ = [
     "get_job_queue",
     "init_job_queue",
     "create_job_id",
+    # Logging
+    "configure_logging",
+    "get_logger",
+    "init_logging",
+    "JSONFormatter",
+    "ConsoleFormatter",
 ]

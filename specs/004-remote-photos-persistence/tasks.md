@@ -90,8 +90,8 @@
 
 ### Logging Infrastructure
 
-- [ ] T042 Create backend/src/utils/logging_config.py with structured logging setup (JSON format, log levels per environment)
-- [ ] T043 In backend/src/utils/logging_config.py, configure loggers for api, services, tools, db with file rotation
+- [X] T042 Create backend/src/utils/logging_config.py with structured logging setup (JSON format, log levels per environment)
+- [X] T043 In backend/src/utils/logging_config.py, configure loggers for api, services, tools, db with file rotation
 
 ### FastAPI Application Bootstrap
 
