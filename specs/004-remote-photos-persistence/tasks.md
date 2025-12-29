@@ -95,12 +95,12 @@
 
 ### FastAPI Application Bootstrap
 
-- [ ] T044 Create backend/src/main.py with FastAPI app initialization
-- [ ] T045 In backend/src/main.py, add app.state.file_cache = FileListingCache() singleton
-- [ ] T046 In backend/src/main.py, add app.state.job_queue = JobQueue() singleton
-- [ ] T047 In backend/src/main.py, add startup event handler to validate PHOTO_ADMIN_MASTER_KEY env var (exit with error if missing)
-- [ ] T048 In backend/src/main.py, configure CORS middleware for localhost:3000 (frontend dev server)
-- [ ] T049 In backend/src/main.py, add exception handlers for validation errors, database errors, generic errors
+- [X] T044 Create backend/src/main.py with FastAPI app initialization
+- [X] T045 In backend/src/main.py, add app.state.file_cache = FileListingCache() singleton
+- [X] T046 In backend/src/main.py, add app.state.job_queue = JobQueue() singleton
+- [X] T047 In backend/src/main.py, add startup event handler to validate PHOTO_ADMIN_MASTER_KEY env var (exit with error if missing)
+- [X] T048 In backend/src/main.py, configure CORS middleware for localhost:3000 (frontend dev server)
+- [X] T049 In backend/src/main.py, add exception handlers for validation errors, database errors, generic errors
 
 ### CLI Tool Entry Point
 
