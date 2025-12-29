@@ -666,42 +666,28 @@ def merge_two_paths(path1: List[Dict[str, Any]], path2: List[Dict[str, Any]]) ->
     """
     Merge two paths at a pairing node using Cartesian product semantics.
 
-    The merged path contains:
-    - depth = max(depth of path1, depth of path2)
-    - files = union of all files from both paths (deduplicated)
+    The merged path contains all unique nodes from both input paths,
+    representing the union of all nodes traversed by either branch.
 
     Args:
         path1: First path (list of node info dicts)
         path2: Second path (list of node info dicts)
 
     Returns:
-        Merged path (list of node info dicts)
+        Merged path containing all unique nodes from both paths
     """
-    # Take the longer path (maximum depth)
-    if len(path1) >= len(path2):
-        merged_path = path1.copy()
-    else:
-        merged_path = path2.copy()
+    # Start with the first path
+    merged_path = path1.copy()
 
-    # Union all files from both paths (deduplicated by using set)
-    # Files are accumulated in FileNode entries
-    # We need to merge all FileNode entries from both paths
+    # Track which node IDs we've already included (to avoid duplicates)
+    included_ids = set(node['id'] for node in path1 if 'id' in node)
 
-    # Extract all file extensions from both paths
-    files_from_path1 = set()
-    files_from_path2 = set()
-
-    for node_info in path1:
-        if node_info.get('type') == 'File' and 'extension' in node_info:
-            files_from_path1.add(node_info['extension'])
-
+    # Add nodes from path2 that aren't already in the merged path
     for node_info in path2:
-        if node_info.get('type') == 'File' and 'extension' in node_info:
-            files_from_path2.add(node_info['extension'])
-
-    # The merged path should contain the union of files
-    # Since we're taking the longer path, we need to ensure all files are represented
-    # This is handled during file generation, not here
+        node_id = node_info.get('id')
+        if node_id and node_id not in included_ids:
+            merged_path.append(node_info)
+            included_ids.add(node_id)
 
     return merged_path
 
@@ -825,9 +811,12 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
 
         elif isinstance(current_node, PairingNode):
             # Reached a pairing node
-            if stop_at_pairing or current_node_id == target_node_id:
-                # Stop here - don't add pairing node to path yet
+            if current_node_id == target_node_id:
+                # This pairing node is the target - return path without adding it
                 return [current_path]
+            elif stop_at_pairing:
+                # Hit a pairing node before reaching target - this path failed
+                return []
             else:
                 # Continue through pairing node (shouldn't happen in this algorithm)
                 node_info['pairing_type'] = current_node.pairing_type
