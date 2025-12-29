@@ -948,7 +948,12 @@ class TestCounterLooping:
         assert 'AB3D0001-3.CR3' in third.files
 
     def test_base_filename_generation_with_suffix(self):
-        """Test T036: base_filename generation with suffix (e.g., AB3D0001-2)."""
+        """Test T036: base_filename generation with suffix (e.g., AB3D0001-2).
+
+        IMPORTANT: Suffix comes AFTER processing methods:
+        - Correct: AB3D0001-DxO_DeepPRIME_XD2s-2.DNG (base + method + suffix + ext)
+        - Wrong: AB3D0001-2-DxO_DeepPRIME_XD2s.DNG (base + suffix + method + ext)
+        """
         # Test with primary image (no suffix)
         path = [
             {'type': 'Capture'},
@@ -958,20 +963,20 @@ class TestCounterLooping:
             {'type': 'Termination'}
         ]
 
-        # Primary image - base_filename without suffix
-        expected_primary = pipeline_validation.generate_expected_files(path, 'AB3D0001')
+        # Primary image - no suffix
+        expected_primary = pipeline_validation.generate_expected_files(path, 'AB3D0001', '')
         assert 'AB3D0001.CR3' in expected_primary
         assert 'AB3D0001-DxO_DeepPRIME_XD2s.DNG' in expected_primary
 
-        # Second capture - base_filename WITH suffix
-        expected_second = pipeline_validation.generate_expected_files(path, 'AB3D0001-2')
+        # Second capture - suffix "2" (suffix comes AFTER method)
+        expected_second = pipeline_validation.generate_expected_files(path, 'AB3D0001', '2')
         assert 'AB3D0001-2.CR3' in expected_second
-        assert 'AB3D0001-2-DxO_DeepPRIME_XD2s.DNG' in expected_second
+        assert 'AB3D0001-DxO_DeepPRIME_XD2s-2.DNG' in expected_second
 
-        # Third capture - base_filename WITH suffix
-        expected_third = pipeline_validation.generate_expected_files(path, 'AB3D0001-3')
+        # Third capture - suffix "3" (suffix comes AFTER method)
+        expected_third = pipeline_validation.generate_expected_files(path, 'AB3D0001', '3')
         assert 'AB3D0001-3.CR3' in expected_third
-        assert 'AB3D0001-3-DxO_DeepPRIME_XD2s.DNG' in expected_third
+        assert 'AB3D0001-DxO_DeepPRIME_XD2s-3.DNG' in expected_third
 
     def test_multiple_specific_images_different_statuses(self, tmp_path, mock_photo_admin_config):
         """Test T037: ImageGroup with 2 SpecificImages, different validation statuses."""

@@ -979,25 +979,30 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
 # File Generation from Paths
 # =============================================================================
 
-def generate_expected_files(path: List[Dict[str, Any]], base_filename: str) -> List[str]:
+def generate_expected_files(path: List[Dict[str, Any]], base_filename: str, suffix: str = '') -> List[str]:
     """
     Generate list of expected filenames for a given path and base filename.
 
     Algorithm:
-    1. Start with base_filename (e.g., "AB3D0001" or "AB3D0001-2")
+    1. Start with base (camera_id + counter, e.g., "AB3D0001")
     2. For each Process node: append "-{method_id}" to accumulator
-    3. For each File node: create filename = accumulator + extension
+    3. For each File node: create filename = accumulator + suffix + extension
     4. Deduplicate filenames (same extension can appear multiple times)
+
+    IMPORTANT: Suffix comes AFTER processing methods:
+    - Correct: AB3D0001-DxO_DeepPRIME-2.dng (base + method + suffix + ext)
+    - Wrong: AB3D0001-2-DxO_DeepPRIME.dng (base + suffix + method + ext)
 
     Args:
         path: List of node info dicts representing a path through pipeline
-        base_filename: Base filename (e.g., "AB3D0001" or "AB3D0001-2")
+        base_filename: Base filename WITHOUT suffix (e.g., "AB3D0001")
+        suffix: Numerical suffix for counter looping (e.g., "" or "2" or "3")
 
     Returns:
         List of expected filenames (deduplicated, sorted)
     """
     expected_files = []
-    filename_accumulator = base_filename
+    filename_accumulator = base_filename  # Just camera_id + counter
 
     for node_info in path:
         node_type = node_info.get('type')
@@ -1010,8 +1015,12 @@ def generate_expected_files(path: List[Dict[str, Any]], base_filename: str) -> L
         elif node_type == 'File':
             extension = node_info.get('extension', '')
             if extension:
-                # Generate filename with current accumulator state
-                filename = filename_accumulator + extension
+                # Generate filename: base + methods + suffix + extension
+                # Suffix comes AFTER all processing methods
+                if suffix:
+                    filename = f"{filename_accumulator}-{suffix}{extension}"
+                else:
+                    filename = filename_accumulator + extension
                 expected_files.append(filename)
 
         elif node_type in ['Capture', 'Branching', 'Pairing', 'Termination']:
@@ -1166,7 +1175,9 @@ def validate_specific_image(
 
         for path in paths:
             # Generate expected files for this path
-            expected_files = generate_expected_files(path, specific_image.base_filename)
+            # Pass camera_id+counter (without suffix) and suffix separately
+            base = f"{specific_image.camera_id}{specific_image.counter}"
+            expected_files = generate_expected_files(path, base, specific_image.suffix)
             # Normalize expected files to lowercase for comparison
             expected_files_set = set(f.lower() for f in expected_files)
 
