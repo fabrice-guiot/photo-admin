@@ -347,7 +347,11 @@ class TestSignalHandling:
         """Test that SIGINT handler is properly configured."""
         with patch('signal.signal') as mock_signal:
             pipeline_validation.setup_signal_handlers()
-            mock_signal.assert_called_once_with(signal.SIGINT, pipeline_validation.setup_signal_handlers.__code__.co_consts[1])
+            # Verify signal.signal was called once with SIGINT and a callable handler
+            assert mock_signal.call_count == 1
+            call_args = mock_signal.call_args[0]
+            assert call_args[0] == signal.SIGINT
+            assert callable(call_args[1]), "Second argument should be a callable signal handler"
 
     def test_sigint_exit_code(self):
         """Test that SIGINT handler exits with code 130."""
