@@ -104,9 +104,9 @@
 
 ### CLI Tool Entry Point
 
-- [ ] T050 Create web_server.py (repository root) as CLI entry point to start FastAPI with uvicorn
-- [ ] T051 In web_server.py, add PHOTO_ADMIN_MASTER_KEY validation on startup (print error pointing to setup_master_key.py if missing)
-- [ ] T052 In web_server.py, add --host, --port, --reload CLI arguments using argparse
+- [X] T050 Create web_server.py (repository root) as CLI entry point to start FastAPI with uvicorn
+- [X] T051 In web_server.py, add PHOTO_ADMIN_MASTER_KEY validation on startup (print error pointing to setup_master_key.py if missing)
+- [X] T052 In web_server.py, add --host, --port, --reload CLI arguments using argparse
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
