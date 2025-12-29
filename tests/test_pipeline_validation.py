@@ -2148,7 +2148,6 @@ class TestPairingNodes:
             assert 'pairing1' in node_ids
             assert 'termination' in node_ids
 
-    @pytest.mark.xfail(reason="Multiple pairing nodes not yet supported")
     def test_nested_pairing_nodes(self):
         """Test that multiple pairing nodes in sequence are processed correctly in topological order."""
         from utils.config_manager import PhotoAdminConfig
@@ -2246,7 +2245,6 @@ class TestPairingNodes:
                 idx_p2 = node_ids.index('pairing2')
                 assert idx_p1 < idx_p2, "pairing1 should be processed before pairing2"
 
-    @pytest.mark.xfail(reason="Multiple pairing nodes not yet supported")
     def test_early_termination_before_second_pairing(self):
         """Test that paths terminating before second pairing node are preserved."""
         from utils.config_manager import PhotoAdminConfig

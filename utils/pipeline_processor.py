@@ -815,8 +815,10 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
                 # This pairing node is the target - return path without adding it
                 return [current_path]
             elif stop_at_pairing:
-                # Hit a pairing node before reaching target - this path failed
-                return []
+                # Hit a pairing node before reaching target
+                # Return current path (which is the path before this pairing node)
+                # This allows us to stop at nodes that input to this pairing
+                return []  # We'll handle this differently - stop DFS here
             else:
                 # Continue through pairing node (shouldn't happen in this algorithm)
                 node_info['pairing_type'] = current_node.pairing_type
@@ -828,6 +830,17 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
 
         # Continue DFS
         for next_node_id in current_node.output:
+            next_node = node_lookup.get(next_node_id)
+
+            # If stop_at_pairing and next node is a pairing node, stop here
+            if stop_at_pairing and next_node and isinstance(next_node, PairingNode):
+                # Don't continue into the pairing node
+                # Only collect this path if we don't have a specific target
+                # (If we have a target, we only want paths that reach it)
+                if target_node_id is None:
+                    paths.append(current_path)
+                continue
+
             paths.extend(dfs_to_target(
                 next_node_id, target_node_id, current_path,
                 iteration_counts.copy(), stop_at_pairing
@@ -835,8 +848,10 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
 
         return paths
 
-    # Process each pairing node
+    # Process each pairing node in topological order
+    # Maintain a frontier of partial paths that need further processing
     all_final_paths = []
+    frontier_paths = None  # None means start from Capture
 
     for pairing_idx, pairing_node in enumerate(pairing_nodes):
         # Find the two input nodes to this pairing node
@@ -845,31 +860,48 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
         if len(input_node_ids) != 2:
             continue  # Already validated, but double-check
 
-        # Enumerate paths from Capture to each input node
-        # If this is the first pairing node, start from Capture
-        # Otherwise, start from previous pairing node's output
+        input1_paths = []
+        input2_paths = []
 
-        if pairing_idx == 0:
-            # First pairing node - enumerate from Capture
-            input1_paths = []
+        if frontier_paths is None:
+            # First pairing node - start from Capture
             for capture_node in pipeline.capture_nodes:
                 input1_paths.extend(dfs_to_target(
                     capture_node.id, input_node_ids[0], [], {}, stop_at_pairing=True
                 ))
-
-            input2_paths = []
-            for capture_node in pipeline.capture_nodes:
                 input2_paths.extend(dfs_to_target(
                     capture_node.id, input_node_ids[1], [], {}, stop_at_pairing=True
                 ))
         else:
-            # Subsequent pairing node - enumerate from previous pairing node
-            # This gets complex - for now, assume single pairing node per pipeline
-            # Full implementation would require tracking partial paths
-            raise NotImplementedError(
-                f"Multiple pairing nodes not yet supported. "
-                f"Pipeline has {len(pairing_nodes)} pairing nodes."
-            )
+            # Subsequent pairing node - start from frontier paths
+            for frontier_path in frontier_paths:
+                if not frontier_path:
+                    continue
+
+                # Start DFS from the frontier path (not removing last node)
+                # Find paths from the frontier to each input node
+                # We need to check if the frontier already ends at an input node
+                last_node_id = frontier_path[-1].get('id')
+
+                if last_node_id == input_node_ids[0]:
+                    # Already at input1 - just use this path
+                    input1_paths.append(frontier_path)
+                else:
+                    # Need to DFS to input1
+                    paths_to_input1 = dfs_to_target(
+                        last_node_id, input_node_ids[0], frontier_path[:-1], {}, stop_at_pairing=True
+                    )
+                    input1_paths.extend(paths_to_input1)
+
+                if last_node_id == input_node_ids[1]:
+                    # Already at input2 - just use this path
+                    input2_paths.append(frontier_path)
+                else:
+                    # Need to DFS to input2
+                    paths_to_input2 = dfs_to_target(
+                        last_node_id, input_node_ids[1], frontier_path[:-1], {}, stop_at_pairing=True
+                    )
+                    input2_paths.extend(paths_to_input2)
 
         # Compute Cartesian product: merge all combinations
         merged_paths = []
@@ -878,7 +910,10 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
                 merged = merge_two_paths(path1, path2)
                 merged_paths.append(merged)
 
-        # Continue from pairing node to termination
+        # Continue from pairing node - either to next pairing or to termination
+        next_pairing_node = pairing_nodes[pairing_idx + 1] if pairing_idx + 1 < len(pairing_nodes) else None
+        new_frontier = []
+
         for merged_path in merged_paths:
             # Add pairing node to path
             pairing_info = {
@@ -888,12 +923,38 @@ def enumerate_paths_with_pairing(pipeline: PipelineConfig) -> List[List[Dict[str
             }
             path_with_pairing = merged_path + [pairing_info]
 
-            # Continue DFS to termination
+            # Continue from pairing node output
             for next_node_id in pairing_node.output:
-                final_paths = dfs_to_target(
-                    next_node_id, None, path_with_pairing, {}, stop_at_pairing=False
-                )
-                all_final_paths.extend(final_paths)
+                if next_pairing_node:
+                    # There's another pairing node - DFS and collect paths that reach
+                    # either termination OR inputs of next pairing
+                    next_pairing_input_ids = [n.id for n in pipeline.nodes if next_pairing_node.id in n.output]
+
+                    partial_paths = dfs_to_target(
+                        next_node_id, None, path_with_pairing, {}, stop_at_pairing=True
+                    )
+                    for partial_path in partial_paths:
+                        if not partial_path:
+                            continue
+                        last_node = partial_path[-1]
+                        last_id = last_node.get('id')
+
+                        if last_node.get('type') == 'Termination':
+                            # Early termination before next pairing
+                            all_final_paths.append(partial_path)
+                        elif last_id in next_pairing_input_ids:
+                            # Reached an input to the next pairing - add to frontier
+                            new_frontier.append(partial_path)
+                        # Otherwise path was truncated by hitting a pairing node - ignore it
+                else:
+                    # No more pairing nodes - go to termination
+                    final_paths = dfs_to_target(
+                        next_node_id, None, path_with_pairing, {}, stop_at_pairing=False
+                    )
+                    all_final_paths.extend(final_paths)
+
+        # Update frontier for next pairing node
+        frontier_paths = new_frontier
 
     # Also need to handle paths that don't go through pairing nodes
     # (early termination before reaching pairing node)
