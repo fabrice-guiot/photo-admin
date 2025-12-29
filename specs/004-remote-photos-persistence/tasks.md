@@ -57,17 +57,17 @@
 
 ### File Listing Cache (from research.md Task 3)
 
-- [ ] T018 Create backend/src/utils/cache.py with CachedFileListing dataclass (files, cached_at, ttl_seconds)
-- [ ] T019 In backend/src/utils/cache.py, create FileListingCache class with in-memory dict storage and threading.Lock
-- [ ] T020 In backend/src/utils/cache.py, implement get(), set(), invalidate(), clear() methods with TTL expiry logic
-- [ ] T021 In backend/src/utils/cache.py, define COLLECTION_STATE_TTL constants (Live: 3600, Closed: 86400, Archived: 604800)
+- [X] T018 Create backend/src/utils/cache.py with CachedFileListing dataclass (files, cached_at, ttl_seconds)
+- [X] T019 In backend/src/utils/cache.py, create FileListingCache class with in-memory dict storage and threading.Lock
+- [X] T020 In backend/src/utils/cache.py, implement get(), set(), invalidate(), clear() methods with TTL expiry logic
+- [X] T021 In backend/src/utils/cache.py, define COLLECTION_STATE_TTL constants (Live: 3600, Closed: 86400, Archived: 604800)
 
 ### Job Queue (from research.md Task 4)
 
-- [ ] T022 Create backend/src/utils/job_queue.py with JobStatus enum (QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED)
-- [ ] T023 In backend/src/utils/job_queue.py, create AnalysisJob dataclass (id, collection_id, tool, pipeline_id, status, created_at, started_at, completed_at, progress, error_message)
-- [ ] T024 In backend/src/utils/job_queue.py, create JobQueue class with in-memory dict storage, FIFO queue list, threading.Lock
-- [ ] T025 In backend/src/utils/job_queue.py, implement enqueue(), dequeue(), get_position(), cancel(), get_job() methods
+- [X] T022 Create backend/src/utils/job_queue.py with JobStatus enum (QUEUED, RUNNING, COMPLETED, FAILED, CANCELLED)
+- [X] T023 In backend/src/utils/job_queue.py, create AnalysisJob dataclass (id, collection_id, tool, pipeline_id, status, created_at, started_at, completed_at, progress, error_message)
+- [X] T024 In backend/src/utils/job_queue.py, create JobQueue class with in-memory dict storage, FIFO queue list, threading.Lock
+- [X] T025 In backend/src/utils/job_queue.py, implement enqueue(), dequeue(), get_position(), cancel(), get_job() methods
 
 ### Pipeline Processor (CRITICAL - from data-model.md and research.md Task 7)
 
