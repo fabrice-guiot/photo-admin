@@ -1148,7 +1148,9 @@ def validate_specific_image(
             paths_by_termination[term_type].append(path)
 
     # Prepare actual files set
-    actual_files_set = set(specific_image.files)
+    # Normalize filenames to lowercase for case-insensitive comparison
+    # (filesystems like APFS, NTFS, FAT32 are case-insensitive)
+    actual_files_set = set(f.lower() for f in specific_image.files)
 
     # Validate against each termination type
     termination_matches = []
@@ -1157,6 +1159,7 @@ def validate_specific_image(
         # Find best path for this termination
         best_status = ValidationStatus.INCONSISTENT
         best_expected = []
+        best_expected_original = []  # Original case for display
         best_missing = []
         best_extra = []
         best_completion = 0.0
@@ -1164,12 +1167,13 @@ def validate_specific_image(
         for path in paths:
             # Generate expected files for this path
             expected_files = generate_expected_files(path, specific_image.base_filename)
-            expected_files_set = set(expected_files)
+            # Normalize expected files to lowercase for comparison
+            expected_files_set = set(f.lower() for f in expected_files)
 
-            # Classify status
+            # Classify status (case-insensitive)
             status = classify_validation_status(actual_files_set, expected_files_set)
 
-            # Calculate missing and extra files
+            # Calculate missing and extra files (case-insensitive)
             missing_files = sorted(expected_files_set - actual_files_set)
             extra_files = sorted(actual_files_set - expected_files_set)
 
@@ -1186,7 +1190,8 @@ def validate_specific_image(
             if status < best_status:
                 # Better status
                 best_status = status
-                best_expected = expected_files
+                best_expected_original = expected_files  # Original case for display
+                best_expected = list(expected_files_set)  # Lowercase for comparison
                 best_missing = missing_files
                 best_extra = extra_files
                 best_completion = completion
@@ -1194,7 +1199,8 @@ def validate_specific_image(
                 # Same status - compare missing files count
                 if len(missing_files) < len(best_missing):
                     best_status = status
-                    best_expected = expected_files
+                    best_expected_original = expected_files
+                    best_expected = list(expected_files_set)
                     best_missing = missing_files
                     best_extra = extra_files
                     best_completion = completion
@@ -1202,7 +1208,8 @@ def validate_specific_image(
                     # Same missing count - prefer shorter path
                     if len(path) < len(best_expected):
                         best_status = status
-                        best_expected = expected_files
+                        best_expected_original = expected_files
+                        best_expected = list(expected_files_set)
                         best_missing = missing_files
                         best_extra = extra_files
                         best_completion = completion
@@ -1210,13 +1217,15 @@ def validate_specific_image(
         # Create termination match result
         is_archival_ready = best_status in [ValidationStatus.CONSISTENT, ValidationStatus.CONSISTENT_WITH_WARNING]
 
+        # Use original-case expected files for display
+        # Missing/extra files are in lowercase (normalized)
         match = TerminationMatchResult(
             termination_type=term_type,
             status=best_status,
-            expected_files=best_expected,
+            expected_files=best_expected_original,
             missing_files=best_missing,
             extra_files=best_extra,
-            actual_files=list(actual_files_set),
+            actual_files=specific_image.files,  # Original case
             completion_percentage=best_completion,
             is_archival_ready=is_archival_ready,
             is_truncated=False
