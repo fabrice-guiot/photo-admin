@@ -723,6 +723,7 @@
 - [ ] T303 [P] Create backend/README.md with setup instructions (PostgreSQL, Python env, environment variables, Alembic migrations)
 - [ ] T304 [P] Create frontend/README.md with setup instructions (Node.js, npm install, npm start, environment variables)
 - [ ] T305 [P] Update root README.md with web application overview, quickstart guide, feature list
+- [ ] T305a [P] Update root CLAUDE.md with web application overview, quickstart guide, feature list. Check for outdated information which also need to be updated (list of tools, project structure, test strategy and coverage, technologies, etc.)
 - [ ] T306 [P] Create specs/004-remote-photos-persistence/quickstart.md with developer setup guide (database creation, master key setup, first-time user flow)
 - [ ] T307 [P] In quickstart.md, add section on running setup_master_key.py and setting PHOTO_ADMIN_MASTER_KEY
 - [ ] T308 [P] In quickstart.md, add section on database migrations (alembic upgrade head)
