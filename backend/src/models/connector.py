@@ -79,7 +79,7 @@ class Connector(Base):
 
     # Core fields
     name = Column(String(255), unique=True, nullable=False, index=True)
-    type = Column(Enum(ConnectorType), nullable=False, index=True)
+    type = Column(Enum(ConnectorType, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
 
     # Credentials (encrypted with Fernet via CredentialEncryptor)
     credentials = Column(Text, nullable=False)

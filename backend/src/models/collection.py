@@ -115,10 +115,10 @@ class Collection(Base):
 
     # Core fields
     name = Column(String(255), unique=True, nullable=False, index=True)
-    type = Column(Enum(CollectionType), nullable=False, index=True)
+    type = Column(Enum(CollectionType, values_callable=lambda x: [e.value for e in x]), nullable=False, index=True)
     location = Column(String(1024), nullable=False)
     state = Column(
-        Enum(CollectionState),
+        Enum(CollectionState, values_callable=lambda x: [e.value for e in x]),
         default=CollectionState.LIVE,
         nullable=False,
         index=True
