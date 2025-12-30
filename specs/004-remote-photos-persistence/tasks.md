@@ -185,10 +185,10 @@
 - [x] T097 [P] [US1] In backend/src/api/collections.py, implement POST /collections with CollectionCreate, accessibility test, return 201 with CollectionResponse or 409 if name exists
 - [x] T098 [P] [US1] In backend/src/api/collections.py, implement GET /collections/{id} returning CollectionResponse or 404
 - [x] T099 [P] [US1] In backend/src/api/collections.py, implement PUT /collections/{id} with CollectionUpdate, cache invalidation, return 200 or 404/409
-- [ ] T100 [US1] In backend/src/api/collections.py, implement DELETE /collections/{id} with force query param, check for results/jobs, return 204 or 409 with confirmation prompt
-- [ ] T101 [P] [US1] In backend/src/api/collections.py, implement POST /collections/{id}/test returning accessibility status and file_count
-- [ ] T102 [P] [US1] In backend/src/api/collections.py, implement POST /collections/{id}/refresh with confirm query param, file count warning, cache invalidation
-- [ ] T103 [US1] In backend/src/main.py, register collections router with /api prefix
+- [x] T100 [US1] In backend/src/api/collections.py, implement DELETE /collections/{id} with force query param, check for results/jobs, return 204 or 409 with confirmation prompt
+- [x] T101 [P] [US1] In backend/src/api/collections.py, implement POST /collections/{id}/test returning accessibility status and file_count
+- [x] T102 [P] [US1] In backend/src/api/collections.py, implement POST /collections/{id}/refresh with confirm query param, file count warning, cache invalidation
+- [x] T103 [US1] In backend/src/main.py, register collections router with /api prefix
 
 ### Database Migration for Collections
 
