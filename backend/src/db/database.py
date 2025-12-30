@@ -6,13 +6,21 @@ with connection pooling optimized for the photo-admin application.
 """
 
 import os
+from pathlib import Path
 from typing import Generator
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import Pool
 
+
+# Load environment variables from .env file
+# Look for .env in backend directory (parent of src)
+env_path = Path(__file__).parent.parent.parent / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
 
 # Database URL from environment variable
 DATABASE_URL = os.environ.get(

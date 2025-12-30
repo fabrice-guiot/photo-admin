@@ -7,11 +7,18 @@ It sets up the database connection and provides migration context.
 
 import os
 import sys
+from pathlib import Path
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent.parent.parent.parent / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
 
 # Add the backend directory to the path so we can import our models
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
