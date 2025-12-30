@@ -137,16 +137,16 @@
 
 ### Backend - Remote Storage Adapters (from research.md Tasks 1-3)
 
-- [ ] T064 [P] [US1] Create backend/src/services/remote/base.py with abstract StorageAdapter class (list_files, test_connection)
-- [ ] T065 [P] [US1] Create backend/src/services/remote/s3_adapter.py with S3Adapter class using boto3
-- [ ] T066 [US1] In backend/src/services/remote/s3_adapter.py, implement list_files() with exponential backoff retry (3 retries per FR-012)
-- [ ] T067 [US1] In backend/src/services/remote/s3_adapter.py, implement test_connection() to validate credentials
-- [ ] T068 [P] [US1] Create backend/src/services/remote/gcs_adapter.py with GCSAdapter class using google-cloud-storage
-- [ ] T069 [US1] In backend/src/services/remote/gcs_adapter.py, implement list_files() with exponential backoff retry
-- [ ] T070 [US1] In backend/src/services/remote/gcs_adapter.py, implement test_connection() to validate service account JSON
-- [ ] T071 [P] [US1] Create backend/src/services/remote/smb_adapter.py with SMBAdapter class using smbprotocol
-- [ ] T072 [US1] In backend/src/services/remote/smb_adapter.py, implement list_files() with retry logic
-- [ ] T073 [US1] In backend/src/services/remote/smb_adapter.py, implement test_connection() to validate SMB credentials
+- [X] T064 [P] [US1] Create backend/src/services/remote/base.py with abstract StorageAdapter class (list_files, test_connection)
+- [X] T065 [P] [US1] Create backend/src/services/remote/s3_adapter.py with S3Adapter class using boto3
+- [X] T066 [US1] In backend/src/services/remote/s3_adapter.py, implement list_files() with exponential backoff retry (3 retries per FR-012)
+- [X] T067 [US1] In backend/src/services/remote/s3_adapter.py, implement test_connection() to validate credentials
+- [X] T068 [P] [US1] Create backend/src/services/remote/gcs_adapter.py with GCSAdapter class using google-cloud-storage
+- [X] T069 [US1] In backend/src/services/remote/gcs_adapter.py, implement list_files() with exponential backoff retry
+- [X] T070 [US1] In backend/src/services/remote/gcs_adapter.py, implement test_connection() to validate service account JSON
+- [X] T071 [P] [US1] Create backend/src/services/remote/smb_adapter.py with SMBAdapter class using smbprotocol
+- [X] T072 [US1] In backend/src/services/remote/smb_adapter.py, implement list_files() with retry logic
+- [X] T073 [US1] In backend/src/services/remote/smb_adapter.py, implement test_connection() to validate SMB credentials
 
 ### Backend - Connector Service (NEW from data-model.md)
 
