@@ -328,22 +328,27 @@ class CollectionCreate(BaseModel):
     type: CollectionType = Field(..., description="Collection type")
     location: str = Field(..., min_length=1, max_length=1024, description="File path or remote location")
     state: CollectionState = Field(default=CollectionState.LIVE, description="Collection state")
-    connector_id: Optional[int] = Field(default=None, ge=1, description="Connector ID (required for remote)")
+    connector_id: Optional[int] = Field(default=None, description="Connector ID (required for remote)")
     cache_ttl: Optional[int] = Field(default=None, ge=0, le=604800, description="Cache TTL in seconds (max 7 days)")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="User-defined metadata")
 
     @model_validator(mode='after')
     def validate_connector_requirement(self):
         """Validate connector_id is provided for remote collections and absent for local."""
-        # Remote collections require connector_id
-        if self.type in [CollectionType.S3, CollectionType.GCS, CollectionType.SMB]:
-            if self.connector_id is None:
-                raise ValueError(f"connector_id is required for {self.type.value} collections")
+        # Check collection type requirements first (more specific error messages)
 
         # Local collections cannot have connector_id
         if self.type == CollectionType.LOCAL:
             if self.connector_id is not None:
                 raise ValueError("connector_id must be null for LOCAL collections")
+
+        # Remote collections require connector_id
+        if self.type in [CollectionType.S3, CollectionType.GCS, CollectionType.SMB]:
+            if self.connector_id is None:
+                raise ValueError(f"connector_id is required for {self.type.value} collections")
+            # Validate connector_id value for remote collections
+            if self.connector_id < 1:
+                raise ValueError(f"connector_id must be a positive integer (>= 1), got {self.connector_id}")
 
         return self
 
