@@ -6,13 +6,14 @@
 
 **Organization**: Tasks are grouped by user story (US1-US5 from spec.md) to enable independent implementation and testing.
 
-**Testing Strategy**: Comprehensive test coverage (>80%) for constitution compliance. Testing phases added after implementation phases:
-- Phase 3.5: Testing Phase 2-3 (31 tasks) - Core infrastructure, services, models, API
-- Phase 4: Includes 10 testing tasks - Tool execution, WebSocket, results
-- Phase 5: Includes 8 testing tasks - Pipeline service, validation, activation
-- Phase 6: Includes 3 testing tasks - Trend analysis, JSONB queries
-- Phase 7: Includes 7 testing tasks - Config service, YAML migration, CLI fallback
-- **Total**: 59 testing tasks ensuring >80% coverage throughout development
+**Testing Strategy**: Comprehensive test coverage (>80% backend, >75% frontend) for constitution compliance. Testing tasks integrated throughout:
+- Phase 3.5: Backend testing Phase 2-3 (31 tasks) - Core infrastructure, services, models, API
+- Phase 3: Frontend testing (11 tasks) - Hooks, components, connector-collection flow
+- Phase 4: Backend testing (10 tasks) + Frontend testing (7 tasks) = 17 tasks - Tools, WebSocket, results
+- Phase 5: Backend testing (8 tasks) + Frontend testing (6 tasks) = 14 tasks - Pipelines, validation, activation
+- Phase 6: Backend testing (3 tasks) + Frontend testing (3 tasks) = 6 tasks - Trend analysis, charts
+- Phase 7: Backend testing (7 tasks) + Frontend testing (4 tasks) = 11 tasks - Config, YAML migration
+- **Total**: 90 testing tasks (59 backend + 31 frontend) ensuring comprehensive coverage
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -253,9 +254,23 @@
 - [ ] T118l In frontend/src/pages/CollectionsPage.jsx, add manual refresh button with confirmation dialog if file count > threshold
 - [ ] T118m In frontend/src/App.jsx, add route /collections → CollectionsPage
 
-**Checkpoint**: User Story 1 complete - users can manage connectors and collections through web UI with credential encryption, delete protection, and cache management
+### Phase 3 Frontend Testing (Constitution Compliance)
 
-**Note**: Tasks T094a-T094l (Connector schemas/API) and T106-T118m (Connector/Collection frontend) were added to address critical architectural gap - Connector CRUD endpoints and frontend were missing from initial design
+- [ ] T118n [P] Create frontend/tests/setup.js with Jest configuration, React Testing Library setup, MSW server configuration, jest-dom matchers
+- [ ] T118o [P] Update frontend/package.json with test dependencies (jest ^29.0.0, @testing-library/react ^14.0.0, @testing-library/jest-dom ^6.0.0, @testing-library/user-event ^14.0.0, msw ^2.0.0)
+- [ ] T118p [P] Create frontend/tests/mocks/handlers.js with MSW API mocks (GET/POST/PUT/DELETE /connectors, GET/POST/PUT/DELETE /collections, POST /connectors/{id}/test)
+- [ ] T118q [P] Create frontend/tests/mocks/server.js with MSW server setup (setupServer, handlers export, beforeAll/afterEach/afterAll hooks)
+- [ ] T118r Create frontend/tests/hooks/useConnectors.test.js with hook tests (fetch on mount, createConnector success, updateConnector, deleteConnector, error handling for 409 delete protection)
+- [ ] T118s Create frontend/tests/hooks/useCollections.test.js with hook tests (fetch with filters, createCollection with connector validation, deleteCollection with result/job checks)
+- [ ] T118t Create frontend/tests/components/ConnectorForm.test.js with component tests (render, type selection shows correct credential fields S3/GCS/SMB, credential validation min lengths, test connection button click)
+- [ ] T118u In frontend/tests/components/ConnectorForm.test.js, add integration test (fill form → submit → verify MSW API call → verify success callback)
+- [ ] T118v Create frontend/tests/components/CollectionForm.test.js with component tests (connector dropdown for remote types, LOCAL type hides connector field, test connection button, cache TTL validation)
+- [ ] T118w Create frontend/tests/components/ConnectorList.test.js with component tests (render list, type filter, active_only filter, delete button shows confirmation, delete protection error message display)
+- [ ] T118x Create frontend/tests/integration/connector-collection-flow.test.js testing full user flow (create connector → verify in list → create collection referencing connector → attempt delete connector → see 409 error message → delete collection → delete connector succeeds)
+
+**Checkpoint**: User Story 1 complete - users can manage connectors and collections through web UI with credential encryption, delete protection, and cache management. Frontend test coverage >75%.
+
+**Note**: Tasks T094a-T094l (Connector schemas/API) and T106-T118x (Connector/Collection frontend + testing) were added to address critical architectural gap - Connector CRUD endpoints and frontend were missing from initial design
 
 ---
 
@@ -451,7 +466,17 @@
 - [ ] T192i In backend/tests/integration/test_tool_execution_flow.py, add error handling test (network failure during tool run → partial progress discarded → error_message stored)
 - [ ] T192j [P] Update backend/.coveragerc to include new Phase 4 modules (tool_service, result_service, api/tools, api/results, models/analysis_result)
 
-**Checkpoint**: User Story 2 complete - users can run analysis tools, monitor progress via WebSocket, and view stored results with HTML reports. Test coverage maintained at >80%.
+### Phase 4 Frontend Testing (Constitution Compliance)
+
+- [ ] T192k [P] Create frontend/tests/hooks/useAnalysisProgress.test.js with WebSocket hook tests (connection establishment, progress event updates, completion event, error event, disconnect handling, reconnect logic)
+- [ ] T192l [P] Create frontend/tests/components/ToolSelector.test.js with component tests (PhotoStats button click, Photo Pairing button click, Pipeline Validation with pipeline dropdown, disabled state when no collection selected)
+- [ ] T192m Create frontend/tests/components/ProgressMonitor.test.js with component tests (display progress percentage, files_scanned count, queue position display, completion notification with View Report link, error display with retry button)
+- [ ] T192n Create frontend/tests/components/ResultList.test.js with component tests (render results list, collection filter, tool filter, status filter, date range filter, pagination controls, sort by executed_at DESC)
+- [ ] T192o [P] Create frontend/tests/components/ReportViewer.test.js with component tests (iframe src set to report URL, download button click, HTML report content display)
+- [ ] T192p Create frontend/tests/integration/tool-execution-flow.test.js testing full user flow (select collection → click PhotoStats → WebSocket connection established → receive progress updates → job completes → navigate to results → view HTML report)
+- [ ] T192q [P] Update frontend/tests/mocks/handlers.js with Phase 4 API mocks (POST /tools/photostats, POST /tools/photo_pairing, GET /tools/status/{job_id}, GET /results, GET /results/{id}, GET /results/{id}/report, WebSocket mock)
+
+**Checkpoint**: User Story 2 complete - users can run analysis tools, monitor progress via WebSocket, and view stored results with HTML reports. Backend test coverage >80%, frontend test coverage >75%.
 
 ---
 
@@ -546,7 +571,16 @@
 - [ ] T248g [P] Create backend/tests/unit/test_api_pipelines.py with Pipeline API tests (POST with validation, GET list, PUT with version increment, DELETE, POST /validate, POST /activate)
 - [ ] T248h Create backend/tests/integration/test_pipeline_activation_flow.py testing activation constraint (create pipeline1 → activate → create pipeline2 → activate → verify pipeline1.is_active=false)
 
-**Checkpoint**: User Story 3 complete - users can create/edit pipelines through forms with validation, preview, activation. Test coverage maintained at >80%.
+### Phase 5 Frontend Testing (Constitution Compliance)
+
+- [ ] T248i [P] Create frontend/tests/components/PipelineFormEditor.test.js with component tests (render, add/remove nodes, add/remove edges, validate button click, error display with node highlighting)
+- [ ] T248j [P] Create frontend/tests/components/NodeEditor.test.js with component tests (type selection shows correct property fields, Capture has no properties, File has extension, Process has processing_method, validation against config)
+- [ ] T248k Create frontend/tests/components/PipelineList.test.js with component tests (render list, active badge display, activate button with confirmation, export button download, delete button)
+- [ ] T248l Create frontend/tests/integration/pipeline-preview-flow.test.js testing preview feature (create pipeline → add nodes/edges → click preview → enter camera_id → see expected filenames list)
+- [ ] T248m Create frontend/tests/integration/pipeline-activation-flow.test.js testing activation constraint (create pipeline1 → activate → create pipeline2 → activate → verify only pipeline2 shows active badge)
+- [ ] T248n [P] Update frontend/tests/mocks/handlers.js with Phase 5 API mocks (GET/POST/PUT/DELETE /pipelines, POST /pipelines/{id}/validate, POST /pipelines/{id}/activate, GET /pipelines/{id}/preview, GET/POST /pipelines/import)
+
+**Checkpoint**: User Story 3 complete - users can create/edit pipelines through forms with validation, preview, activation. Backend test coverage >80%, frontend test coverage >75%.
 
 ---
 
@@ -581,7 +615,13 @@
 - [ ] T261b [P] In backend/tests/unit/test_api_results_trends.py, add JSONB query tests (verify GIN index usage, metric extraction from results.summary, results.camera_groups, results.validation_details)
 - [ ] T261c Create backend/tests/integration/test_trend_data_flow.py testing multi-execution trend (run PhotoStats 3 times → query trends → verify chronological data with executed_at/metric_value pairs)
 
-**Checkpoint**: User Story 4 complete - users can view trend analysis across multiple executions. Test coverage maintained at >80%.
+### Phase 6 Frontend Testing (Constitution Compliance)
+
+- [ ] T261d [P] Create frontend/tests/components/TrendChart.test.js with component tests (render chart, PhotoStats orphaned files line chart, Photo Pairing multi-line camera usage, Pipeline Validation stacked area chart)
+- [ ] T261e In frontend/tests/components/TrendChart.test.js, add interaction tests (tooltip on hover shows date/value, date range filter updates chart, collection comparison shows legend)
+- [ ] T261f [P] Update frontend/tests/mocks/handlers.js with Phase 6 API mocks (GET /results/trends with query params collection_id/tool/metric/limit)
+
+**Checkpoint**: User Story 4 complete - users can view trend analysis across multiple executions. Backend test coverage >80%, frontend test coverage >75%.
 
 ---
 
@@ -663,7 +703,14 @@
 - [ ] T302f Create backend/tests/integration/test_config_migration_flow.py testing full flow (seed database config → import YAML with conflicts → resolve conflicts → verify merged config → verify CLI tools use database)
 - [ ] T302g In backend/tests/integration/test_config_migration_flow.py, add YAML fallback test (unset PHOTO_ADMIN_DB_URL → verify CLI tools load from YAML → verify warning message)
 
-**Checkpoint**: User Story 5 complete - users can import YAML config with conflict resolution, CLI tools read from database with YAML fallback. Test coverage maintained at >80%.
+### Phase 7 Frontend Testing (Constitution Compliance)
+
+- [ ] T302h [P] Create frontend/tests/components/ConflictResolver.test.js with component tests (render conflict list, db_value vs yaml_value side-by-side, radio button selection, resolve button disabled until all conflicts resolved, nested object conflicts with dot notation)
+- [ ] T302i Create frontend/tests/components/ConfigPage.test.js with component tests (render config editor, inline editing for photo_extensions/metadata_extensions add/remove, camera mapping editor, processing method editor)
+- [ ] T302j Create frontend/tests/integration/config-import-flow.test.js testing full user flow (upload YAML → conflicts detected → select resolutions for each conflict → submit → verify merged config in display)
+- [ ] T302k [P] Update frontend/tests/mocks/handlers.js with Phase 7 API mocks (GET /config, PUT /config, POST /config/import returning ConfigImportResponse, POST /config/resolve, GET /config/export)
+
+**Checkpoint**: User Story 5 complete - users can import YAML config with conflict resolution, CLI tools read from database with YAML fallback. Backend test coverage >80%, frontend test coverage >75%.
 
 ---
 
@@ -772,25 +819,28 @@ Within each phase, tasks marked [P] can run in parallel:
 
 1. Complete Phase 1: Setup (6 tasks)
 2. Complete Phase 2: Foundational (46 tasks) - **CRITICAL**
-3. Complete Phase 3: User Story 1 (91 tasks - includes connector tasks T094a-T094l and frontend tasks T106-T118m)
-4. **Complete Phase 3.5: Testing Phase 2-3 (31 tasks)** - **CONSTITUTION COMPLIANCE**
-5. Complete Phase 4: User Story 2 (74 tasks + 10 testing tasks = 84 tasks)
-6. **STOP and VALIDATE**: Test connector management, collection management + tool execution independently with >80% coverage
-7. Deploy/demo MVP (258 total tasks)
+3. Complete Phase 3: User Story 1 (91 implementation + 11 frontend testing = 102 tasks)
+4. **Complete Phase 3.5: Testing Phase 2-3 (31 backend testing tasks)** - **CONSTITUTION COMPLIANCE**
+5. Complete Phase 4: User Story 2 (74 implementation + 10 backend + 7 frontend testing = 91 tasks)
+6. **STOP and VALIDATE**: Test connector/collection management + tool execution independently with >80% backend, >75% frontend coverage
+7. Deploy/demo MVP (276 total tasks)
 
 ### Incremental Delivery
 
-1. **MVP (US1 + US2)**: 258 tasks → Connector + collection management + tool execution **with comprehensive test coverage**
-2. **Add US3**: 56 implementation + 8 testing = 64 tasks → Pipeline forms editor
-3. **Add US4**: 13 implementation + 3 testing = 16 tasks → Trend analysis
-4. **Add US5**: 41 implementation + 7 testing = 48 tasks → YAML migration
+1. **MVP (US1 + US2)**: 276 tasks → Connector + collection management + tool execution **with comprehensive test coverage (backend >80%, frontend >75%)**
+2. **Add US3**: 56 implementation + 8 backend + 6 frontend testing = 70 tasks → Pipeline forms editor
+3. **Add US4**: 13 implementation + 3 backend + 3 frontend testing = 19 tasks → Trend analysis
+4. **Add US5**: 41 implementation + 7 backend + 4 frontend testing = 52 tasks → YAML migration
 5. **Polish**: 33 tasks → Documentation, security, performance
 
-**Total: 419 tasks** (includes 59 testing tasks for constitution compliance)
+**Total: 450 tasks** (360 implementation + 90 testing for constitution compliance)
+
+**Testing Breakdown**: 59 backend + 31 frontend = 90 testing tasks total
+**Coverage Targets**: Backend >80%, Frontend >75%, Overall project >75%
 
 **Task Numbering Note**:
 - Frontend Collection Components use T118a-T118m notation to avoid collision with Phase 4 (T119+)
-- Testing tasks use letter suffixes (e.g., T104a-ae, T192a-j) to maintain phase association
+- Testing tasks use letter suffixes (e.g., T104a-ae, T192a-q, T118n-x) to maintain phase association
 
 ### Parallel Team Strategy
 
@@ -812,8 +862,10 @@ Then converge for US4 (Trends - depends on US2) and Polish.
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - All file paths are absolute from repository root
-- **Test tasks included for constitution compliance**: Target >80% coverage for core logic, written alongside implementation (flexible approach)
-- **Testing phases** (3.5, 4 testing, 5 testing, 6 testing, 7 testing) ensure comprehensive coverage before proceeding
+- **Test tasks included for constitution compliance**: Backend >80%, Frontend >75%, written alongside implementation (flexible approach)
+- **Testing stack**: Backend (pytest, pytest-cov, mocked adapters), Frontend (Jest, React Testing Library, MSW for API mocking)
+- **Testing phases** ensure comprehensive coverage: Phase 3.5 (backend Phase 2-3), each phase includes backend + frontend testing tasks
+- **90 testing tasks total**: 59 backend (unit, integration, coverage) + 31 frontend (hooks, components, user flows)
 - **Pipeline Processor (utils/pipeline_processor.py)** is CRITICAL shared infrastructure used by US2 and US3
 - **Master Key Setup (setup_master_key.py)** is required one-time setup before web server starts
 - **Database-first with YAML fallback** enables seamless CLI tool integration
