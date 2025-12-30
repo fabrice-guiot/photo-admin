@@ -268,6 +268,12 @@ async def health_check() -> Dict[str, Any]:
     }
 
 
+# API routers
+from backend.src.api import collections
+
+app.include_router(collections.router, prefix="/api")
+
+
 # Root endpoint
 
 

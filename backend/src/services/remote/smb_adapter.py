@@ -8,14 +8,8 @@ Implements retry logic for transient network failures.
 import time
 from typing import List, Dict, Any, Tuple
 
-from smbclient import (
-    register_session,
-    listdir,
-    stat,
-    SMBConnectionClosed,
-    SMBAuthenticationError,
-    SMBOSError
-)
+from smbclient import register_session, listdir, stat
+from smbprotocol.exceptions import SMBConnectionClosed, SMBAuthenticationError, SMBOSError
 
 from backend.src.services.remote.base import StorageAdapter
 from backend.src.utils.logging_config import get_logger
