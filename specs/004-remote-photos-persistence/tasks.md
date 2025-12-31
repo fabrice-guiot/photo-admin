@@ -256,17 +256,17 @@
 
 ### Phase 3 Frontend Testing (Constitution Compliance)
 
-- [ ] T118n [P] Create frontend/tests/setup.js with Jest configuration, React Testing Library setup, MSW server configuration, jest-dom matchers
-- [ ] T118o [P] Update frontend/package.json with test dependencies (jest ^29.0.0, @testing-library/react ^14.0.0, @testing-library/jest-dom ^6.0.0, @testing-library/user-event ^14.0.0, msw ^2.0.0)
-- [ ] T118p [P] Create frontend/tests/mocks/handlers.js with MSW API mocks (GET/POST/PUT/DELETE /connectors, GET/POST/PUT/DELETE /collections, POST /connectors/{id}/test)
-- [ ] T118q [P] Create frontend/tests/mocks/server.js with MSW server setup (setupServer, handlers export, beforeAll/afterEach/afterAll hooks)
-- [ ] T118r Create frontend/tests/hooks/useConnectors.test.js with hook tests (fetch on mount, createConnector success, updateConnector, deleteConnector, error handling for 409 delete protection)
-- [ ] T118s Create frontend/tests/hooks/useCollections.test.js with hook tests (fetch with filters, createCollection with connector validation, deleteCollection with result/job checks)
-- [ ] T118t Create frontend/tests/components/ConnectorForm.test.js with component tests (render, type selection shows correct credential fields S3/GCS/SMB, credential validation min lengths, test connection button click)
-- [ ] T118u In frontend/tests/components/ConnectorForm.test.js, add integration test (fill form → submit → verify MSW API call → verify success callback)
-- [ ] T118v Create frontend/tests/components/CollectionForm.test.js with component tests (connector dropdown for remote types, LOCAL type hides connector field, test connection button, cache TTL validation)
-- [ ] T118w Create frontend/tests/components/ConnectorList.test.js with component tests (render list, type filter, active_only filter, delete button shows confirmation, delete protection error message display)
-- [ ] T118x Create frontend/tests/integration/connector-collection-flow.test.js testing full user flow (create connector → verify in list → create collection referencing connector → attempt delete connector → see 409 error message → delete collection → delete connector succeeds)
+- [x] T118n [P] Create frontend/tests/setup.js with Jest configuration, React Testing Library setup, MSW server configuration, jest-dom matchers
+- [x] T118o [P] Update frontend/package.json with test dependencies (jest ^29.0.0, @testing-library/react ^14.0.0, @testing-library/jest-dom ^6.0.0, @testing-library/user-event ^14.0.0, msw ^2.0.0)
+- [x] T118p [P] Create frontend/tests/mocks/handlers.js with MSW API mocks (GET/POST/PUT/DELETE /connectors, GET/POST/PUT/DELETE /collections, POST /connectors/{id}/test)
+- [x] T118q [P] Create frontend/tests/mocks/server.js with MSW server setup (setupServer, handlers export, beforeAll/afterEach/afterAll hooks)
+- [x] T118r Create frontend/tests/hooks/useConnectors.test.js with hook tests (fetch on mount, createConnector success, updateConnector, deleteConnector, error handling for 409 delete protection)
+- [x] T118s Create frontend/tests/hooks/useCollections.test.js with hook tests (fetch with filters, createCollection with connector validation, deleteCollection with result/job checks)
+- [x] T118t Create frontend/tests/components/ConnectorForm.test.js with component tests (render, type selection shows correct credential fields S3/GCS/SMB, credential validation min lengths, test connection button click)
+- [x] T118u In frontend/tests/components/ConnectorForm.test.js, add integration test (fill form → submit → verify MSW API call → verify success callback)
+- [x] T118v Create frontend/tests/components/CollectionForm.test.js with component tests (connector dropdown for remote types, LOCAL type hides connector field, test connection button, cache TTL validation)
+- [x] T118w Create frontend/tests/components/ConnectorList.test.js with component tests (render list, type filter, active_only filter, delete button shows confirmation, delete protection error message display)
+- [x] T118x Create frontend/tests/integration/connector-collection-flow.test.js testing full user flow (create connector → verify in list → create collection referencing connector → attempt delete connector → see 409 error message → delete collection → delete connector succeeds)
 
 **Checkpoint**: User Story 1 complete - users can manage connectors and collections through web UI with credential encryption, delete protection, and cache management. Frontend test coverage >75%.
 
