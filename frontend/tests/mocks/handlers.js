@@ -54,13 +54,15 @@ let collections = [
 let nextConnectorId = 3;
 let nextCollectionId = 3;
 
+const BASE_URL = 'http://localhost:8000/api';
+
 export const handlers = [
   // Connectors endpoints
-  http.get('/api/connectors', () => {
+  http.get(`${BASE_URL}/connectors`, () => {
     return HttpResponse.json(connectors);
   }),
 
-  http.get('/api/connectors/:id', ({ params }) => {
+  http.get(`${BASE_URL}/connectors/:id`, ({ params }) => {
     const connector = connectors.find((c) => c.id === Number(params.id));
     if (!connector) {
       return new HttpResponse(null, { status: 404 });
@@ -68,7 +70,7 @@ export const handlers = [
     return HttpResponse.json(connector);
   }),
 
-  http.post('/api/connectors', async ({ request }) => {
+  http.post(`${BASE_URL}/connectors`, async ({ request }) => {
     const data = await request.json();
     const newConnector = {
       id: nextConnectorId++,
@@ -82,7 +84,7 @@ export const handlers = [
     return HttpResponse.json(newConnector, { status: 201 });
   }),
 
-  http.put('/api/connectors/:id', async ({ params, request }) => {
+  http.put(`${BASE_URL}/connectors/:id`, async ({ params, request }) => {
     const data = await request.json();
     const index = connectors.findIndex((c) => c.id === Number(params.id));
     if (index === -1) {
@@ -96,7 +98,7 @@ export const handlers = [
     return HttpResponse.json(connectors[index]);
   }),
 
-  http.delete('/api/connectors/:id', ({ params }) => {
+  http.delete(`${BASE_URL}/connectors/:id`, ({ params }) => {
     const id = Number(params.id);
     // Check if connector is referenced by collections (delete protection)
     const referencedBy = collections.filter((c) => c.connector_id === id);
@@ -114,7 +116,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post('/api/connectors/:id/test', ({ params }) => {
+  http.post(`${BASE_URL}/connectors/:id/test`, ({ params }) => {
     const connector = connectors.find((c) => c.id === Number(params.id));
     if (!connector) {
       return new HttpResponse(null, { status: 404 });
@@ -129,11 +131,11 @@ export const handlers = [
   }),
 
   // Collections endpoints
-  http.get('/api/collections', () => {
+  http.get(`${BASE_URL}/collections`, () => {
     return HttpResponse.json(collections);
   }),
 
-  http.get('/api/collections/:id', ({ params }) => {
+  http.get(`${BASE_URL}/collections/:id`, ({ params }) => {
     const collection = collections.find((c) => c.id === Number(params.id));
     if (!collection) {
       return new HttpResponse(null, { status: 404 });
@@ -141,7 +143,7 @@ export const handlers = [
     return HttpResponse.json(collection);
   }),
 
-  http.post('/api/collections', async ({ request }) => {
+  http.post(`${BASE_URL}/collections`, async ({ request }) => {
     const data = await request.json();
     // Validate connector exists for remote collections
     if (['s3', 'gcs', 'smb'].includes(data.type) && data.connector_id) {
@@ -165,7 +167,7 @@ export const handlers = [
     return HttpResponse.json(newCollection, { status: 201 });
   }),
 
-  http.put('/api/collections/:id', async ({ params, request }) => {
+  http.put(`${BASE_URL}/collections/:id`, async ({ params, request }) => {
     const data = await request.json();
     const index = collections.findIndex((c) => c.id === Number(params.id));
     if (index === -1) {
@@ -179,7 +181,7 @@ export const handlers = [
     return HttpResponse.json(collections[index]);
   }),
 
-  http.delete('/api/collections/:id', ({ params, request }) => {
+  http.delete(`${BASE_URL}/collections/:id`, ({ params, request }) => {
     const url = new URL(request.url);
     const forceDelete = url.searchParams.get('force_delete') === 'true';
     const id = Number(params.id);
@@ -209,7 +211,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post('/api/collections/:id/test', ({ params }) => {
+  http.post(`${BASE_URL}/collections/:id/test`, ({ params }) => {
     const collection = collections.find((c) => c.id === Number(params.id));
     if (!collection) {
       return new HttpResponse(null, { status: 404 });
@@ -217,7 +219,7 @@ export const handlers = [
     return HttpResponse.json({ success: true, message: 'Collection is accessible' });
   }),
 
-  http.post('/api/collections/:id/refresh', ({ params, request }) => {
+  http.post(`${BASE_URL}/collections/:id/refresh`, ({ params, request }) => {
     const url = new URL(request.url);
     const forceRefresh = url.searchParams.get('force') === 'true';
     const collection = collections.find((c) => c.id === Number(params.id));
