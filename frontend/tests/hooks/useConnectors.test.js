@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react';
-import useConnectors from '../../src/hooks/useConnectors';
+import { useConnectors } from '../../src/hooks/useConnectors';
 import { resetMockData } from '../mocks/handlers';
 
 describe('useConnectors', () => {
