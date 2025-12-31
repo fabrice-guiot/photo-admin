@@ -235,6 +235,6 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
-frontend/package-lock.json
+# Note: package-lock.json is committed for reproducible builds in CI/CD
 frontend/yarn.lock
 frontend/pnpm-lock.yaml
