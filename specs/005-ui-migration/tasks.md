@@ -48,11 +48,11 @@ description: "Task list for UI Migration to Modern Design System"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 Create frontend/src/lib/utils.ts with cn() helper function for class name merging
-- [ ] T009 [P] Create frontend/src/types/connector.ts with Connector, ConnectorType, ConnectorCredentials interfaces
-- [ ] T010 [P] Create frontend/src/types/collection.ts with Collection, CollectionType, CollectionState interfaces
-- [ ] T011 [P] Create frontend/src/types/api.ts with ApiError, PaginationParams, PaginationMeta interfaces
-- [ ] T012 Create frontend/src/types/index.ts barrel file exporting all type definitions
+- [X] T008 Create frontend/src/lib/utils.ts with cn() helper function for class name merging
+- [X] T009 [P] Create frontend/src/types/connector.ts with Connector, ConnectorType, ConnectorCredentials interfaces
+- [X] T010 [P] Create frontend/src/types/collection.ts with Collection, CollectionType, CollectionState interfaces
+- [X] T011 [P] Create frontend/src/types/api.ts with ApiError, PaginationParams, PaginationMeta interfaces
+- [X] T012 Create frontend/src/types/index.ts barrel file exporting all type definitions
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
