@@ -66,8 +66,8 @@ description: "Task list for UI Migration to Modern Design System"
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Verify globals.css contains all design tokens from ui-style-proposal (--background, --foreground, --primary, --accent, --sidebar, etc.)
-- [ ] T014 [US1] Test dark theme CSS variables render correctly in browser DevTools across all defined tokens
+- [X] T013 [US1] Verify globals.css contains all design tokens from ui-style-proposal (--background, --foreground, --primary, --accent, --sidebar, etc.)
+- [X] T014 [US1] Test dark theme CSS variables render correctly in browser DevTools across all defined tokens
 
 **Checkpoint**: Dark theme foundation is in place and visible
 
