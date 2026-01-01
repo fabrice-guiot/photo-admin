@@ -299,12 +299,12 @@
 
 ### Service Layer Tests
 
-- [ ] T104j Create backend/tests/unit/test_connector_service.py with ConnectorService tests (create with encryption, get with decryption, list with filters, update with re-encryption)
-- [ ] T104k In backend/tests/unit/test_connector_service.py, add delete_connector tests (success when no collections, ValueError when collections exist, collection count check)
-- [ ] T104l In backend/tests/unit/test_connector_service.py, add test_connector tests (adapter selection by type, last_validated update on success, last_error update on failure)
-- [ ] T104m Create backend/tests/unit/test_collection_service.py with CollectionService tests (create with accessibility test, get with connector details, list with filters, update with cache invalidation)
-- [ ] T104n In backend/tests/unit/test_collection_service.py, add delete_collection tests (check for analysis_results, check for active jobs, force flag behavior)
-- [ ] T104o In backend/tests/unit/test_collection_service.py, add get_collection_files tests (cache hit/miss logic, TTL expiry, state-based TTL selection)
+- [x] T104j Create backend/tests/unit/test_connector_service.py with ConnectorService tests (create with encryption, get with decryption, list with filters, update with re-encryption)
+- [x] T104k In backend/tests/unit/test_connector_service.py, add delete_connector tests (success when no collections, ValueError when collections exist, collection count check)
+- [x] T104l In backend/tests/unit/test_connector_service.py, add test_connector tests (adapter selection by type, last_validated update on success, last_error update on failure)
+- [x] T104m Create backend/tests/unit/test_collection_service.py with CollectionService tests (create with accessibility test, get with connector details, list with filters, update with cache invalidation)
+- [x] T104n In backend/tests/unit/test_collection_service.py, add delete_collection tests (check for analysis_results, check for active jobs, force flag behavior)
+- [x] T104o In backend/tests/unit/test_collection_service.py, add get_collection_files tests (cache hit/miss logic, TTL expiry, state-based TTL selection)
 
 ### Model Validation Tests
 

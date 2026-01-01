@@ -98,6 +98,24 @@ def test_job_queue():
 
 
 # ============================================================================
+# Service Layer Fixtures
+# ============================================================================
+
+@pytest.fixture
+def test_file_cache():
+    """Create a FileListingCache for testing."""
+    from backend.src.utils.cache import FileListingCache
+    return FileListingCache()
+
+
+@pytest.fixture
+def test_connector_service(test_db_session, test_encryptor):
+    """Create a ConnectorService for testing."""
+    from backend.src.services.connector_service import ConnectorService
+    return ConnectorService(test_db_session, test_encryptor)
+
+
+# ============================================================================
 # Sample Data Factories
 # ============================================================================
 
@@ -107,10 +125,14 @@ def sample_connector_data():
     def _create(
         name='Test S3 Connector',
         connector_type='s3',
+        type=None,  # Allow 'type' as alias for consistency
         credentials=None,
         is_active=True,
         metadata=None
     ):
+        # Use 'type' if provided, otherwise use 'connector_type'
+        actual_type = type if type is not None else connector_type
+
         if credentials is None:
             credentials = {
                 'aws_access_key_id': 'AKIAIOSFODNN7EXAMPLE',
@@ -119,7 +141,7 @@ def sample_connector_data():
             }
         return {
             'name': name,
-            'type': connector_type,
+            'type': actual_type,
             'credentials': credentials,
             'is_active': is_active,
             'metadata': metadata or {}
@@ -157,19 +179,27 @@ def sample_collection_data():
     def _create(
         name='Test Collection',
         collection_type='local',
+        type=None,  # Allow 'type' as alias for consistency
         location='/photos',
         state='live',
         connector_id=None,
         cache_ttl=None,
+        is_accessible=True,
+        last_error=None,
         metadata=None
     ):
+        # Use 'type' if provided, otherwise use 'collection_type'
+        actual_type = type if type is not None else collection_type
+
         return {
             'name': name,
-            'type': collection_type,
+            'type': actual_type,
             'location': location,
             'state': state,
             'connector_id': connector_id,
             'cache_ttl': cache_ttl,
+            'is_accessible': is_accessible,
+            'last_error': last_error,
             'metadata': metadata or {}
         }
     return _create
@@ -189,8 +219,8 @@ def sample_collection(test_db_session, sample_collection_data):
             state=data['state'],
             connector_id=data['connector_id'],
             cache_ttl=data['cache_ttl'],
-            is_accessible=True,
-            last_error=None,
+            is_accessible=data['is_accessible'],
+            last_error=data['last_error'],
             metadata_json=json.dumps(data['metadata']) if data['metadata'] else None
         )
         test_db_session.add(collection)
