@@ -15,6 +15,8 @@ Photo Administration toolbox - Python utilities for analyzing photo collections.
 - Python 3.10+ (required for match/case syntax and modern type hinting) (003-pipeline-validation)
 - Python 3.10+ (backend), JavaScript ES6+ (frontend) (004-remote-photos-persistence)
 - PostgreSQL 12+ with JSONB columns (collections, configurations, pipelines, analysis_results, pipeline_history) (004-remote-photos-persistence)
+- TypeScript 5.x (migration from JavaScript ES6+), React 18.3.1 (005-ui-migration)
+- N/A (frontend only, uses existing PostgreSQL backend API) (005-ui-migration)
 
 - **Python 3.10+**
 - **PyYAML** (>=6.0) - Configuration file handling
@@ -198,11 +200,11 @@ prop_type = FilenameParser.detect_property_type('HDR')  # 'processing_method'
 ```
 
 ## Recent Changes
+- 005-ui-migration: Added TypeScript 5.x (migration from JavaScript ES6+), React 18.3.1
 - 004-remote-photos-persistence: Added Python 3.10+ (backend), JavaScript ES6+ (frontend)
 - 003-pipeline-validation: Added Python 3.10+ (required for match/case syntax and modern type hinting)
 
 ### HTML Report Consistency & Tool Improvements (2025-12-25)
-- ✅ Feature 002: Complete implementation (56 tasks across 6 phases)
   - Created templates/base.html.j2 with shared styling and Chart.js theme
   - Tool-specific templates extend base for PhotoStats and Photo Pairing
   - Removed 640+ lines of duplicate HTML generation code
