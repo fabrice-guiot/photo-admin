@@ -332,7 +332,7 @@
 - [x] T104ab [P] In backend/tests/conftest.py, add fixtures for mocked storage adapters (mock_s3_client, mock_gcs_client, mock_smb_connection)
 - [x] T104ac [P] Update backend/requirements.txt with test dependencies (pytest-cov, pytest-mock, pytest-asyncio, freezegun for time-based tests)
 - [x] T104ad Create backend/.coveragerc with coverage configuration (exclude migrations, __init__.py, target 80% minimum)
-- [ ] T104ae Update backend/README.md with testing instructions (pytest commands, coverage reporting, test organization)
+- [x] T104ae Update backend/README.md with testing instructions (pytest commands, coverage reporting, test organization)
 
 **Checkpoint**: Comprehensive test coverage achieved (>80%) for Phase 2-3 code - safe to proceed with Phase 4
 
