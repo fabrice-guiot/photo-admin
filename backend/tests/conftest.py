@@ -329,12 +329,16 @@ def test_client(test_db_session, test_cache, test_job_queue, test_encryptor):
 
     # Import and override dependencies
     from backend.src.db.database import get_db
-    from backend.src.dependencies import get_cache, get_job_queue, get_encryptor
+    from backend.src.api.connectors import get_credential_encryptor as get_connector_encryptor
+    from backend.src.api.collections import (
+        get_file_cache,
+        get_credential_encryptor as get_collection_encryptor
+    )
 
     app.dependency_overrides[get_db] = get_test_db
-    app.dependency_overrides[get_cache] = get_test_cache
-    app.dependency_overrides[get_job_queue] = get_test_queue
-    app.dependency_overrides[get_encryptor] = get_test_encryptor
+    app.dependency_overrides[get_file_cache] = get_test_cache
+    app.dependency_overrides[get_connector_encryptor] = get_test_encryptor
+    app.dependency_overrides[get_collection_encryptor] = get_test_encryptor
 
     with TestClient(app) as client:
         yield client

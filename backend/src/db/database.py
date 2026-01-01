@@ -31,15 +31,28 @@ DATABASE_URL = os.environ.get(
 
 # SQLAlchemy engine with connection pooling
 # Pool configuration based on research.md Task 8 and performance targets
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=20,          # Maximum connections in pool (from research.md)
-    max_overflow=10,       # Additional connections beyond pool_size
-    pool_pre_ping=True,    # Verify connections before checkout
-    pool_recycle=3600,     # Recycle connections after 1 hour
-    echo=False,            # Set to True for SQL debugging
-    future=True            # Use SQLAlchemy 2.0 style
-)
+# Use different parameters for SQLite vs PostgreSQL
+if DATABASE_URL.startswith("sqlite"):
+    # SQLite doesn't support pool_size, max_overflow, or pool_recycle
+    from sqlalchemy.pool import StaticPool
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={'check_same_thread': False},
+        poolclass=StaticPool,
+        echo=False,
+        future=True
+    )
+else:
+    # PostgreSQL with connection pooling
+    engine = create_engine(
+        DATABASE_URL,
+        pool_size=20,          # Maximum connections in pool (from research.md)
+        max_overflow=10,       # Additional connections beyond pool_size
+        pool_pre_ping=True,    # Verify connections before checkout
+        pool_recycle=3600,     # Recycle connections after 1 hour
+        echo=False,            # Set to True for SQL debugging
+        future=True            # Use SQLAlchemy 2.0 style
+    )
 
 
 # Session factory for creating database sessions

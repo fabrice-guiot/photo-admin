@@ -314,12 +314,12 @@
 
 ### API Endpoint Tests
 
-- [ ] T104s Create backend/tests/unit/test_api_connectors.py with Connector API tests (POST creates and returns 201, GET list with type filter, GET by ID returns 404 if not found)
-- [ ] T104t In backend/tests/unit/test_api_connectors.py, add PUT tests (update name/metadata, 409 on duplicate name, credential re-encryption)
-- [ ] T104u In backend/tests/unit/test_api_connectors.py, add DELETE tests (204 when no collections, 409 when collections exist with descriptive message, protection logic)
-- [ ] T104v In backend/tests/unit/test_api_connectors.py, add POST /test tests (success/failure responses, last_validated/last_error updates)
-- [ ] T104w Create backend/tests/unit/test_api_collections.py with Collection API tests (POST creates with accessibility test, GET list with state/type/accessible filters, DELETE with result/job checks)
-- [ ] T104x In backend/tests/unit/test_api_collections.py, add POST /test and /refresh tests (accessibility status, file count warnings, cache invalidation on refresh)
+- [x] T104s Create backend/tests/unit/test_api_connectors.py with Connector API tests (POST creates and returns 201, GET list with type filter, GET by ID returns 404 if not found)
+- [x] T104t In backend/tests/unit/test_api_connectors.py, add PUT tests (update name/metadata, 409 on duplicate name, credential re-encryption)
+- [x] T104u In backend/tests/unit/test_api_connectors.py, add DELETE tests (204 when no collections, 409 when collections exist with descriptive message, protection logic)
+- [x] T104v In backend/tests/unit/test_api_connectors.py, add POST /test tests (success/failure responses, last_validated/last_error updates)
+- [x] T104w Create backend/tests/unit/test_api_collections.py with Collection API tests (POST creates with accessibility test, GET list with state/type/accessible filters, DELETE with result/job checks)
+- [x] T104x In backend/tests/unit/test_api_collections.py, add POST /test and /refresh tests (accessibility status, file count warnings, cache invalidation on refresh)
 
 ### Integration Tests
 
