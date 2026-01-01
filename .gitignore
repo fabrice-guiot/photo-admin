@@ -213,7 +213,28 @@ __marimo__/
 # User configuration (use config/template-config.yaml as template)
 config/config.yaml
 
+# Master encryption key (NEVER commit this!)
+.photo_admin_master_key.txt
+
 # IDE
 .DS_Store
 .idea/
 .vscode/
+
+# Backend-specific
+backend/.env
+backend/alembic.ini
+
+# Frontend-specific
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+# Note: package-lock.json is committed for reproducible builds in CI/CD
+frontend/yarn.lock
+frontend/pnpm-lock.yaml

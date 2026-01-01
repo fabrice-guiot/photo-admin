@@ -51,7 +51,7 @@ class TestFileScanningFunctionality:
         result = stats.scan_folder()
 
         assert result['total_files'] == 12
-        assert result['scan_time'] > 0
+        assert result['scan_time'] >= 0  # Can be 0.0 on fast systems
         assert str(temp_photo_dir.resolve()) in result['folder_path']
 
     def test_scan_nonexistent_folder(self, tmp_path):

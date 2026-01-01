@@ -1,0 +1,1462 @@
+openapi: 3.0.3
+info:
+  title: Photo Admin Web API
+  description: |
+    REST API for photo collection management, analysis tool execution, and result visualization.
+
+    **Key Features**:
+    - Collection management (local/S3/GCS/SMB)
+    - Configuration import/export (YAML ↔ Database)
+    - Pipeline configuration (form-based editor)
+    - Analysis tool execution (PhotoStats, Photo Pairing, Pipeline Validation)
+    - Historical result queries and trend analysis
+
+    **Authentication**: None (localhost deployment for v1)
+  version: 1.0.0
+  contact:
+    name: Photo Admin Support
+  license:
+    name: AGPL-3.0
+    url: https://www.gnu.org/licenses/agpl-3.0.en.html
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development server
+
+tags:
+  - name: collections
+    description: Photo collection management
+  - name: configuration
+    description: Global configuration settings
+  - name: pipelines
+    description: Pipeline definitions and validation
+  - name: tools
+    description: Analysis tool execution
+  - name: results
+    description: Analysis results and trends
+
+paths:
+  # ==================== COLLECTIONS ====================
+
+  /collections:
+    get:
+      tags: [collections]
+      summary: List all collections
+      description: Returns all collections sorted by creation date (newest first)
+      operationId: listCollections
+      parameters:
+        - name: state
+          in: query
+          description: Filter by collection state
+          schema:
+            type: string
+            enum: [Live, Closed, Archived]
+        - name: type
+          in: query
+          description: Filter by collection type
+          schema:
+            type: string
+            enum: [local, s3, gcs, smb]
+        - name: accessible_only
+          in: query
+          description: Show only accessible collections
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Collection list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Collection'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [collections]
+      summary: Create new collection
+      description: Create a new collection with accessibility test
+      operationId: createCollection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionCreate'
+      responses:
+        '201':
+          description: Collection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Collection name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /collections/{id}:
+    get:
+      tags: [collections]
+      summary: Get collection by ID
+      operationId: getCollection
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+      responses:
+        '200':
+          description: Collection retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [collections]
+      summary: Update collection
+      description: Update collection name, location, state, or credentials
+      operationId: updateCollection
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionUpdate'
+      responses:
+        '200':
+          description: Collection updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Collection name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [collections]
+      summary: Delete collection
+      description: Delete collection with confirmation if results/jobs exist
+      operationId: deleteCollection
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+        - name: force
+          in: query
+          description: Force deletion even if results/jobs exist
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '204':
+          description: Collection deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Collection has active jobs or results (use force=true)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Collection has 3 analysis results and 1 active job
+                  result_count:
+                    type: integer
+                  active_job_count:
+                    type: integer
+                  requires_confirmation:
+                    type: boolean
+                    default: true
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /collections/{id}/test:
+    post:
+      tags: [collections]
+      summary: Test collection accessibility
+      description: Test if collection is accessible (filesystem path exists, remote credentials valid)
+      operationId: testCollection
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+      responses:
+        '200':
+          description: Accessibility test result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessible:
+                    type: boolean
+                  error_message:
+                    type: string
+                    nullable: true
+                  file_count:
+                    type: integer
+                    description: Number of files found (if accessible)
+                    nullable: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /collections/{id}/refresh:
+    post:
+      tags: [collections]
+      summary: Refresh collection cache
+      description: Manually invalidate file listing cache and fetch fresh listing
+      operationId: refreshCollection
+      parameters:
+        - $ref: '#/components/parameters/CollectionId'
+        - name: confirm
+          in: query
+          description: Confirm refresh if file count exceeds threshold
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Cache refreshed successfully or confirmation required
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Cache refreshed
+                      file_count:
+                        type: integer
+                  - type: object
+                    properties:
+                      warning:
+                        type: string
+                        example: This collection has 150,000 files. Refreshing will incur API costs.
+                      file_count:
+                        type: integer
+                      requires_confirmation:
+                        type: boolean
+                        default: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== CONFIGURATION ====================
+
+  /config:
+    get:
+      tags: [configuration]
+      summary: Get all configuration
+      description: Returns all configuration keys and values
+      operationId: getConfiguration
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                example:
+                  photo_extensions: [".dng", ".cr3", ".tiff"]
+                  metadata_extensions: [".xmp"]
+                  camera_mappings:
+                    AB3D:
+                      - name: Canon EOS R5
+                        serial_number: "12345"
+                  processing_methods:
+                    HDR: High Dynamic Range
+                    BW: Black and White
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [configuration]
+      summary: Update configuration
+      description: Update specific configuration keys
+      operationId: updateConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Configuration updated
+                  updated_keys:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /config/import:
+    post:
+      tags: [configuration]
+      summary: Import YAML configuration
+      description: Import configuration from YAML file with conflict resolution
+      operationId: importConfiguration
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: YAML configuration file
+      responses:
+        '200':
+          description: Configuration imported successfully or conflicts detected
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [success]
+                      message:
+                        type: string
+                        example: Configuration imported
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [conflicts]
+                      session_id:
+                        type: string
+                        description: Session ID for conflict resolution
+                      conflicts:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConfigConflict'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /config/resolve:
+    post:
+      tags: [configuration]
+      summary: Resolve import conflicts
+      description: Apply user selections to resolve YAML import conflicts
+      operationId: resolveConfigConflicts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                selections:
+                  type: object
+                  additionalProperties:
+                    type: string
+                    enum: [database, yaml]
+                  example:
+                    photo_extensions: yaml
+                    camera_mappings.AB3D: database
+      responses:
+        '200':
+          description: Conflicts resolved and configuration imported
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Configuration imported with conflict resolution
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Session not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /config/export:
+    get:
+      tags: [configuration]
+      summary: Export configuration to YAML
+      description: Download current configuration as YAML file
+      operationId: exportConfiguration
+      responses:
+        '200':
+          description: YAML file download
+          content:
+            application/x-yaml:
+              schema:
+                type: string
+                format: binary
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== PIPELINES ====================
+
+  /pipelines:
+    get:
+      tags: [pipelines]
+      summary: List all pipelines
+      description: Returns all pipelines sorted by update date (newest first)
+      operationId: listPipelines
+      responses:
+        '200':
+          description: Pipeline list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Pipeline'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [pipelines]
+      summary: Create new pipeline
+      description: Create a new pipeline with validation
+      operationId: createPipeline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineCreate'
+      responses:
+        '201':
+          description: Pipeline created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Pipeline name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}:
+    get:
+      tags: [pipelines]
+      summary: Get pipeline by ID
+      operationId: getPipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Pipeline retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [pipelines]
+      summary: Update pipeline
+      description: Update pipeline (creates new version in history)
+      operationId: updatePipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PipelineUpdate'
+      responses:
+        '200':
+          description: Pipeline updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [pipelines]
+      summary: Delete pipeline
+      operationId: deletePipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '204':
+          description: Pipeline deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}/validate:
+    post:
+      tags: [pipelines]
+      summary: Validate pipeline structure
+      description: Validate pipeline for cycles, orphaned nodes, and property references
+      operationId: validatePipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}/activate:
+    post:
+      tags: [pipelines]
+      summary: Activate pipeline
+      description: Set pipeline as active (deactivates others)
+      operationId: activatePipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Pipeline activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Pipeline activated
+                  previous_active_id:
+                    type: integer
+                    nullable: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}/preview:
+    get:
+      tags: [pipelines]
+      summary: Preview expected filenames
+      description: Generate expected filenames from pipeline configuration
+      operationId: previewPipelineFilenames
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+        - name: camera_id
+          in: query
+          schema:
+            type: string
+            default: AB3D
+        - name: start_counter
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Filename preview generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  camera_id:
+                    type: string
+                  filenames:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - AB3D0001.dng
+                      - AB3D0001-HDR.jpg
+                      - AB3D0001.xmp
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}/history:
+    get:
+      tags: [pipelines]
+      summary: Get pipeline version history
+      operationId: getPipelineHistory
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: Version history retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PipelineHistoryEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/{id}/export:
+    get:
+      tags: [pipelines]
+      summary: Export pipeline to YAML
+      description: Download pipeline configuration as YAML file
+      operationId: exportPipeline
+      parameters:
+        - $ref: '#/components/parameters/PipelineId'
+      responses:
+        '200':
+          description: YAML file download
+          content:
+            application/x-yaml:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /pipelines/import:
+    post:
+      tags: [pipelines]
+      summary: Import pipeline from YAML
+      description: Create pipeline from YAML file
+      operationId: importPipeline
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: YAML pipeline definition
+      responses:
+        '201':
+          description: Pipeline imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pipeline'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== TOOLS ====================
+
+  /tools/photostats:
+    post:
+      tags: [tools]
+      summary: Run PhotoStats analysis
+      description: Execute PhotoStats on collection (queued if job already running)
+      operationId: runPhotoStats
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_id:
+                  type: integer
+      responses:
+        '202':
+          description: Analysis queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/photo_pairing:
+    post:
+      tags: [tools]
+      summary: Run Photo Pairing analysis
+      operationId: runPhotoPairing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_id:
+                  type: integer
+      responses:
+        '202':
+          description: Analysis queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/pipeline_validation:
+    post:
+      tags: [tools]
+      summary: Run Pipeline Validation analysis
+      operationId: runPipelineValidation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                collection_id:
+                  type: integer
+                pipeline_id:
+                  type: integer
+                  description: Pipeline to validate against (uses active if not specified)
+                  nullable: true
+      responses:
+        '202':
+          description: Analysis queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /tools/status/{job_id}:
+    get:
+      tags: [tools]
+      summary: Get job status
+      description: Retrieve current status of analysis job
+      operationId: getJobStatus
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Job status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatus'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==================== RESULTS ====================
+
+  /results:
+    get:
+      tags: [results]
+      summary: List analysis results
+      description: Query historical analysis results with filters
+      operationId: listResults
+      parameters:
+        - name: collection_id
+          in: query
+          schema:
+            type: integer
+        - name: tool
+          in: query
+          schema:
+            type: string
+            enum: [photostats, photo_pairing, pipeline_validation]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, completed, failed, cancelled]
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Results retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnalysisResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /results/{id}:
+    get:
+      tags: [results]
+      summary: Get analysis result
+      description: Retrieve specific analysis result with full details
+      operationId: getResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [results]
+      summary: Delete analysis result
+      operationId: deleteResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Result deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /results/{id}/report:
+    get:
+      tags: [results]
+      summary: Get HTML report
+      description: Retrieve pre-generated HTML report or download as file
+      operationId: getReport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: download
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: HTML report
+          content:
+            text/html:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /results/trends:
+    get:
+      tags: [results]
+      summary: Get trend analysis data
+      description: Retrieve metrics over time for trend charts
+      operationId: getTrendData
+      parameters:
+        - name: collection_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: tool
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [photostats, photo_pairing, pipeline_validation]
+        - name: metric
+          in: query
+          description: Specific metric to track (e.g., orphaned_files_count, camera_usage)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Trend data retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    executed_at:
+                      type: string
+                      format: date-time
+                    metric_value:
+                      oneOf:
+                        - type: integer
+                        - type: number
+                        - type: object
+                    result_id:
+                      type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# ==================== COMPONENTS ====================
+
+components:
+  parameters:
+    CollectionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Collection ID
+
+    PipelineId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Pipeline ID
+
+  schemas:
+    # Collection schemas
+    Collection:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [local, s3, gcs, smb]
+        location:
+          type: string
+          description: Filesystem path or URI
+        state:
+          type: string
+          enum: [Live, Closed, Archived]
+        cache_ttl:
+          type: integer
+          nullable: true
+          description: Cache TTL override (seconds)
+        is_accessible:
+          type: boolean
+        last_error:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, name, type, location, state, is_accessible, created_at, updated_at]
+
+    CollectionCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        type:
+          type: string
+          enum: [local, s3, gcs, smb]
+        location:
+          type: string
+          minLength: 1
+        state:
+          type: string
+          enum: [Live, Closed, Archived]
+          default: Live
+        cache_ttl:
+          type: integer
+          minimum: 1
+          nullable: true
+        credentials:
+          type: object
+          description: Remote storage credentials (type-specific)
+          nullable: true
+          oneOf:
+            - $ref: '#/components/schemas/S3Credentials'
+            - $ref: '#/components/schemas/GCSCredentials'
+            - $ref: '#/components/schemas/SMBCredentials'
+        metadata:
+          type: object
+          nullable: true
+      required: [name, type, location]
+
+    CollectionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        location:
+          type: string
+          minLength: 1
+        state:
+          type: string
+          enum: [Live, Closed, Archived]
+        cache_ttl:
+          type: integer
+          minimum: 1
+          nullable: true
+        credentials:
+          type: object
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+
+    S3Credentials:
+      type: object
+      properties:
+        aws_access_key_id:
+          type: string
+        aws_secret_access_key:
+          type: string
+        region:
+          type: string
+          default: us-east-1
+      required: [aws_access_key_id, aws_secret_access_key]
+
+    GCSCredentials:
+      type: object
+      properties:
+        service_account_json:
+          type: string
+          description: GCS service account JSON (as string)
+      required: [service_account_json]
+
+    SMBCredentials:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        domain:
+          type: string
+          nullable: true
+      required: [username, password]
+
+    # Configuration schemas
+    ConfigConflict:
+      type: object
+      properties:
+        key:
+          type: string
+        db_value:
+          oneOf:
+            - type: string
+            - type: array
+            - type: object
+        yaml_value:
+          oneOf:
+            - type: string
+            - type: array
+            - type: object
+        type:
+          type: string
+          enum: [string, list, dict]
+      required: [key, db_value, yaml_value, type]
+
+    # Pipeline schemas
+    Pipeline:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        config:
+          type: object
+          properties:
+            nodes:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/PipelineNode'
+            edges:
+              type: array
+              items:
+                $ref: '#/components/schemas/PipelineEdge'
+        is_active:
+          type: boolean
+        version:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [id, name, config, is_active, version, created_at, updated_at]
+
+    PipelineCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        config:
+          type: object
+          properties:
+            nodes:
+              type: object
+              additionalProperties:
+                $ref: '#/components/schemas/PipelineNode'
+            edges:
+              type: array
+              items:
+                $ref: '#/components/schemas/PipelineEdge'
+      required: [name, config]
+
+    PipelineUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+        config:
+          type: object
+        change_notes:
+          type: string
+          description: Optional notes describing changes
+
+    PipelineNode:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Capture, File, Process, Pairing, Branching, Termination]
+        properties:
+          type: object
+          additionalProperties: true
+      required: [type, properties]
+
+    PipelineEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+      required: [source, target]
+
+    PipelineHistoryEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        pipeline_id:
+          type: integer
+        version:
+          type: integer
+        config:
+          type: object
+        changed_at:
+          type: string
+          format: date-time
+        change_notes:
+          type: string
+          nullable: true
+      required: [id, pipeline_id, version, config, changed_at]
+
+    ValidationError:
+      type: object
+      properties:
+        node_id:
+          type: string
+        error_type:
+          type: string
+          enum: [orphaned, cycle, invalid_property, missing_edge]
+        message:
+          type: string
+        guidance:
+          type: string
+      required: [node_id, error_type, message, guidance]
+
+    # Tool execution schemas
+    JobResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: Analysis queued
+        job_id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+          nullable: true
+          description: Queue position (null if running)
+        estimated_start_minutes:
+          type: integer
+          description: Estimated minutes until job starts
+      required: [message, job_id]
+
+    JobStatus:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        progress:
+          type: object
+          nullable: true
+          properties:
+            files_scanned:
+              type: integer
+            issues_found:
+              type: integer
+            stage:
+              type: string
+            percent_complete:
+              type: integer
+        result_id:
+          type: integer
+          nullable: true
+          description: ID of completed result (if status=completed)
+        error_message:
+          type: string
+          nullable: true
+      required: [job_id, status]
+
+    # Result schemas
+    AnalysisResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        collection_id:
+          type: integer
+        collection_name:
+          type: string
+        pipeline_id:
+          type: integer
+          nullable: true
+        pipeline_name:
+          type: string
+          nullable: true
+        tool:
+          type: string
+          enum: [photostats, photo_pairing, pipeline_validation]
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        executed_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        results:
+          type: object
+          nullable: true
+          description: Tool-specific results (JSONB with schema_version)
+        schema_version:
+          type: string
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+      required: [id, collection_id, collection_name, tool, job_id, status, executed_at]
+
+    # Error schemas
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        detail:
+          type: string
+          nullable: true
+        errors:
+          type: array
+          items:
+            type: object
+          nullable: true
+      required: [message]
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Validation error
+            errors:
+              - field: name
+                message: Name is required
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Collection not found
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: An unexpected error occurred
+            detail: Database connection failed
