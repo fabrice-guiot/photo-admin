@@ -81,12 +81,12 @@ description: "Task list for UI Migration to Modern Design System"
 
 ### Implementation for User Story 2
 
-- [ ] T015 [P] [US2] Create frontend/src/components/layout/Sidebar.tsx with navigation menu items and Lucide icons
-- [ ] T016 [P] [US2] Create frontend/src/components/layout/TopHeader.tsx with page title, stats, notifications, and user profile
-- [ ] T017 [US2] Create frontend/src/components/layout/MainLayout.tsx composing Sidebar + TopHeader + content area
-- [ ] T018 [US2] Rename frontend/src/App.jsx to App.tsx and wrap routes with MainLayout component
-- [ ] T019 [US2] Add active route detection using useLocation() and highlight active menu item in Sidebar
-- [ ] T020 [US2] Update page titles in TopHeader dynamically based on current route
+- [X] T015 [P] [US2] Create frontend/src/components/layout/Sidebar.tsx with navigation menu items and Lucide icons
+- [X] T016 [P] [US2] Create frontend/src/components/layout/TopHeader.tsx with page title, stats, notifications, and user profile
+- [X] T017 [US2] Create frontend/src/components/layout/MainLayout.tsx composing Sidebar + TopHeader + content area
+- [X] T018 [US2] Rename frontend/src/App.jsx to App.tsx and wrap routes with MainLayout component
+- [X] T019 [US2] Add active route detection using useLocation() and highlight active menu item in Sidebar
+- [X] T020 [US2] Update page titles in TopHeader dynamically based on current route
 
 **Checkpoint**: New layout renders, navigation works between pages, active states highlight correctly
 
