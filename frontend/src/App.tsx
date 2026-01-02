@@ -21,6 +21,7 @@ interface RouteConfig {
   element: JSX.Element
   pageTitle: string
   pageIcon?: typeof FolderOpen
+  stats?: { label: string; value: string | number }[]
 }
 
 const routes: RouteConfig[] = [
@@ -29,18 +30,30 @@ const routes: RouteConfig[] = [
     element: <CollectionsPage />,
     pageTitle: 'Collections',
     pageIcon: FolderOpen,
+    stats: [
+      { label: 'Total Collections', value: '12' },
+      { label: 'Storage Used', value: '2.4 TB' },
+    ],
   },
   {
     path: '/collections',
     element: <CollectionsPage />,
     pageTitle: 'Collections',
     pageIcon: FolderOpen,
+    stats: [
+      { label: 'Total Collections', value: '12' },
+      { label: 'Storage Used', value: '2.4 TB' },
+    ],
   },
   {
     path: '/connectors',
     element: <ConnectorsPage />,
     pageTitle: 'Connectors',
     pageIcon: Database,
+    stats: [
+      { label: 'Active Connectors', value: '3' },
+      { label: 'Total Connectors', value: '5' },
+    ],
   },
 ]
 
@@ -52,12 +65,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {routes.map(({ path, element, pageTitle, pageIcon }) => (
+        {routes.map(({ path, element, pageTitle, pageIcon, stats }) => (
           <Route
             key={path}
             path={path}
             element={
-              <MainLayout pageTitle={pageTitle} pageIcon={pageIcon}>
+              <MainLayout pageTitle={pageTitle} pageIcon={pageIcon} stats={stats}>
                 {element}
               </MainLayout>
             }

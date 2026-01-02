@@ -102,10 +102,10 @@ description: "Task list for UI Migration to Modern Design System"
 
 **Note**: Most implementation completed in Phase 4 (US2). This phase verifies header context functionality.
 
-- [ ] T021 [US3] Verify TopHeader displays correct page icon and title when navigating to Collections page
-- [ ] T022 [US3] Add placeholder stats (collection count, storage usage) to TopHeader right section
-- [ ] T023 [US3] Verify notifications bell icon and user profile with initials display correctly
-- [ ] T024 [US3] Add hover states to TopHeader interactive elements (notifications, profile dropdown)
+- [X] T021 [US3] Verify TopHeader displays correct page icon and title when navigating to Collections page
+- [X] T022 [US3] Add placeholder stats (collection count, storage usage) to TopHeader right section
+- [X] T023 [US3] Verify notifications bell icon and user profile with initials display correctly
+- [X] T024 [US3] Add hover states to TopHeader interactive elements (notifications, profile dropdown)
 
 **Checkpoint**: Top header provides full contextual information for each page
 

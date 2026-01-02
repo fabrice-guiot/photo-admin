@@ -95,7 +95,10 @@ export function TopHeader({
         </button>
 
         {/* User Profile */}
-        <div className="flex items-center gap-3">
+        <button
+          className="flex items-center gap-3 rounded-md p-2 hover:bg-accent transition-colors"
+          aria-label="User profile menu"
+        >
           <div className="text-right">
             <div className="text-sm font-medium text-foreground">
               {DEFAULT_USER_PROFILE.name}
@@ -107,7 +110,7 @@ export function TopHeader({
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
             {DEFAULT_USER_PROFILE.initials}
           </div>
-        </div>
+        </button>
       </div>
     </header>
   )
