@@ -1,0 +1,393 @@
+import { useEffect, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Loader2, TestTube } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import type { Collection, CollectionType } from '@/contracts/api/collection-api'
+import type { Connector } from '@/contracts/api/connector-api'
+import {
+  collectionFormSchema,
+  type CollectionFormData,
+  isConnectorRequiredForType
+} from '@/types/schemas/collection'
+
+// ============================================================================
+// Component Props
+// ============================================================================
+
+export interface CollectionFormProps {
+  collection?: Collection | null
+  connectors: Connector[]
+  onSubmit: (data: CollectionFormData) => Promise<void>
+  onCancel: () => void
+  onTestConnection?: (data: CollectionFormData) => Promise<{ success: boolean; message: string }>
+  loading?: boolean
+  error?: string | null
+  className?: string
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+function getConnectorsForType(connectors: Connector[], type: CollectionType): Connector[] {
+  if (type === 'LOCAL') {
+    return []
+  }
+
+  // Map collection type to connector type (they use the same values)
+  return connectors.filter((connector) => connector.type === type && connector.active)
+}
+
+function getStateDescription(state: string): string {
+  switch (state) {
+    case 'LIVE':
+      return '1hr cache (default)'
+    case 'CLOSED':
+      return '24hr cache (default)'
+    case 'ARCHIVED':
+      return '7d cache (default)'
+    default:
+      return ''
+  }
+}
+
+// ============================================================================
+// Component
+// ============================================================================
+
+export default function CollectionForm({
+  collection,
+  connectors,
+  onSubmit,
+  onCancel,
+  onTestConnection,
+  loading = false,
+  error,
+  className
+}: CollectionFormProps) {
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  const isEdit = !!collection
+
+  // Initialize form with react-hook-form and Zod
+  const form = useForm<CollectionFormData>({
+    resolver: zodResolver(collectionFormSchema),
+    defaultValues: {
+      name: collection?.name || '',
+      type: collection?.type || 'LOCAL',
+      state: collection?.state || 'LIVE',
+      location: collection?.location || '',
+      connector_id: collection?.connector_id || null,
+      cache_ttl: collection?.cache_ttl || null
+    }
+  })
+
+  const selectedType = form.watch('type')
+  const requiresConnector = isConnectorRequiredForType(selectedType)
+  const availableConnectors = getConnectorsForType(connectors, selectedType)
+
+  // Reset connector_id when switching to LOCAL type
+  useEffect(() => {
+    if (selectedType === 'LOCAL') {
+      form.setValue('connector_id', null)
+    }
+  }, [selectedType, form])
+
+  // Update form when collection prop changes
+  useEffect(() => {
+    if (collection) {
+      form.reset({
+        name: collection.name,
+        type: collection.type,
+        state: collection.state,
+        location: collection.location,
+        connector_id: collection.connector_id,
+        cache_ttl: collection.cache_ttl
+      })
+    }
+  }, [collection, form])
+
+  const handleSubmit = async (data: CollectionFormData) => {
+    setTestResult(null)
+    await onSubmit(data)
+  }
+
+  const handleTestConnection = async () => {
+    if (!onTestConnection) return
+
+    setTesting(true)
+    setTestResult(null)
+
+    try {
+      const data = form.getValues()
+      const result = await onTestConnection(data)
+      setTestResult(result)
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err.message || 'Connection test failed'
+      })
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className={className}>
+        <div className="space-y-4">
+          {/* Collection Name */}
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Collection Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="My Photo Collection" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Collection Type */}
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Collection Type</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  disabled={isEdit}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select collection type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="LOCAL">Local Filesystem</SelectItem>
+                    <SelectItem value="S3">Amazon S3</SelectItem>
+                    <SelectItem value="GCS">Google Cloud Storage</SelectItem>
+                    <SelectItem value="SMB">SMB/CIFS</SelectItem>
+                  </SelectContent>
+                </Select>
+                {isEdit && (
+                  <FormDescription>
+                    Collection type cannot be changed after creation
+                  </FormDescription>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Connector (only for remote types) */}
+          {requiresConnector && (
+            <FormField
+              control={form.control}
+              name="connector_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Connector</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(parseInt(value))}
+                    value={field.value?.toString() || ''}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a connector" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableConnectors.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No active {selectedType} connectors available
+                        </div>
+                      ) : (
+                        availableConnectors.map((connector) => (
+                          <SelectItem key={connector.id} value={connector.id.toString()}>
+                            {connector.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Select an active {selectedType} connector for this collection
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Location */}
+          <FormField
+            control={form.control}
+            name="location"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder={
+                      selectedType === 'LOCAL'
+                        ? '/absolute/path/to/photos'
+                        : 'bucket-name/prefix or s3://bucket/path'
+                    }
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {selectedType === 'LOCAL'
+                    ? 'Absolute filesystem path to photo directory'
+                    : 'Bucket name and optional prefix/path'}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Collection State */}
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Collection State</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="LIVE">
+                      Live - {getStateDescription('LIVE')}
+                    </SelectItem>
+                    <SelectItem value="CLOSED">
+                      Closed - {getStateDescription('CLOSED')}
+                    </SelectItem>
+                    <SelectItem value="ARCHIVED">
+                      Archived - {getStateDescription('ARCHIVED')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Determines default cache TTL and collection lifecycle
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Cache TTL (Optional) */}
+          <FormField
+            control={form.control}
+            name="cache_ttl"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cache TTL (Optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="3600"
+                    value={field.value || ''}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      field.onChange(value ? parseInt(value) : null)
+                    }}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Custom cache TTL in seconds (overrides state-based default)
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Test Result */}
+          {testResult && (
+            <Alert variant={testResult.success ? 'default' : 'destructive'}>
+              <AlertDescription>{testResult.message}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-between gap-2 pt-4">
+            <div>
+              {onTestConnection && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  disabled={testing || loading}
+                  className="gap-2"
+                >
+                  {testing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="h-4 w-4" />
+                      Test Connection
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEdit ? 'Updating...' : 'Creating...'}
+                  </>
+                ) : (
+                  <>{isEdit ? 'Update' : 'Create'}</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </Form>
+  )
+}

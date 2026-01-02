@@ -141,22 +141,22 @@ description: "Task list for UI Migration to Modern Design System"
 
 ### Implementation for User Story 5
 
-- [ ] T034 [P] [US5] Create frontend/src/types/schemas/connector.ts with Zod schemas (S3, GCS, SMB credentials)
-- [ ] T035 [P] [US5] Create frontend/src/types/schemas/collection.ts with Zod CollectionFormSchema
-- [ ] T036 [US5] Migrate frontend/src/components/connectors/ConnectorForm.jsx to .tsx with shadcn Form + react-hook-form
-- [ ] T037 [US5] Implement dynamic credential fields in ConnectorForm based on connector type (S3, GCS, SMB)
-- [ ] T038 [US5] Add Zod validation to ConnectorForm with inline error messages
-- [ ] T039 [US5] Add Test Connection button to ConnectorForm with loading state and toast feedback
-- [ ] T040 [US5] Migrate frontend/src/components/connectors/ConnectorList.jsx to .tsx with shadcn components
-- [ ] T041 [US5] Migrate frontend/src/pages/ConnectorsPage.jsx to .tsx with shadcn Dialog and AlertDialog
-- [ ] T042 [US5] Update frontend/src/hooks/useConnectors.js to .ts with TypeScript types
-- [ ] T043 [US5] Update frontend/src/services/connectors.js to .ts with typed axios responses
-- [ ] T044 [US5] Migrate frontend/src/components/collections/CollectionForm.jsx to .tsx with shadcn Form + react-hook-form
-- [ ] T045 [US5] Implement dynamic connector dropdown in CollectionForm (hidden for LOCAL, shown for S3/GCS/SMB)
-- [ ] T046 [US5] Add Zod validation to CollectionForm with connector_id constraints
-- [ ] T047 [US5] Add Test Connection button to CollectionForm with loading state
+- [X] T034 [P] [US5] Create frontend/src/types/schemas/connector.ts with Zod schemas (S3, GCS, SMB credentials)
+- [X] T035 [P] [US5] Create frontend/src/types/schemas/collection.ts with Zod CollectionFormSchema
+- [X] T036 [US5] Migrate frontend/src/components/connectors/ConnectorForm.jsx to .tsx with shadcn Form + react-hook-form
+- [X] T037 [US5] Implement dynamic credential fields in ConnectorForm based on connector type (S3, GCS, SMB)
+- [X] T038 [US5] Add Zod validation to ConnectorForm with inline error messages
+- [X] T039 [US5] Add Test Connection button to ConnectorForm with loading state and toast feedback
+- [X] T040 [US5] Migrate frontend/src/components/connectors/ConnectorList.jsx to .tsx with shadcn components
+- [X] T041 [US5] Migrate frontend/src/pages/ConnectorsPage.jsx to .tsx with shadcn Dialog and AlertDialog
+- [X] T042 [US5] Update frontend/src/hooks/useConnectors.js to .ts with TypeScript types
+- [X] T043 [US5] Update frontend/src/services/connectors.js to .ts with typed axios responses
+- [X] T044 [US5] Migrate frontend/src/components/collections/CollectionForm.jsx to .tsx with shadcn Form + react-hook-form
+- [X] T045 [US5] Implement dynamic connector dropdown in CollectionForm (hidden for LOCAL, shown for S3/GCS/SMB)
+- [X] T046 [US5] Add Zod validation to CollectionForm with connector_id constraints
+- [X] T047 [US5] Add Test Connection button to CollectionForm with loading state
 
-**Checkpoint**: All forms work with validation, dynamic fields, and test connection functionality
+**Checkpoint**: ✅ All forms work with validation, dynamic fields, and test connection functionality
 
 ---
 
