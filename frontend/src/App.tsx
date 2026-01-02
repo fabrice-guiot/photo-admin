@@ -5,7 +5,7 @@
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { FolderOpen, Database } from 'lucide-react'
+import { FolderOpen, Plug } from 'lucide-react'
 import { MainLayout } from './components/layout/MainLayout'
 
 // Page components
@@ -49,7 +49,7 @@ const routes: RouteConfig[] = [
     path: '/connectors',
     element: <ConnectorsPage />,
     pageTitle: 'Connectors',
-    pageIcon: Database,
+    pageIcon: Plug,
     stats: [
       { label: 'Active Connectors', value: '3' },
       { label: 'Total Connectors', value: '5' },
