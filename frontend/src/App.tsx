@@ -6,12 +6,28 @@
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { type ReactElement } from 'react'
-import { FolderOpen, Plug, type LucideIcon } from 'lucide-react'
+import {
+  LayoutGrid,
+  Workflow,
+  FolderOpen,
+  Archive,
+  BarChart3,
+  Users,
+  Plug,
+  Settings,
+  type LucideIcon
+} from 'lucide-react'
 import { MainLayout } from './components/layout/MainLayout'
 
 // Page components
-import ConnectorsPage from './pages/ConnectorsPage'
+import DashboardPage from './pages/DashboardPage'
+import WorkflowsPage from './pages/WorkflowsPage'
 import CollectionsPage from './pages/CollectionsPage'
+import AssetsPage from './pages/AssetsPage'
+import AnalyticsPage from './pages/AnalyticsPage'
+import TeamPage from './pages/TeamPage'
+import ConnectorsPage from './pages/ConnectorsPage'
+import SettingsPage from './pages/SettingsPage'
 
 // ============================================================================
 // Route Configuration
@@ -28,13 +44,19 @@ interface RouteConfig {
 const routes: RouteConfig[] = [
   {
     path: '/',
-    element: <CollectionsPage />,
-    pageTitle: 'Collections',
-    pageIcon: FolderOpen,
+    element: <DashboardPage />,
+    pageTitle: 'Dashboard',
+    pageIcon: LayoutGrid,
     stats: [
       { label: 'Total Collections', value: '12' },
-      { label: 'Storage Used', value: '2.4 TB' },
+      { label: 'Total Assets', value: '45.2K' },
     ],
+  },
+  {
+    path: '/workflows',
+    element: <WorkflowsPage />,
+    pageTitle: 'Workflows',
+    pageIcon: Workflow,
   },
   {
     path: '/collections',
@@ -47,6 +69,24 @@ const routes: RouteConfig[] = [
     ],
   },
   {
+    path: '/assets',
+    element: <AssetsPage />,
+    pageTitle: 'Assets',
+    pageIcon: Archive,
+  },
+  {
+    path: '/analytics',
+    element: <AnalyticsPage />,
+    pageTitle: 'Analytics',
+    pageIcon: BarChart3,
+  },
+  {
+    path: '/team',
+    element: <TeamPage />,
+    pageTitle: 'Team',
+    pageIcon: Users,
+  },
+  {
     path: '/connectors',
     element: <ConnectorsPage />,
     pageTitle: 'Connectors',
@@ -55,6 +95,12 @@ const routes: RouteConfig[] = [
       { label: 'Active Connectors', value: '3' },
       { label: 'Total Connectors', value: '5' },
     ],
+  },
+  {
+    path: '/settings',
+    element: <SettingsPage />,
+    pageTitle: 'Settings',
+    pageIcon: Settings,
   },
 ]
 
