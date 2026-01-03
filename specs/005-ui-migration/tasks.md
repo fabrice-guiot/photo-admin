@@ -222,20 +222,20 @@ description: "Task list for UI Migration to Modern Design System"
 
 **Purpose**: Final refinements, optimization, accessibility, and documentation
 
-- [ ] T069 [P] Verify all components use design tokens (bg-background, text-foreground, etc.) with no hardcoded colors
+- [X] T069 [P] Verify all components use design tokens (bg-background, text-foreground, etc.) with no hardcoded colors
 - [ ] T070 [P] Test color contrast ratios with browser DevTools and ensure WCAG AA compliance (4.5:1 for normal text)
 - [ ] T071 [P] Test keyboard navigation (Tab, Enter, Escape) across all interactive elements
-- [ ] T072 [P] Add aria-label attributes to icon-only buttons for screen reader accessibility
-- [ ] T073 Update frontend/vite.config.ts for optimal tree-shaking and chunk splitting
-- [ ] T074 [P] Install rollup-plugin-visualizer and generate bundle analysis report
-- [ ] T075 Verify MUI is completely removed from bundle (should see ~500KB reduction)
+- [X] T072 [P] Add aria-label attributes to icon-only buttons for screen reader accessibility
+- [X] T073 Update frontend/vite.config.ts for optimal tree-shaking and chunk splitting
+- [X] T074 [P] Install rollup-plugin-visualizer and generate bundle analysis report
+- [X] T075 Verify MUI is completely removed from bundle (42 packages removed, no MUI in final bundle)
 - [ ] T076 [P] Test First Contentful Paint metric (target <1.5s)
-- [ ] T077 [P] Uninstall Material-UI dependencies (@mui/material, @emotion/react, etc.) from frontend/package.json
-- [ ] T078 Run npm prune and verify package-lock.json updated with MUI removal
-- [ ] T079 [P] Update frontend/README.md with new tech stack (Tailwind, shadcn/ui, TypeScript)
-- [ ] T080 [P] Create frontend/docs/components.md documenting shadcn component usage patterns
-- [ ] T081 Run production build and verify no MUI references in output
-- [ ] T082 Test production build locally and verify all functionality works
+- [X] T077 [P] Uninstall Material-UI dependencies (@mui/material, @emotion/react, etc.) from frontend/package.json
+- [X] T078 Run npm prune and verify package-lock.json updated with MUI removal
+- [X] T079 [P] Update frontend/README.md with new tech stack (Tailwind, shadcn/ui, TypeScript)
+- [X] T080 [P] Create frontend/docs/components.md documenting shadcn component usage patterns
+- [X] T081 Run production build and verify no MUI references in output
+- [X] T082 Test production build locally and verify all functionality works
 
 **Checkpoint**: Production ready, documented, optimized, accessible
 
