@@ -9,14 +9,16 @@
 // Core Types
 // ============================================================================
 
-export type ConnectorType = 'S3' | 'GCS' | 'SMB'
+export type ConnectorType = 's3' | 'gcs' | 'smb'
 
 export interface Connector {
   id: number
   name: string
   type: ConnectorType
-  active: boolean
-  credentials: ConnectorCredentials
+  is_active: boolean
+  metadata?: Record<string, unknown> | null
+  last_validated?: string | null
+  last_error?: string | null
   created_at: string  // ISO 8601 timestamp
   updated_at: string  // ISO 8601 timestamp
 }
@@ -57,15 +59,15 @@ export interface SMBCredentials {
 export interface ConnectorCreateRequest {
   name: string
   type: ConnectorType
-  active: boolean
-  credentials: ConnectorCredentials
+  credentials: Record<string, unknown>
+  metadata?: Record<string, unknown> | null
 }
 
 export interface ConnectorUpdateRequest {
   name?: string
-  type?: ConnectorType
-  active?: boolean
-  credentials?: ConnectorCredentials
+  credentials?: Record<string, unknown>
+  metadata?: Record<string, unknown> | null
+  is_active?: boolean
 }
 
 // ============================================================================

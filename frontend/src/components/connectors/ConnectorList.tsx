@@ -53,8 +53,14 @@ export interface ConnectorListProps {
 // Helper Functions
 // ============================================================================
 
+const CONNECTOR_TYPE_LABELS: Record<ConnectorType, string> = {
+  s3: 'Amazon S3',
+  gcs: 'Google Cloud Storage',
+  smb: 'SMB/CIFS'
+}
+
 function getConnectorTypeLabel(type: ConnectorType): string {
-  return type
+  return CONNECTOR_TYPE_LABELS[type] || type
 }
 
 function formatDate(dateString: string | null | undefined): string {
@@ -80,18 +86,18 @@ export function ConnectorList({
   }>({ open: false, connector: null })
 
   // Filter state
-  const [typeFilter, setTypeFilter] = useState<ConnectorType | 'ALL' | ''>('ALL')
+  const [typeFilter, setTypeFilter] = useState<ConnectorType | 'ALL'>('ALL')
   const [activeOnly, setActiveOnly] = useState(false)
 
   // Apply filters
   const filteredConnectors = useMemo(() => {
     return connectors.filter((c) => {
       // Type filter
-      if (typeFilter && typeFilter !== 'ALL' && c.type !== typeFilter) {
+      if (typeFilter !== 'ALL' && c.type !== typeFilter) {
         return false
       }
       // Active only filter
-      if (activeOnly && !c.active) {
+      if (activeOnly && !c.is_active) {
         return false
       }
       return true
@@ -144,16 +150,16 @@ export function ConnectorList({
             </Label>
             <Select
               value={typeFilter}
-              onValueChange={(value) => setTypeFilter(value as ConnectorType | 'ALL' | '')}
+              onValueChange={(value) => setTypeFilter(value as ConnectorType | 'ALL')}
             >
               <SelectTrigger id="type-filter" className="w-full">
                 <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Types</SelectItem>
-                <SelectItem value="S3">Amazon S3</SelectItem>
-                <SelectItem value="GCS">Google Cloud Storage</SelectItem>
-                <SelectItem value="SMB">SMB/CIFS</SelectItem>
+                <SelectItem value="s3">Amazon S3</SelectItem>
+                <SelectItem value="gcs">Google Cloud Storage</SelectItem>
+                <SelectItem value="smb">SMB/CIFS</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -203,8 +209,8 @@ export function ConnectorList({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={connector.active ? 'default' : 'outline'}>
-                        {connector.active ? 'Active' : 'Inactive'}
+                      <Badge variant={connector.is_active ? 'default' : 'outline'}>
+                        {connector.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

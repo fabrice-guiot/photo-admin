@@ -49,21 +49,21 @@ export interface CollectionFormProps {
 // ============================================================================
 
 function getConnectorsForType(connectors: Connector[], type: CollectionType): Connector[] {
-  if (type === 'LOCAL') {
+  if (type === 'local') {
     return []
   }
 
   // Map collection type to connector type (they use the same values)
-  return connectors.filter((connector) => connector.type === type && connector.active)
+  return connectors.filter((connector) => connector.type === type && connector.is_active)
 }
 
 function getStateDescription(state: string): string {
   switch (state) {
-    case 'LIVE':
+    case 'live':
       return '1hr cache (default)'
-    case 'CLOSED':
+    case 'closed':
       return '24hr cache (default)'
-    case 'ARCHIVED':
+    case 'archived':
       return '7d cache (default)'
     default:
       return ''
@@ -94,8 +94,8 @@ export default function CollectionForm({
     resolver: zodResolver(collectionFormSchema),
     defaultValues: {
       name: collection?.name || '',
-      type: collection?.type || 'LOCAL',
-      state: collection?.state || 'LIVE',
+      type: collection?.type || 'local',
+      state: collection?.state || 'live',
       location: collection?.location || '',
       connector_id: collection?.connector_id || null,
       cache_ttl: collection?.cache_ttl || null
@@ -106,9 +106,9 @@ export default function CollectionForm({
   const requiresConnector = isConnectorRequiredForType(selectedType)
   const availableConnectors = getConnectorsForType(connectors, selectedType)
 
-  // Reset connector_id when switching to LOCAL type
+  // Reset connector_id when switching to local type
   useEffect(() => {
-    if (selectedType === 'LOCAL') {
+    if (selectedType === 'local') {
       form.setValue('connector_id', null)
     }
   }, [selectedType, form])
@@ -189,10 +189,10 @@ export default function CollectionForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="LOCAL">Local Filesystem</SelectItem>
-                    <SelectItem value="S3">Amazon S3</SelectItem>
-                    <SelectItem value="GCS">Google Cloud Storage</SelectItem>
-                    <SelectItem value="SMB">SMB/CIFS</SelectItem>
+                    <SelectItem value="local">Local Filesystem</SelectItem>
+                    <SelectItem value="s3">Amazon S3</SelectItem>
+                    <SelectItem value="gcs">Google Cloud Storage</SelectItem>
+                    <SelectItem value="smb">SMB/CIFS</SelectItem>
                   </SelectContent>
                 </Select>
                 {isEdit && (
@@ -255,7 +255,7 @@ export default function CollectionForm({
                 <FormControl>
                   <Input
                     placeholder={
-                      selectedType === 'LOCAL'
+                      selectedType === 'local'
                         ? '/absolute/path/to/photos'
                         : 'bucket-name/prefix or s3://bucket/path'
                     }
@@ -263,7 +263,7 @@ export default function CollectionForm({
                   />
                 </FormControl>
                 <FormDescription>
-                  {selectedType === 'LOCAL'
+                  {selectedType === 'local'
                     ? 'Absolute filesystem path to photo directory'
                     : 'Bucket name and optional prefix/path'}
                 </FormDescription>
@@ -286,14 +286,14 @@ export default function CollectionForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="LIVE">
-                      Live - {getStateDescription('LIVE')}
+                    <SelectItem value="live">
+                      Live - {getStateDescription('live')}
                     </SelectItem>
-                    <SelectItem value="CLOSED">
-                      Closed - {getStateDescription('CLOSED')}
+                    <SelectItem value="closed">
+                      Closed - {getStateDescription('closed')}
                     </SelectItem>
-                    <SelectItem value="ARCHIVED">
-                      Archived - {getStateDescription('ARCHIVED')}
+                    <SelectItem value="archived">
+                      Archived - {getStateDescription('archived')}
                     </SelectItem>
                   </SelectContent>
                 </Select>

@@ -12,42 +12,42 @@ describe('CollectionForm', () => {
     {
       id: 1,
       name: 'S3 Connector 1',
-      type: 'S3',
-      active: true,
-      last_validated_at: null,
+      type: 's3',
+      is_active: true,
+      last_validated: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
       id: 2,
       name: 'S3 Connector 2',
-      type: 'S3',
-      active: true,
-      last_validated_at: null,
+      type: 's3',
+      is_active: true,
+      last_validated: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
       id: 3,
       name: 'GCS Connector',
-      type: 'GCS',
-      active: true,
-      last_validated_at: null,
+      type: 'gcs',
+      is_active: true,
+      last_validated: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
       id: 4,
       name: 'Inactive S3',
-      type: 'S3',
-      active: false,
-      last_validated_at: null,
+      type: 's3',
+      is_active: false,
+      last_validated: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
   ]
 
-  const mockOnSubmit = vi.fn<[CollectionFormData], Promise<void>>()
+  const mockOnSubmit = vi.fn<(data: CollectionFormData) => Promise<void>>()
   const mockOnCancel = vi.fn()
 
   afterEach(() => {
@@ -127,13 +127,13 @@ describe('CollectionForm', () => {
     const existingCollection: Collection = {
       id: 1,
       name: 'Existing Collection',
-      type: 'LOCAL',
+      type: 'local',
       location: '/photos',
-      state: 'LIVE',
+      state: 'live',
       connector_id: null,
       cache_ttl: null,
       is_accessible: true,
-      last_error: null,
+      accessibility_message: null,
       last_scanned_at: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',

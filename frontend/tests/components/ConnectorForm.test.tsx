@@ -7,7 +7,7 @@ import type { Connector } from '@/contracts/api/connector-api'
 import type { ConnectorFormData } from '@/types/schemas/connector'
 
 describe('ConnectorForm', () => {
-  const mockOnSubmit = vi.fn<[ConnectorFormData], Promise<void>>()
+  const mockOnSubmit = vi.fn<(data: ConnectorFormData) => Promise<void>>()
   const mockOnCancel = vi.fn()
 
   afterEach(() => {
@@ -63,9 +63,9 @@ describe('ConnectorForm', () => {
     const existingConnector: Connector = {
       id: 1,
       name: 'Existing Connector',
-      type: 'S3',
-      active: true,
-      last_validated_at: null,
+      type: 's3',
+      is_active: true,
+      last_validated: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     }

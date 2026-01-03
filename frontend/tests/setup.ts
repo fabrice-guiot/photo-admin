@@ -20,11 +20,12 @@ afterAll(() => {
 })
 
 // Mock ResizeObserver for Radix UI components
-global.ResizeObserver = class ResizeObserver {
+class MockResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 }
+window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
 
 // Mock window.matchMedia for responsive components
 Object.defineProperty(window, 'matchMedia', {

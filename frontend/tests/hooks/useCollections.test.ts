@@ -35,9 +35,9 @@ describe('useCollections', () => {
 
     const newCollection = {
       name: 'New Local Collection',
-      type: 'LOCAL' as const,
+      type: 'local' as const,
       location: '/new/photos',
-      state: 'LIVE' as const,
+      state: 'live' as const,
       connector_id: null,
       cache_ttl: null,
     }
@@ -67,9 +67,9 @@ describe('useCollections', () => {
 
     const newCollection = {
       name: 'New S3 Collection',
-      type: 'S3' as const,
+      type: 's3' as const,
       location: 'bucket/prefix',
-      state: 'LIVE' as const,
+      state: 'live' as const,
       connector_id: 1,
       cache_ttl: 3600,
     }
@@ -98,9 +98,9 @@ describe('useCollections', () => {
 
     const newCollection = {
       name: 'Invalid Collection',
-      type: 'S3' as const,
+      type: 's3' as const,
       location: 'bucket/prefix',
-      state: 'LIVE' as const,
+      state: 'live' as const,
       connector_id: 999, // Non-existent connector
       cache_ttl: null,
     }
@@ -128,7 +128,7 @@ describe('useCollections', () => {
     await act(async () => {
       await result.current.updateCollection(collectionId, {
         name: 'Updated Collection Name',
-        state: 'ARCHIVED' as const,
+        state: 'archived' as const,
       })
     })
 

@@ -111,10 +111,10 @@ export const connectorBaseSchema = z.object({
     .min(1, 'Connector name is required')
     .max(100, 'Connector name must be less than 100 characters')
     .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Connector name can only contain letters, numbers, spaces, hyphens, and underscores'),
-  type: z.enum(['S3', 'GCS', 'SMB'], {
+  type: z.enum(['s3', 'gcs', 'smb'], {
     message: 'Invalid connector type'
   }),
-  active: z.boolean()
+  is_active: z.boolean()
 })
 
 /**
@@ -128,7 +128,7 @@ export const connectorFormSchema = connectorBaseSchema.extend({
  * S3 Connector Form Schema (specific type)
  */
 export const s3ConnectorFormSchema = connectorBaseSchema.extend({
-  type: z.literal('S3'),
+  type: z.literal('s3'),
   credentials: s3CredentialsSchema
 })
 
@@ -136,7 +136,7 @@ export const s3ConnectorFormSchema = connectorBaseSchema.extend({
  * GCS Connector Form Schema (specific type)
  */
 export const gcsConnectorFormSchema = connectorBaseSchema.extend({
-  type: z.literal('GCS'),
+  type: z.literal('gcs'),
   credentials: gcsCredentialsSchema
 })
 
@@ -144,7 +144,7 @@ export const gcsConnectorFormSchema = connectorBaseSchema.extend({
  * SMB Connector Form Schema (specific type)
  */
 export const smbConnectorFormSchema = connectorBaseSchema.extend({
-  type: z.literal('SMB'),
+  type: z.literal('smb'),
   credentials: smbCredentialsSchema
 })
 
@@ -166,11 +166,11 @@ export type SMBCredentialsFormData = z.infer<typeof smbCredentialsSchema>
  */
 export function getCredentialsSchemaForType(type: ConnectorType) {
   switch (type) {
-    case 'S3':
+    case 's3':
       return s3CredentialsSchema
-    case 'GCS':
+    case 'gcs':
       return gcsCredentialsSchema
-    case 'SMB':
+    case 'smb':
       return smbCredentialsSchema
     default:
       throw new Error(`Unknown connector type: ${type}`)
@@ -182,11 +182,11 @@ export function getCredentialsSchemaForType(type: ConnectorType) {
  */
 export function getConnectorFormSchemaForType(type: ConnectorType) {
   switch (type) {
-    case 'S3':
+    case 's3':
       return s3ConnectorFormSchema
-    case 'GCS':
+    case 'gcs':
       return gcsConnectorFormSchema
-    case 'SMB':
+    case 'smb':
       return smbConnectorFormSchema
     default:
       throw new Error(`Unknown connector type: ${type}`)

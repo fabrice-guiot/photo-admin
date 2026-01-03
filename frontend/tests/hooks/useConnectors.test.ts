@@ -35,8 +35,8 @@ describe('useConnectors', () => {
 
     const newConnector = {
       name: 'New S3 Connector',
-      type: 'S3' as const,
-      active: true,
+      type: 's3' as const,
+      is_active: true,
       credentials: {
         access_key_id: 'AKIAIOSFODNN7EXAMPLE',
         secret_access_key: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
@@ -148,14 +148,14 @@ describe('useConnectors', () => {
       expect(response.message).toBe('Connection successful')
     })
 
-    // Verify last_validated_at was updated
+    // Verify last_validated was updated
     await act(async () => {
       await result.current.fetchConnectors()
     })
 
     await waitFor(() => {
       const tested = result.current.connectors.find((c) => c.id === connectorId)
-      expect(tested?.last_validated_at).toBeTruthy()
+      expect(tested?.last_validated).toBeTruthy()
     })
   })
 })

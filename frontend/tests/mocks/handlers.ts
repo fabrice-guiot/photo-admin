@@ -7,18 +7,20 @@ let connectors: Connector[] = [
   {
     id: 1,
     name: 'Test S3 Connector',
-    type: 'S3',
-    active: true,
-    last_validated_at: '2025-01-01T10:00:00Z',
+    type: 's3',
+    is_active: true,
+    last_validated: '2025-01-01T10:00:00Z',
+    last_error: null,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T10:00:00Z',
   },
   {
     id: 2,
     name: 'Test GCS Connector',
-    type: 'GCS',
-    active: false,
-    last_validated_at: null,
+    type: 'gcs',
+    is_active: false,
+    last_validated: null,
+    last_error: null,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
   },
@@ -28,13 +30,13 @@ let collections: Collection[] = [
   {
     id: 1,
     name: 'Test Collection',
-    type: 'LOCAL',
+    type: 'local',
     location: '/photos',
-    state: 'LIVE',
+    state: 'live',
     connector_id: null,
     cache_ttl: 3600,
     is_accessible: true,
-    last_error: null,
+    accessibility_message: null,
     last_scanned_at: null,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
@@ -42,13 +44,13 @@ let collections: Collection[] = [
   {
     id: 2,
     name: 'Remote S3 Collection',
-    type: 'S3',
+    type: 's3',
     location: 'my-bucket/photos',
-    state: 'CLOSED',
+    state: 'closed',
     connector_id: 1,
     cache_ttl: 86400,
     is_accessible: true,
-    last_error: null,
+    accessibility_message: null,
     last_scanned_at: null,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
@@ -80,8 +82,9 @@ export const handlers = [
       id: nextConnectorId++,
       name: data.name!,
       type: data.type!,
-      active: data.active ?? true,
-      last_validated_at: null,
+      is_active: data.is_active ?? true,
+      last_validated: null,
+      last_error: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }
@@ -126,11 +129,11 @@ export const handlers = [
     if (!connector) {
       return new HttpResponse(null, { status: 404 })
     }
-    // Update last_validated_at
+    // Update last_validated
     const index = connectors.findIndex((c) => c.id === Number(params.id))
     connectors[index] = {
       ...connectors[index],
-      last_validated_at: new Date().toISOString(),
+      last_validated: new Date().toISOString(),
     }
     return HttpResponse.json({ success: true, message: 'Connection successful' })
   }),
@@ -151,7 +154,7 @@ export const handlers = [
   http.post(`${BASE_URL}/collections`, async ({ request }) => {
     const data = await request.json() as Partial<Collection>
     // Validate connector exists for remote collections
-    if (['S3', 'GCS', 'SMB'].includes(data.type!) && data.connector_id) {
+    if (['s3', 'gcs', 'smb'].includes(data.type!) && data.connector_id) {
       const connector = connectors.find((c) => c.id === data.connector_id)
       if (!connector) {
         return HttpResponse.json(
@@ -169,7 +172,7 @@ export const handlers = [
       connector_id: data.connector_id ?? null,
       cache_ttl: data.cache_ttl ?? null,
       is_accessible: true,
-      last_error: null,
+      accessibility_message: null,
       last_scanned_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -250,18 +253,20 @@ export function resetMockData(): void {
     {
       id: 1,
       name: 'Test S3 Connector',
-      type: 'S3',
-      active: true,
-      last_validated_at: '2025-01-01T10:00:00Z',
+      type: 's3',
+      is_active: true,
+      last_validated: '2025-01-01T10:00:00Z',
+      last_error: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T10:00:00Z',
     },
     {
       id: 2,
       name: 'Test GCS Connector',
-      type: 'GCS',
-      active: false,
-      last_validated_at: null,
+      type: 'gcs',
+      is_active: false,
+      last_validated: null,
+      last_error: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
@@ -270,13 +275,13 @@ export function resetMockData(): void {
     {
       id: 1,
       name: 'Test Collection',
-      type: 'LOCAL',
+      type: 'local',
       location: '/photos',
-      state: 'LIVE',
+      state: 'live',
       connector_id: null,
       cache_ttl: 3600,
       is_accessible: true,
-      last_error: null,
+      accessibility_message: null,
       last_scanned_at: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
@@ -284,13 +289,13 @@ export function resetMockData(): void {
     {
       id: 2,
       name: 'Remote S3 Collection',
-      type: 'S3',
+      type: 's3',
       location: 'my-bucket/photos',
-      state: 'CLOSED',
+      state: 'closed',
       connector_id: 1,
       cache_ttl: 86400,
       is_accessible: true,
-      last_error: null,
+      accessibility_message: null,
       last_scanned_at: null,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',

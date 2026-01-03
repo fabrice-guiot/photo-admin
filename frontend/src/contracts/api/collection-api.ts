@@ -9,8 +9,8 @@
 // Entity Types
 // ============================================================================
 
-export type CollectionType = 'LOCAL' | 'S3' | 'GCS' | 'SMB'
-export type CollectionState = 'LIVE' | 'CLOSED' | 'ARCHIVED'
+export type CollectionType = 'local' | 's3' | 'gcs' | 'smb'
+export type CollectionState = 'live' | 'closed' | 'archived'
 
 export interface Collection {
   id: number

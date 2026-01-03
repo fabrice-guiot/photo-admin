@@ -91,7 +91,7 @@ export function CollectionList({
           const dateB = new Date(b.last_scanned_at!).getTime()
           return dateB - dateA
         }),
-      archived: baseFilteredCollections.filter((c) => c.state === 'ARCHIVED')
+      archived: baseFilteredCollections.filter((c) => c.state === 'archived')
     }
   }, [baseFilteredCollections])
 

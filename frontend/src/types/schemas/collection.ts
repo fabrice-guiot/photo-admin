@@ -24,10 +24,10 @@ export const collectionFormSchema = z
         /^[a-zA-Z0-9\s\-_]+$/,
         'Collection name can only contain letters, numbers, spaces, hyphens, and underscores'
       ),
-    type: z.enum(['LOCAL', 'S3', 'GCS', 'SMB'], {
+    type: z.enum(['local', 's3', 'gcs', 'smb'], {
       message: 'Invalid collection type'
     }),
-    state: z.enum(['LIVE', 'CLOSED', 'ARCHIVED'], {
+    state: z.enum(['live', 'closed', 'archived'], {
       message: 'Invalid collection state'
     }),
     location: z
@@ -48,8 +48,8 @@ export const collectionFormSchema = z
   })
   .refine(
     (data) => {
-      // LOCAL type must have null connector_id
-      if (data.type === 'LOCAL') {
+      // local type must have null connector_id
+      if (data.type === 'local') {
         return data.connector_id === null
       }
       return true
@@ -61,8 +61,8 @@ export const collectionFormSchema = z
   )
   .refine(
     (data) => {
-      // Remote types (S3, GCS, SMB) must have non-null connector_id
-      if (data.type !== 'LOCAL') {
+      // Remote types (s3, gcs, smb) must have non-null connector_id
+      if (data.type !== 'local') {
         return data.connector_id !== null && data.connector_id > 0
       }
       return true
@@ -87,19 +87,19 @@ export type CollectionFormData = z.infer<typeof collectionFormSchema>
  * Check if a collection type requires a connector
  */
 export function isConnectorRequiredForType(type: CollectionType): boolean {
-  return type !== 'LOCAL'
+  return type !== 'local'
 }
 
 /**
  * Get default form values for a collection type
  */
-export function getDefaultCollectionFormValues(type: CollectionType = 'LOCAL'): Partial<CollectionFormData> {
+export function getDefaultCollectionFormValues(type: CollectionType = 'local'): Partial<CollectionFormData> {
   return {
     name: '',
     type,
-    state: 'LIVE',
+    state: 'live',
     location: '',
-    connector_id: type === 'LOCAL' ? null : undefined,
+    connector_id: type === 'local' ? null : undefined,
     cache_ttl: null
   }
 }

@@ -50,19 +50,19 @@ export interface ConnectorFormProps {
 
 function getDefaultCredentials(type: ConnectorType) {
   switch (type) {
-    case 'S3':
+    case 's3':
       return {
         access_key_id: '',
         secret_access_key: '',
         region: '',
         bucket: ''
       }
-    case 'GCS':
+    case 'gcs':
       return {
         service_account_json: '',
         bucket: ''
       }
-    case 'SMB':
+    case 'smb':
       return {
         server: '',
         share: '',
@@ -96,9 +96,9 @@ export default function ConnectorForm({
     resolver: zodResolver(connectorFormSchema),
     defaultValues: {
       name: connector?.name || '',
-      type: (connector?.type as ConnectorType) || 'S3',
-      active: connector?.active ?? true,
-      credentials: connector?.credentials || getDefaultCredentials('S3')
+      type: connector?.type || 's3',
+      is_active: connector?.is_active ?? true,
+      credentials: getDefaultCredentials(connector?.type || 's3')
     }
   })
 
@@ -117,8 +117,8 @@ export default function ConnectorForm({
       form.reset({
         name: connector.name,
         type: connector.type,
-        active: connector.active,
-        credentials: connector.credentials || getDefaultCredentials(connector.type)
+        is_active: connector.is_active,
+        credentials: getDefaultCredentials(connector.type)
       })
     }
   }, [connector, form])
@@ -185,9 +185,9 @@ export default function ConnectorForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="S3">Amazon S3</SelectItem>
-                    <SelectItem value="GCS">Google Cloud Storage</SelectItem>
-                    <SelectItem value="SMB">SMB/CIFS</SelectItem>
+                    <SelectItem value="s3">Amazon S3</SelectItem>
+                    <SelectItem value="gcs">Google Cloud Storage</SelectItem>
+                    <SelectItem value="smb">SMB/CIFS</SelectItem>
                   </SelectContent>
                 </Select>
                 {isEdit && (
@@ -203,7 +203,7 @@ export default function ConnectorForm({
           {/* Active Status */}
           <FormField
             control={form.control}
-            name="active"
+            name="is_active"
             render={({ field }) => (
               <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
@@ -227,7 +227,7 @@ export default function ConnectorForm({
             <h3 className="text-sm font-semibold">Credentials</h3>
 
             {/* S3 Credentials */}
-            {selectedType === 'S3' && (
+            {selectedType === 's3' && (
               <>
                 <FormField
                   control={form.control}
@@ -295,7 +295,7 @@ export default function ConnectorForm({
             )}
 
             {/* GCS Credentials */}
-            {selectedType === 'GCS' && (
+            {selectedType === 'gcs' && (
               <>
                 <FormField
                   control={form.control}
@@ -335,7 +335,7 @@ export default function ConnectorForm({
             )}
 
             {/* SMB Credentials */}
-            {selectedType === 'SMB' && (
+            {selectedType === 'smb' && (
               <>
                 <FormField
                   control={form.control}

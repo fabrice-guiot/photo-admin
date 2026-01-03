@@ -190,9 +190,9 @@ export interface FiltersSectionProps {
  */
 export const COLLECTION_STATE_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All States' },
-  { value: 'LIVE', label: 'Live' },
-  { value: 'CLOSED', label: 'Closed' },
-  { value: 'ARCHIVED', label: 'Archived' }
+  { value: 'live', label: 'Live' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'archived', label: 'Archived' }
 ] as const
 
 /**
@@ -200,10 +200,10 @@ export const COLLECTION_STATE_FILTER_OPTIONS = [
  */
 export const COLLECTION_TYPE_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Types' },
-  { value: 'LOCAL', label: 'Local' },
-  { value: 'S3', label: 'Amazon S3' },
-  { value: 'GCS', label: 'Google Cloud Storage' },
-  { value: 'SMB', label: 'SMB/CIFS' }
+  { value: 'local', label: 'Local' },
+  { value: 's3', label: 'Amazon S3' },
+  { value: 'gcs', label: 'Google Cloud Storage' },
+  { value: 'smb', label: 'SMB/CIFS' }
 ] as const
 
 // ============================================================================
@@ -247,10 +247,10 @@ export const COLLECTION_TYPE_BADGE_VARIANT: Record<
   CollectionType,
   'default' | 'secondary'
 > = {
-  LOCAL: 'default',
-  S3: 'secondary',
-  GCS: 'secondary',
-  SMB: 'secondary'
+  local: 'default',
+  s3: 'secondary',
+  gcs: 'secondary',
+  smb: 'secondary'
 }
 
 /**
@@ -260,28 +260,28 @@ export const COLLECTION_STATE_BADGE_VARIANT: Record<
   CollectionState,
   'default' | 'secondary' | 'outline'
 > = {
-  LIVE: 'default',
-  CLOSED: 'secondary',
-  ARCHIVED: 'outline'
+  live: 'default',
+  closed: 'secondary',
+  archived: 'outline'
 }
 
 /**
  * Display labels for collection types
  */
 export const COLLECTION_TYPE_LABELS: Record<CollectionType, string> = {
-  LOCAL: 'Local',
-  S3: 'S3',
-  GCS: 'GCS',
-  SMB: 'SMB'
+  local: 'Local',
+  s3: 'Amazon S3',
+  gcs: 'Google Cloud Storage',
+  smb: 'SMB/CIFS'
 }
 
 /**
  * Display labels for collection states
  */
 export const COLLECTION_STATE_LABELS: Record<CollectionState, string> = {
-  LIVE: 'Live',
-  CLOSED: 'Closed',
-  ARCHIVED: 'Archived'
+  live: 'Live',
+  closed: 'Closed',
+  archived: 'Archived'
 }
 
 // ============================================================================
@@ -295,7 +295,7 @@ export function getConnectorsForType(
   connectors: Connector[],
   collectionType: CollectionType
 ): Connector[] {
-  if (collectionType === 'LOCAL') {
+  if (collectionType === 'local') {
     return []
   }
 
@@ -303,7 +303,7 @@ export function getConnectorsForType(
   const connectorType = collectionType // Same naming
 
   return connectors.filter(
-    (connector) => connector.type === connectorType && connector.active
+    (connector) => connector.type === connectorType && connector.is_active
   )
 }
 
@@ -311,12 +311,12 @@ export function getConnectorsForType(
  * Validate connector selection for collection type
  */
 export function isConnectorRequiredForType(type: CollectionType): boolean {
-  return type !== 'LOCAL'
+  return type !== 'local'
 }
 
 /**
  * Get connector field visibility for collection type
  */
 export function shouldShowConnectorField(type: CollectionType): boolean {
-  return type !== 'LOCAL'
+  return type !== 'local'
 }
