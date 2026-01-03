@@ -202,9 +202,9 @@ description: "Task list for UI Migration to Modern Design System"
 
 **Tests**: Migrating existing test suite to work with new components and types
 
-- [ ] T058 [P] Update frontend/vitest.config.js to .ts with TypeScript support and path aliases
-- [ ] T059 [P] Update frontend/tests/mocks/handlers.js to .ts with typed MSW request handlers
-- [ ] T060 [P] Create frontend/tests/utils/test-utils.tsx with custom render function for shadcn components
+- [X] T058 [P] Update frontend/vitest.config.js to .ts with TypeScript support and path aliases
+- [X] T059 [P] Update frontend/tests/mocks/handlers.js to .ts with typed MSW request handlers
+- [X] T060 [P] Create frontend/tests/utils/test-utils.tsx with custom render function for shadcn components
 - [ ] T061 [P] Update frontend/tests/components/ConnectorForm.test.jsx to .tsx with shadcn Select selectors
 - [ ] T062 [P] Update frontend/tests/components/ConnectorList.test.jsx to .tsx with shadcn Table and Badge selectors
 - [ ] T063 [P] Update frontend/tests/components/CollectionForm.test.jsx to .tsx with react-hook-form field selectors
