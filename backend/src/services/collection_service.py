@@ -187,7 +187,8 @@ class CollectionService:
         self,
         state_filter: Optional[CollectionState] = None,
         type_filter: Optional[CollectionType] = None,
-        accessible_only: bool = False
+        accessible_only: bool = False,
+        search: Optional[str] = None
     ) -> List[Collection]:
         """
         List collections with optional filtering, sorted by creation date (newest first).
@@ -196,6 +197,7 @@ class CollectionService:
             state_filter: Filter by collection state (LIVE, CLOSED, ARCHIVED)
             type_filter: Filter by collection type (LOCAL, S3, GCS, SMB)
             accessible_only: If True, only return accessible collections
+            search: Case-insensitive partial match on collection name (max 100 chars)
 
         Returns:
             List of Collection instances sorted by created_at DESC
@@ -203,7 +205,8 @@ class CollectionService:
         Example:
             >>> collections = service.list_collections(
             ...     state_filter=CollectionState.LIVE,
-            ...     accessible_only=True
+            ...     accessible_only=True,
+            ...     search="vacation"
             ... )
         """
         query = self.db.query(Collection)
@@ -217,6 +220,13 @@ class CollectionService:
         if accessible_only:
             query = query.filter(Collection.is_accessible == True)
 
+        # Search by name (case-insensitive partial match)
+        # Uses SQLAlchemy's ilike with parameterized queries for SQL injection protection
+        if search:
+            # Truncate to 100 chars to prevent excessive query length
+            search_term = search[:100]
+            query = query.filter(Collection.name.ilike(f"%{search_term}%"))
+
         collections = query.order_by(Collection.created_at.desc()).all()
 
         logger.info(
@@ -224,7 +234,8 @@ class CollectionService:
             extra={
                 "state_filter": state_filter.value if state_filter else None,
                 "type_filter": type_filter.value if type_filter else None,
-                "accessible_only": accessible_only
+                "accessible_only": accessible_only,
+                "search": search[:20] + "..." if search and len(search) > 20 else search
             }
         )
 
@@ -272,13 +283,15 @@ class CollectionService:
         try:
             # Track if state changes (requires cache invalidation)
             state_changed = False
+            location_changed = False
 
             # Update fields
             if name is not None:
                 collection.name = name
 
-            if location is not None:
+            if location is not None and location != collection.location:
                 collection.location = location
+                location_changed = True
 
             if state is not None and state != collection.state:
                 collection.state = state
@@ -290,11 +303,33 @@ class CollectionService:
             if metadata is not None:
                 collection.metadata_json = json.dumps(metadata)
 
+            # If location changed, re-test accessibility
+            if location_changed:
+                # Test accessibility with new location
+                is_accessible, last_error = self._test_accessibility(
+                    collection.type,
+                    collection.location,
+                    collection.connector_id
+                )
+                collection.is_accessible = is_accessible
+                collection.last_error = last_error
+
+                # Invalidate cache since location changed
+                self.file_cache.invalidate(collection_id)
+                logger.info(
+                    f"Location changed, re-tested accessibility: {collection.name}",
+                    extra={
+                        "collection_id": collection_id,
+                        "new_location": location,
+                        "accessible": is_accessible
+                    }
+                )
+
             self.db.commit()
             self.db.refresh(collection)
 
             # Invalidate cache if state changed (different TTL applies)
-            if state_changed:
+            if state_changed and not location_changed:  # Don't invalidate twice
                 self.file_cache.invalidate(collection_id)
                 logger.info(
                     f"Invalidated cache due to state change: {collection.name}",
@@ -387,7 +422,7 @@ class CollectionService:
             logger.error(f"Failed to delete collection: {str(e)}", extra={"collection_id": collection_id})
             raise
 
-    def test_collection_accessibility(self, collection_id: int) -> tuple[bool, str]:
+    def test_collection_accessibility(self, collection_id: int) -> tuple[bool, str, "Collection"]:
         """
         Test collection accessibility.
 
@@ -400,14 +435,14 @@ class CollectionService:
             collection_id: Collection ID to test
 
         Returns:
-            Tuple of (success: bool, message: str)
+            Tuple of (success: bool, message: str, collection: Collection)
 
         Raises:
             ValueError: If collection not found
 
         Example:
-            >>> success, message = service.test_collection_accessibility(1)
-            >>> print(f"Accessible: {success}, {message}")
+            >>> success, message, collection = service.test_collection_accessibility(1)
+            >>> print(f"Accessible: {success}, {message}, Updated: {collection.is_accessible}")
         """
         collection = self.get_collection(collection_id)
 
@@ -424,6 +459,7 @@ class CollectionService:
         collection.is_accessible = is_accessible
         collection.last_error = last_error
         self.db.commit()
+        self.db.refresh(collection)
 
         logger.info(
             f"Tested collection accessibility: {collection.name}",
@@ -431,7 +467,7 @@ class CollectionService:
         )
 
         message = "Collection is accessible" if is_accessible else last_error
-        return is_accessible, message
+        return is_accessible, message, collection
 
     def get_collection_files(
         self,

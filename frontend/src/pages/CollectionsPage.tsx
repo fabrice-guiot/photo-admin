@@ -12,20 +12,39 @@ import { useCollections, useCollectionStats } from '../hooks/useCollections'
 import { useConnectors } from '../hooks/useConnectors'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
+import { FiltersSection } from '../components/collections/FiltersSection'
 import CollectionForm from '../components/collections/CollectionForm'
-import type { Collection } from '@/contracts/api/collection-api'
+import type { Collection, CollectionState, CollectionType } from '@/contracts/api/collection-api'
 
 export default function CollectionsPage() {
   const {
     collections,
     loading,
     error,
+    search,
+    setSearch,
+    filters,
+    setFilters,
     createCollection,
     updateCollection,
     deleteCollection,
     testCollection,
     refreshCollection
   } = useCollections()
+
+  // Filter UI state (for select components)
+  const [selectedState, setSelectedState] = useState<CollectionState | 'ALL' | ''>('ALL')
+  const [selectedType, setSelectedType] = useState<CollectionType | 'ALL' | ''>('ALL')
+  const [accessibleOnly, setAccessibleOnly] = useState(false)
+
+  // Update filters when UI state changes
+  useEffect(() => {
+    setFilters({
+      state: selectedState === 'ALL' || selectedState === '' ? undefined : selectedState,
+      type: selectedType === 'ALL' || selectedType === '' ? undefined : selectedType,
+      accessible_only: accessibleOnly || undefined
+    })
+  }, [selectedState, selectedType, accessibleOnly, setFilters])
 
   const { connectors } = useConnectors()
 
@@ -112,6 +131,18 @@ export default function CollectionsPage() {
         </Alert>
       )}
 
+      {/* Filters Section with Search (Issue #38) */}
+      <FiltersSection
+        selectedState={selectedState}
+        setSelectedState={setSelectedState}
+        selectedType={selectedType}
+        setSelectedType={setSelectedType}
+        accessibleOnly={accessibleOnly}
+        setAccessibleOnly={setAccessibleOnly}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
       {/* Collection List */}
       <CollectionList
         collections={collections}
@@ -120,6 +151,7 @@ export default function CollectionsPage() {
         onDelete={handleDelete}
         onInfo={handleInfo}
         onRefresh={handleRefresh}
+        search={search}
       />
 
       {/* Create/Edit Dialog */}

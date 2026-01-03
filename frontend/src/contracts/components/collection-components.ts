@@ -49,6 +49,11 @@ export interface CollectionListProps {
   onInfo: (collection: Collection) => void
 
   /**
+   * Current search term for empty state message (Issue #38)
+   */
+  search?: string
+
+  /**
    * Additional CSS classes
    */
   className?: string
@@ -178,6 +183,16 @@ export interface FiltersSectionProps {
    * Callback when accessible-only filter changes
    */
   setAccessibleOnly: (value: boolean) => void
+
+  /**
+   * Current search text (Issue #38)
+   */
+  search?: string
+
+  /**
+   * Callback when search text changes (Issue #38)
+   */
+  onSearchChange?: (value: string) => void
 
   /**
    * Additional CSS classes

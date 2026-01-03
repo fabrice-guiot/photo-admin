@@ -142,12 +142,13 @@ async def get_collection_stats(
     "",
     response_model=List[CollectionResponse],
     summary="List collections",
-    description="List all collections with optional filtering by state, type, and accessibility"
+    description="List all collections with optional filtering by state, type, accessibility, and name search"
 )
 async def list_collections(
     state: Optional[CollectionState] = Query(None, description="Filter by state (live, closed, archived)"),
     type: Optional[CollectionType] = Query(None, description="Filter by type (local, s3, gcs, smb)"),
     accessible_only: bool = Query(False, description="Only return accessible collections"),
+    search: Optional[str] = Query(None, max_length=100, description="Search by collection name (case-insensitive partial match)"),
     collection_service: CollectionService = Depends(get_collection_service)
 ) -> List[CollectionResponse]:
     """
@@ -157,18 +158,20 @@ async def list_collections(
         - state: Filter by collection state (LIVE, CLOSED, ARCHIVED)
         - type: Filter by collection type (LOCAL, S3, GCS, SMB)
         - accessible_only: If true, only return collections with is_accessible=true
+        - search: Case-insensitive partial match on collection name (max 100 chars)
 
     Returns:
         List of CollectionResponse objects sorted by created_at descending
 
     Example:
-        GET /api/collections?state=live&type=s3&accessible_only=true
+        GET /api/collections?state=live&type=s3&accessible_only=true&search=vacation
     """
     try:
         collections = collection_service.list_collections(
             state_filter=state,
             type_filter=type,
-            accessible_only=accessible_only
+            accessible_only=accessible_only,
+            search=search
         )
 
         logger.info(
@@ -177,6 +180,7 @@ async def list_collections(
                 "state_filter": state.value if state else None,
                 "type_filter": type.value if type else None,
                 "accessible_only": accessible_only,
+                "search": search[:20] + "..." if search and len(search) > 20 else search,
                 "count": len(collections)
             }
         )
@@ -499,7 +503,7 @@ async def test_collection(
         collection_id: Collection ID
 
     Returns:
-        CollectionTestResponse with success status and message
+        CollectionTestResponse with success status, message, and updated collection
 
     Raises:
         404 Not Found: If collection doesn't exist
@@ -510,18 +514,23 @@ async def test_collection(
         Response:
         {
           "success": true,
-          "message": "Collection is accessible. Found 1,234 files."
+          "message": "Collection is accessible. Found 1,234 files.",
+          "collection": { "id": 1, "is_accessible": true, ... }
         }
     """
     try:
-        success, message = collection_service.test_collection_accessibility(collection_id)
+        success, message, collection = collection_service.test_collection_accessibility(collection_id)
 
         logger.info(
             f"Tested collection accessibility",
             extra={"collection_id": collection_id, "success": success}
         )
 
-        return CollectionTestResponse(success=success, message=message)
+        return CollectionTestResponse(
+            success=success,
+            message=message,
+            collection=CollectionResponse.model_validate(collection)
+        )
 
     except ValueError as e:
         # Not found

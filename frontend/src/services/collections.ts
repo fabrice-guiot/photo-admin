@@ -23,6 +23,7 @@ export const listCollections = async (filters: CollectionListQueryParams = {}): 
   if (filters.state) params.state = filters.state
   if (filters.type) params.type = filters.type
   if (filters.accessible_only) params.accessible_only = true
+  if (filters.search) params.search = filters.search
   if (filters.limit) params.limit = filters.limit
   if (filters.offset) params.offset = filters.offset
 

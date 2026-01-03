@@ -57,6 +57,7 @@ export interface CollectionListQueryParams {
   state?: CollectionState
   type?: CollectionType
   accessible_only?: boolean
+  search?: string  // Case-insensitive partial match on name (Issue #38)
   limit?: number
   offset?: number
 }
@@ -76,14 +77,8 @@ export interface CollectionDetailResponse {
 
 export interface CollectionTestResponse {
   success: boolean
-  is_accessible: boolean
   message: string
-  details?: {
-    test_time_ms?: number
-    file_count?: number
-    total_size_bytes?: number
-    [key: string]: unknown
-  }
+  collection: Collection  // Updated collection with new accessibility status
 }
 
 export interface CollectionDeleteResponse {

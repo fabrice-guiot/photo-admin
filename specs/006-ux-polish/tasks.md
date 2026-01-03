@@ -87,18 +87,18 @@
 
 ### Backend Implementation for User Story 2
 
-- [ ] T023 [US2] Add search parameter to list_collections() in backend/src/services/collection_service.py
-- [ ] T024 [US2] Add search query parameter to GET /collections endpoint in backend/src/api/collections.py
-- [ ] T025 [US2] Add pytest tests for search functionality in backend/tests/unit/test_api_collections.py
-- [ ] T026 [US2] Test SQL injection protection (parameterized queries) in backend/tests/unit/test_api_collections.py
+- [x] T023 [US2] Add search parameter to list_collections() in backend/src/services/collection_service.py
+- [x] T024 [US2] Add search query parameter to GET /collections endpoint in backend/src/api/collections.py
+- [x] T025 [US2] Add pytest tests for search functionality in backend/tests/unit/test_api_collections.py
+- [x] T026 [US2] Test SQL injection protection (parameterized queries) in backend/tests/unit/test_api_collections.py
 
 ### Frontend Implementation for User Story 2
 
-- [ ] T027 [US2] Add search state and debounce logic to useCollections hook in frontend/src/hooks/useCollections.ts
-- [ ] T028 [US2] Add search input component to FiltersSection in frontend/src/components/collections/FiltersSection.tsx
-- [ ] T029 [US2] Wire search input to useCollections hook in CollectionsPage in frontend/src/pages/CollectionsPage.tsx
-- [ ] T030 [US2] Update empty state message when no collections match search in frontend/src/components/collections/CollectionList.tsx
-- [ ] T031 [US2] Add input maxLength (100 chars) to prevent excessive queries
+- [x] T027 [US2] Add search state and debounce logic to useCollections hook in frontend/src/hooks/useCollections.ts
+- [x] T028 [US2] Add search input component to FiltersSection in frontend/src/components/collections/FiltersSection.tsx
+- [x] T029 [US2] Wire search input to useCollections hook in CollectionsPage in frontend/src/pages/CollectionsPage.tsx
+- [x] T030 [US2] Update empty state message when no collections match search in frontend/src/components/collections/CollectionList.tsx
+- [x] T031 [US2] Add input maxLength (100 chars) to prevent excessive queries
 
 **Checkpoint**: Search filters collections by name - User Story 2 complete
 

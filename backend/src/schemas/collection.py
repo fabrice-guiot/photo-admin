@@ -544,18 +544,30 @@ class CollectionTestResponse(BaseModel):
     Fields:
         success: Test result
         message: Descriptive message
+        collection: Updated collection with new accessibility status
 
     Example:
-        >>> response = CollectionTestResponse(success=True, message="Collection is accessible")
+        >>> response = CollectionTestResponse(success=True, message="Collection is accessible", collection=...)
     """
     success: bool = Field(..., description="Test success status")
     message: str = Field(..., description="Descriptive message")
+    collection: Optional["CollectionResponse"] = Field(
+        default=None,
+        description="Updated collection with new accessibility status"
+    )
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "success": True,
-                "message": "Collection is accessible. Found 1,234 files."
+                "message": "Collection is accessible. Found 1,234 files.",
+                "collection": {
+                    "id": 1,
+                    "name": "Vacation Photos",
+                    "type": "local",
+                    "is_accessible": True,
+                    "last_error": None
+                }
             }
         }
     }
@@ -685,3 +697,7 @@ class ConnectorStatsResponse(BaseModel):
             }
         }
     }
+
+
+# Rebuild models to resolve forward references
+CollectionTestResponse.model_rebuild()
