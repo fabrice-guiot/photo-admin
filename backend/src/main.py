@@ -30,6 +30,9 @@ from backend.src.utils.job_queue import JobQueue
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.logging_config import init_logging, get_logger
 
+# Import version management
+from version import __version__
+
 
 def validate_master_key() -> None:
     """
@@ -126,7 +129,7 @@ app = FastAPI(
     description="Backend API for photo-admin web application. "
                 "Supports remote photo collection management, pipeline configuration, "
                 "and analysis tool execution with persistent result storage.",
-    version="1.0.0",
+    version=__version__,
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -274,7 +277,24 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "photo-admin-backend",
-        "version": "1.0.0",
+        "version": __version__,
+    }
+
+
+@app.get("/api/version", tags=["System"])
+async def get_version() -> Dict[str, str]:
+    """
+    Get the current version of the photo-admin application.
+
+    This endpoint returns the version number synchronized with GitHub release tags.
+    The version is automatically determined from Git tags during development and
+    production builds.
+
+    Returns:
+        Dictionary with version information
+    """
+    return {
+        "version": __version__,
     }
 
 

@@ -28,6 +28,11 @@ from collections import defaultdict
 from datetime import datetime
 from utils.config_manager import PhotoAdminConfig
 from utils.filename_parser import FilenameParser
+from version import __version__
+
+
+# Tool version from centralized version management
+TOOL_VERSION = __version__
 
 
 # Global flag for graceful shutdown
@@ -255,7 +260,7 @@ def save_cache(folder_path, imagegroups, invalid_files, file_list_hash):
             'version': '1.0',
             'created_at': datetime.utcnow().isoformat() + 'Z',
             'folder_path': str(folder_path.absolute()),
-            'tool_version': '1.0.0',
+            'tool_version': TOOL_VERSION,
             'metadata': {
                 'file_list_hash': file_list_hash,
                 'imagegroups_hash': imagegroups_hash,
@@ -668,7 +673,7 @@ def generate_html_report(analytics, invalid_files, output_path, folder_path, sca
         # Create report context
         context = ReportContext(
             tool_name="Photo Pairing",
-            tool_version="1.0.0",
+            tool_version=TOOL_VERSION,
             scan_path=str(folder_path),
             scan_timestamp=datetime.now(),
             scan_duration=scan_duration,
@@ -745,6 +750,12 @@ Report Output:
         'folder',
         type=str,
         help='Path to folder containing photos to analyze'
+    )
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {TOOL_VERSION}'
     )
 
     args = parser.parse_args()

@@ -32,6 +32,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 
+# Import version management
+from version import __version__
+
 # Import shared utilities
 from utils.config_manager import PhotoAdminConfig
 from utils.report_renderer import ReportRenderer
@@ -82,8 +85,8 @@ except ImportError:
     PHOTO_PAIRING_AVAILABLE = False
 
 
-# Tool version (semantic versioning)
-TOOL_VERSION = "1.0.0"
+# Tool version from centralized version management
+TOOL_VERSION = __version__
 
 # Global flag for graceful shutdown
 shutdown_requested = False
@@ -649,6 +652,7 @@ def is_cache_version_compatible(cache_data: dict) -> bool:
 
     Uses semantic versioning: major version mismatch = incompatible.
     Minor/patch version differences are backward compatible.
+    Development versions (with -dev suffix) are compatible with their base version.
 
     Args:
         cache_data: Loaded cache dictionary
@@ -659,9 +663,17 @@ def is_cache_version_compatible(cache_data: dict) -> bool:
     cached_version = cache_data.get('tool_version', '0.0.0')
 
     try:
+        # Strip 'v' prefix if present
+        cached_clean = cached_version.lstrip('v')
+        current_clean = TOOL_VERSION.lstrip('v')
+
+        # Extract base version (before any -dev or other suffix)
+        cached_base = cached_clean.split('-')[0]
+        current_base = current_clean.split('-')[0]
+
         # Semantic versioning: Major version mismatch = incompatible
-        cached_major = int(cached_version.split('.')[0])
-        current_major = int(TOOL_VERSION.split('.')[0])
+        cached_major = int(cached_base.split('.')[0])
+        current_major = int(current_base.split('.')[0])
 
         if cached_major != current_major:
             return False  # Major version change = breaking change
