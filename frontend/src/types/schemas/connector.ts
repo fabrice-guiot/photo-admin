@@ -112,10 +112,9 @@ export const connectorBaseSchema = z.object({
     .max(100, 'Connector name must be less than 100 characters')
     .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Connector name can only contain letters, numbers, spaces, hyphens, and underscores'),
   type: z.enum(['S3', 'GCS', 'SMB'], {
-    required_error: 'Connector type is required',
-    invalid_type_error: 'Invalid connector type'
+    message: 'Invalid connector type'
   }),
-  active: z.boolean().default(true)
+  active: z.boolean()
 })
 
 /**

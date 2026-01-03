@@ -160,7 +160,7 @@ export function ConnectorList({
             <Checkbox
               id="active-only"
               checked={activeOnly}
-              onCheckedChange={setActiveOnly}
+              onCheckedChange={(checked) => setActiveOnly(checked === true)}
             />
             <Label
               htmlFor="active-only"

@@ -5,7 +5,8 @@
  */
 
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { FolderOpen, Plug } from 'lucide-react'
+import { type ReactElement } from 'react'
+import { FolderOpen, Plug, type LucideIcon } from 'lucide-react'
 import { MainLayout } from './components/layout/MainLayout'
 
 // Page components
@@ -18,9 +19,9 @@ import CollectionsPage from './pages/CollectionsPage'
 
 interface RouteConfig {
   path: string
-  element: JSX.Element
+  element: ReactElement
   pageTitle: string
-  pageIcon?: typeof FolderOpen
+  pageIcon?: LucideIcon
   stats?: { label: string; value: string | number }[]
 }
 

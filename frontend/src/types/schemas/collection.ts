@@ -25,12 +25,10 @@ export const collectionFormSchema = z
         'Collection name can only contain letters, numbers, spaces, hyphens, and underscores'
       ),
     type: z.enum(['LOCAL', 'S3', 'GCS', 'SMB'], {
-      required_error: 'Collection type is required',
-      invalid_type_error: 'Invalid collection type'
+      message: 'Invalid collection type'
     }),
     state: z.enum(['LIVE', 'CLOSED', 'ARCHIVED'], {
-      required_error: 'Collection state is required',
-      invalid_type_error: 'Invalid collection state'
+      message: 'Invalid collection state'
     }),
     location: z
       .string()
