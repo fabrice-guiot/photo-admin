@@ -29,6 +29,7 @@ This PRD completes the Remote Photo Collections and Analysis Persistence feature
 
 **What This PRD Delivers:**
 - Analysis tool execution (PhotoStats, Photo Pairing, Pipeline Validation)
+- **Collection statistics population** (enables real KPI data in TopHeader from 006-ux-polish)
 - Pipeline configuration management through forms
 - Historical trend analysis across executions
 - YAML configuration migration to database
@@ -45,7 +46,9 @@ The photo-admin application now has:
 - **Database Foundation**: PostgreSQL with connectors and collections tables
 - **CLI Tools**: PhotoStats, Photo Pairing, Pipeline Validation still operate as standalone scripts
 - **Remote Collections**: S3, GCS, and SMB connector support with encrypted credentials
-- **UX Polish**: TopHeader KPIs, search functionality, responsive sidebar (006-ux-polish)
+- **UX Polish**: TopHeader KPIs (currently showing placeholder/N/A), search functionality, responsive sidebar (006-ux-polish)
+
+**⚠️ Critical Dependency**: The TopHeader KPI feature from 006-ux-polish displays aggregated collection statistics (storage used, file count, image count) via the `/api/collections/stats` endpoint. However, these values are currently NULL/N/A because the Collection model lacks the cached statistics fields. **Phase 4 of this epic will populate these fields** by updating collection statistics after each tool execution, making the KPI feature fully functional with real data.
 
 ### Strategic Interruption
 
@@ -181,6 +184,29 @@ Despite excellent infrastructure, users still cannot:
 
 ---
 
+## Key Entities
+
+### From 006-ux-polish (Existing, Needs Data)
+- **Collection Statistics** (TopHeader KPIs): Aggregated metrics across all collections
+  - Total Collections (count)
+  - Storage Used (sum of all collection.storage_used)
+  - Total Files (sum of all collection.file_count)
+  - Total Images (sum of all collection.image_count after grouping)
+
+### New for This Epic
+- **Analysis Results**: Stored execution history (tool, timestamp, results JSONB, report HTML)
+- **Pipelines**: Processing workflow definitions (nodes, edges, validation rules)
+- **Pipeline History**: Version tracking for pipeline changes
+- **Configurations**: Database-backed settings (extensions, cameras, processing methods)
+- **Collection Statistics Cache** (NEW): Per-collection cached metrics updated by tool execution
+  - storage_used (bytes) - from PhotoStats
+  - file_count (integer) - from PhotoStats
+  - image_group_count (integer) - from Pipeline Validation or Photo Pairing
+  - image_count (integer) - from Pipeline Validation or Photo Pairing
+  - last_stats_update (timestamp) - when values were last refreshed
+
+---
+
 ## Requirements
 
 ### Functional Requirements (Additional to Original PRD)
@@ -192,24 +218,35 @@ Despite excellent infrastructure, users still cannot:
 - **FR-102**: Result list MUST use shadcn/ui Table with sorting, pagination, and TypeScript types
 - **FR-103**: HTML reports MUST be viewable in shadcn/ui Dialog or separate tab
 
+#### Collection Statistics Integration (006-ux-polish KPI Dependency)
+
+- **FR-104a**: Collection model MUST store cached statistics fields: `storage_used` (bytes), `file_count` (integer), `image_group_count` (integer), `image_count` (integer)
+- **FR-104b**: Collection model MUST store `last_stats_update` timestamp indicating when cached statistics were last updated
+- **FR-104c**: PhotoStats tool execution MUST update collection's `storage_used` and `file_count` fields upon successful completion
+- **FR-104d**: Photo Pairing tool execution MUST update collection's `image_group_count` and `image_count` fields upon successful completion
+- **FR-104e**: Pipeline Validation tool execution MUST update collection's `image_group_count` and `image_count` fields upon successful completion (takes precedence over Photo Pairing values)
+- **FR-104f**: GET /api/collections/stats endpoint (implemented in 006-ux-polish) MUST aggregate cached statistics from all collections
+- **FR-104g**: Statistics update MUST be transactional - if tool execution fails, collection statistics MUST NOT be updated
+- **FR-104h**: If no tool has been run yet, statistics fields MUST default to NULL and KPIs MUST display "–" or "N/A"
+
 #### Pipeline Management with Modern UI
 
-- **FR-104**: Pipeline form editor MUST use shadcn/ui Form with react-hook-form + Zod validation
-- **FR-105**: Node editor MUST provide type-specific property fields matching TypeScript interfaces
-- **FR-106**: Validation errors MUST display with shadcn/ui Alert components and actionable guidance
-- **FR-107**: Pipeline list MUST show active badge using shadcn/ui Badge component
+- **FR-105**: Pipeline form editor MUST use shadcn/ui Form with react-hook-form + Zod validation
+- **FR-106**: Node editor MUST provide type-specific property fields matching TypeScript interfaces
+- **FR-107**: Validation errors MUST display with shadcn/ui Alert components and actionable guidance
+- **FR-108a**: Pipeline list MUST show active badge using shadcn/ui Badge component
 
 #### Trend Visualization
 
-- **FR-108**: Trend charts MUST integrate Recharts with Tailwind CSS theming (existing dependency)
-- **FR-109**: Charts MUST use CSS variables from design system (--chart-1 through --chart-5)
-- **FR-110**: Date range filters MUST use shadcn/ui DatePicker or Select components
+- **FR-109**: Trend charts MUST integrate Recharts with Tailwind CSS theming (existing dependency)
+- **FR-110**: Charts MUST use CSS variables from design system (--chart-1 through --chart-5)
+- **FR-111**: Date range filters MUST use shadcn/ui DatePicker or Select components
 
 #### Configuration Migration
 
-- **FR-111**: Conflict resolver UI MUST use shadcn/ui Card for side-by-side comparison
-- **FR-112**: Import dialog MUST use shadcn/ui Dialog with File upload via Input type="file"
-- **FR-113**: Config editor MUST support inline editing with real-time validation
+- **FR-112**: Conflict resolver UI MUST use shadcn/ui Card for side-by-side comparison
+- **FR-113**: Import dialog MUST use shadcn/ui Dialog with File upload via Input type="file"
+- **FR-114**: Config editor MUST support inline editing with real-time validation
 
 ### Non-Functional Requirements (Enhanced)
 
@@ -289,6 +326,47 @@ Despite excellent infrastructure, users still cannot:
 - Backend: pytest, pytest-cov, pytest-mock, pytest-asyncio
 - Frontend: Vitest, React Testing Library, MSW (API mocking)
 
+### Data Models (Additions to Existing Schema)
+
+#### Collection Table (Enhanced for KPI Support)
+
+**Context**: The Collection table from Phase 3 needs enhancement to support the TopHeader KPI feature from 006-ux-polish. These cached statistics are updated automatically after each tool execution.
+
+```sql
+-- Existing table from Phase 3, ENHANCED with cached statistics
+ALTER TABLE collections ADD COLUMN storage_used BIGINT DEFAULT NULL;  -- bytes, from PhotoStats
+ALTER TABLE collections ADD COLUMN file_count INTEGER DEFAULT NULL;    -- from PhotoStats
+ALTER TABLE collections ADD COLUMN image_group_count INTEGER DEFAULT NULL;  -- from Pipeline Validation or Photo Pairing
+ALTER TABLE collections ADD COLUMN image_count INTEGER DEFAULT NULL;   -- from Pipeline Validation or Photo Pairing
+ALTER TABLE collections ADD COLUMN last_stats_update TIMESTAMP DEFAULT NULL;  -- when stats were last updated
+
+-- Index for KPI aggregation queries (performance)
+CREATE INDEX idx_collections_stats ON collections(storage_used, file_count, image_count) WHERE storage_used IS NOT NULL;
+```
+
+**Update Logic**:
+1. **PhotoStats completes** → Update `storage_used`, `file_count`, `last_stats_update`
+2. **Photo Pairing completes** → Update `image_group_count`, `image_count`, `last_stats_update` (if no Pipeline Validation has run yet)
+3. **Pipeline Validation completes** → Update `image_group_count`, `image_count`, `last_stats_update` (takes precedence)
+4. **GET /api/collections/stats** → Aggregate non-NULL values across all collections
+
+**Initial State**: All new collections start with NULL statistics until first tool execution
+
+**Data Flow**:
+```
+Tool Execution (PhotoStats/Pairing/Pipeline Validation)
+    ↓
+Analysis Results stored in analysis_results table (JSONB)
+    ↓
+Extract relevant metrics from results
+    ↓
+Update collection statistics fields (transactional)
+    ↓
+TopHeader KPIs fetch aggregated statistics via /api/collections/stats
+    ↓
+Display: "Storage Used: 2.4 TB | Files: 45,238 | Images: 12,890"
+```
+
 ---
 
 ## Implementation Plan
@@ -298,13 +376,17 @@ Despite excellent infrastructure, users still cannot:
 **Duration**: 3-4 weeks
 **Tasks**: 91 tasks from original tasks.md (T119-T192q)
 
-**Backend (47 tasks):**
-1. AnalysisResult model (JSONB results, report_html storage)
-2. ToolService (enqueue, execute, progress tracking)
-3. ResultService (list, get, delete, export)
-4. WebSocket progress endpoint
-5. Integration with existing CLI tools (PhotoStats, Photo Pairing, Pipeline Validation)
-6. Comprehensive testing (unit + integration)
+**Backend (47 tasks + additional for KPI integration):**
+1. **Collection model enhancement** (ADD: storage_used, file_count, image_group_count, image_count, last_stats_update fields)
+2. **Database migration** for new Collection statistics fields
+3. AnalysisResult model (JSONB results, report_html storage)
+4. ToolService (enqueue, execute, progress tracking)
+5. **ToolService enhancement**: Update collection statistics after successful tool completion (transactional)
+6. ResultService (list, get, delete, export)
+7. WebSocket progress endpoint
+8. Integration with existing CLI tools (PhotoStats, Photo Pairing, Pipeline Validation)
+9. **GET /api/collections/stats endpoint enhancement**: Aggregate cached statistics (already implemented in 006, needs real data)
+10. Comprehensive testing (unit + integration + statistics update logic)
 
 **Frontend (27 tasks):**
 1. ToolSelector component (shadcn/ui Buttons)
@@ -323,7 +405,7 @@ Despite excellent infrastructure, users still cannot:
 - Backend: ToolService, ResultService, API endpoints, WebSocket
 - Frontend: Hooks, components, user flows
 
-**Checkpoint**: Users can run tools via web UI, monitor progress, view stored results with >80% backend and >75% frontend test coverage
+**Checkpoint**: Users can run tools via web UI, monitor progress, view stored results. **Collection KPIs in TopHeader now display real data** (storage, file count, image groups/images) automatically updated after each tool execution. Test coverage >80% backend and >75% frontend.
 
 ---
 
@@ -541,6 +623,8 @@ Despite excellent infrastructure, users still cannot:
 4. **Export Formats**: Beyond HTML reports, should we support CSV/JSON export?
 5. **Notification System**: Should tool completion trigger browser notifications?
 6. **Multi-Pipeline Activation**: Allow multiple active pipelines or enforce single active?
+7. **Statistics Staleness**: Should we show "last updated" timestamp in KPIs? How to indicate stale data (>30 days old)?
+8. **Statistics Recalculation**: Should we provide manual "Refresh Stats" button or only update via tool execution?
 
 ---
 
@@ -666,7 +750,15 @@ Despite excellent infrastructure, users still cannot:
 ---
 
 ## Revision History
-- **2026-01-03 (v1)**: Initial draft based on remaining tasks from 004-remote-photos-persistence
+- **2026-01-03 (v1.1)**: Added Collection statistics caching requirement
+  - **FR-104a–FR-104h**: New functional requirements for statistics fields
+  - Enhanced Collection model with cached metrics (storage_used, file_count, image_group_count, image_count, last_stats_update)
+  - Documented dependency: 006-ux-polish KPIs need data populated by Phase 4 tool execution
+  - Added database migration for statistics fields
+  - Updated Key Entities section with Collection Statistics Cache
+  - Added update logic documentation (PhotoStats → storage/files, Pipeline Validation/Photo Pairing → images/groups)
+  - Added Open Questions about statistics staleness and manual refresh
+- **2026-01-03 (v1.0)**: Initial draft based on remaining tasks from 004-remote-photos-persistence
   - Updated for modern UI stack (shadcn/ui, Tailwind, TypeScript)
   - Integrated with completed features 005-ui-migration and 006-ux-polish
   - Focused on Phases 4-8 from original tasks.md
