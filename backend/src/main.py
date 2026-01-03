@@ -106,6 +106,9 @@ async def lifespan(app: FastAPI):
     app.state.credential_encryptor = CredentialEncryptor()
     logger.info("Application state initialized successfully")
 
+    # Log CORS configuration
+    logger.info(f"CORS allowed origins: {cors_origins}")
+
     logger.info("Photo-admin backend started successfully")
 
     yield
@@ -132,12 +135,19 @@ app = FastAPI(
 
 
 # Configure CORS middleware for frontend development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Read allowed origins from CORS_ORIGINS env var (comma-separated) or use defaults
+cors_origins_env = os.environ.get("CORS_ORIGINS", "")
+if cors_origins_env:
+    cors_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+else:
+    cors_origins = [
         "http://localhost:3000",  # React dev server
         "http://127.0.0.1:3000",  # React dev server (alternative)
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, PUT, DELETE, etc.)
     allow_headers=["*"],  # Allow all headers
