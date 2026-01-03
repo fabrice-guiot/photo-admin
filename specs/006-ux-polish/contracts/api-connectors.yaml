@@ -1,0 +1,61 @@
+# Connector API Contract Extensions
+# Feature: UX Polish Epic (006-ux-polish)
+# Additions: Stats endpoint
+
+openapi: 3.1.0
+info:
+  title: Connector API Extensions
+  version: 1.1.0
+  description: |
+    Extensions to the Connector API for the UX Polish Epic:
+    - GET /api/connectors/stats - Connector KPI statistics
+
+paths:
+  /api/connectors/stats:
+    get:
+      summary: Get aggregated connector statistics
+      description: |
+        Returns aggregated KPI statistics for all connectors.
+        **New in 1.1.0**: Added for Issue #37 (Topband KPIs).
+      operationId: getConnectorStats
+      responses:
+        "200":
+          description: Connector statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorStatsResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ConnectorStatsResponse:
+      type: object
+      required:
+        - total_connectors
+        - active_connectors
+      properties:
+        total_connectors:
+          type: integer
+          minimum: 0
+          description: Total number of connectors
+          example: 5
+        active_connectors:
+          type: integer
+          minimum: 0
+          description: Number of active connectors (is_active=true)
+          example: 3
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message

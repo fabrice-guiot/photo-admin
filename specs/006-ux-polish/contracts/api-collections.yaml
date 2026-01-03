@@ -1,0 +1,135 @@
+# Collection API Contract Extensions
+# Feature: UX Polish Epic (006-ux-polish)
+# Additions: Stats endpoint, search parameter
+
+openapi: 3.1.0
+info:
+  title: Collection API Extensions
+  version: 1.1.0
+  description: |
+    Extensions to the Collection API for the UX Polish Epic:
+    - GET /api/collections/stats - Collection KPI statistics
+    - GET /api/collections?search=... - Search filter parameter
+
+paths:
+  /api/collections:
+    get:
+      summary: List collections with optional filtering
+      description: |
+        List all collections with optional filtering by state, type, accessibility, and name search.
+        **New in 1.1.0**: Added `search` parameter for name filtering.
+      operationId: listCollections
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [live, closed, archived]
+          description: Filter by collection state
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [local, s3, gcs, smb]
+          description: Filter by collection type
+        - name: accessible_only
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Only return accessible collections
+        # NEW PARAMETER
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+          description: |
+            Case-insensitive partial match on collection name.
+            Example: "vacation" matches "Vacation 2024", "My vacation photos", etc.
+      responses:
+        "200":
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CollectionResponse"
+
+  /api/collections/stats:
+    get:
+      summary: Get aggregated collection statistics
+      description: |
+        Returns aggregated KPI statistics for all collections.
+        Values are NOT affected by any filter parameters - always shows system-wide totals.
+        **New in 1.1.0**: Added for Issue #37 (Topband KPIs).
+      operationId: getCollectionStats
+      responses:
+        "200":
+          description: Collection statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollectionStatsResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    CollectionStatsResponse:
+      type: object
+      required:
+        - total_collections
+        - storage_used_bytes
+        - storage_used_formatted
+        - file_count
+        - image_count
+      properties:
+        total_collections:
+          type: integer
+          minimum: 0
+          description: Total number of collections
+          example: 42
+        storage_used_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Total storage used across all collections in bytes
+          example: 2748779069440
+        storage_used_formatted:
+          type: string
+          description: Human-readable storage amount
+          example: "2.5 TB"
+        file_count:
+          type: integer
+          minimum: 0
+          description: Total number of files across all collections
+          example: 125000
+        image_count:
+          type: integer
+          minimum: 0
+          description: Total number of images after grouping
+          example: 98500
+
+    CollectionResponse:
+      type: object
+      description: Existing schema - no changes
+      # ... existing properties unchanged
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
