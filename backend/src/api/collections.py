@@ -29,6 +29,7 @@ from backend.src.schemas.collection import (
     CollectionResponse,
     CollectionTestResponse,
     CollectionRefreshResponse,
+    CollectionStatsResponse,
 )
 from backend.src.services.collection_service import CollectionService
 from backend.src.services.connector_service import ConnectorService
@@ -83,6 +84,59 @@ def get_collection_service(
 # ============================================================================
 # API Endpoints (T096-T102)
 # ============================================================================
+
+@router.get(
+    "/stats",
+    response_model=CollectionStatsResponse,
+    summary="Get collection statistics",
+    description="Get aggregated KPI statistics for all collections (Issue #37)"
+)
+async def get_collection_stats(
+    collection_service: CollectionService = Depends(get_collection_service)
+) -> CollectionStatsResponse:
+    """
+    Get aggregated statistics for all collections.
+
+    Returns KPIs for the Collections page topband. These values are NOT affected
+    by any filter parameters - always shows system-wide totals.
+
+    Returns:
+        CollectionStatsResponse with:
+        - total_collections: Count of all collections
+        - storage_used_bytes: Total storage in bytes
+        - storage_used_formatted: Human-readable storage (e.g., "2.5 TB")
+        - file_count: Total number of files
+        - image_count: Total number of images after grouping
+
+    Example:
+        GET /api/collections/stats
+
+        Response:
+        {
+          "total_collections": 42,
+          "storage_used_bytes": 2748779069440,
+          "storage_used_formatted": "2.5 TB",
+          "file_count": 125000,
+          "image_count": 98500
+        }
+    """
+    try:
+        stats = collection_service.get_collection_stats()
+
+        logger.info(
+            f"Retrieved collection stats",
+            extra={"total_collections": stats['total_collections']}
+        )
+
+        return CollectionStatsResponse(**stats)
+
+    except Exception as e:
+        logger.error(f"Error getting collection stats: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get collection statistics: {str(e)}"
+        )
+
 
 @router.get(
     "",

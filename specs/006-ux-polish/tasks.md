@@ -55,23 +55,23 @@
 
 ### Backend Implementation for User Story 1
 
-- [ ] T009 [US1] Add get_collection_stats() method to CollectionService in backend/src/services/collection_service.py
-- [ ] T010 [US1] Add GET /collections/stats endpoint in backend/src/api/collections.py
-- [ ] T011 [P] [US1] Add get_connector_stats() method to ConnectorService in backend/src/services/connector_service.py
-- [ ] T012 [P] [US1] Add GET /connectors/stats endpoint in backend/src/api/connectors.py
-- [ ] T013 [US1] Add pytest tests for collection stats endpoint in backend/tests/unit/test_api_collections.py
-- [ ] T014 [P] [US1] Add pytest tests for connector stats endpoint in backend/tests/unit/test_api_connectors.py
+- [x] T009 [US1] Add get_collection_stats() method to CollectionService in backend/src/services/collection_service.py
+- [x] T010 [US1] Add GET /collections/stats endpoint in backend/src/api/collections.py
+- [x] T011 [P] [US1] Add get_connector_stats() method to ConnectorService in backend/src/services/connector_service.py
+- [x] T012 [P] [US1] Add GET /connectors/stats endpoint in backend/src/api/connectors.py
+- [x] T013 [US1] Add pytest tests for collection stats endpoint in backend/tests/unit/test_api_collections.py
+- [x] T014 [P] [US1] Add pytest tests for connector stats endpoint in backend/tests/unit/test_api_connectors.py
 
 ### Frontend Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Create KpiCard component in frontend/src/components/ui/kpi-card.tsx
-- [ ] T016 [P] [US1] Create KpiCardGrid component in frontend/src/components/ui/kpi-card.tsx
-- [ ] T017 [US1] Add useCollectionStats hook in frontend/src/hooks/useCollections.ts (or new file)
-- [ ] T018 [P] [US1] Add useConnectorStats hook in frontend/src/hooks/useConnectors.ts (or new file)
-- [ ] T019 [US1] Integrate KPI grid into CollectionsPage in frontend/src/pages/CollectionsPage.tsx
-- [ ] T020 [US1] Integrate KPI grid into ConnectorsPage in frontend/src/pages/ConnectorsPage.tsx
-- [ ] T021 [US1] Add loading state for KPI cards (skeleton/spinner)
-- [ ] T022 [US1] Add fallback for null/missing KPI values (display "0" or "N/A")
+- [x] T015 [P] [US1] Create KpiCard component in frontend/src/components/ui/kpi-card.tsx
+- [x] T016 [P] [US1] Create KpiCardGrid component in frontend/src/components/ui/kpi-card.tsx
+- [x] T017 [US1] Add useCollectionStats hook in frontend/src/hooks/useCollections.ts (or new file)
+- [x] T018 [P] [US1] Add useConnectorStats hook in frontend/src/hooks/useConnectors.ts (or new file)
+- [x] T019 [US1] Integrate KPI grid into CollectionsPage in frontend/src/pages/CollectionsPage.tsx
+- [x] T020 [US1] Integrate KPI grid into ConnectorsPage in frontend/src/pages/ConnectorsPage.tsx
+- [x] T021 [US1] Add loading state for KPI cards (skeleton/spinner)
+- [x] T022 [US1] Add fallback for null/missing KPI values (display "0" or "N/A")
 
 **Checkpoint**: KPI metrics visible on both pages - User Story 1 complete
 

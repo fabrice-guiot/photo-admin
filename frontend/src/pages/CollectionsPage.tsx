@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, FolderOpen, HardDrive, FileText, Image } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -8,7 +8,8 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useCollections } from '../hooks/useCollections'
+import { KpiCard, KpiCardGrid } from '@/components/ui/kpi-card'
+import { useCollections, useCollectionStats } from '../hooks/useCollections'
 import { useConnectors } from '../hooks/useConnectors'
 import { CollectionList } from '../components/collections/CollectionList'
 import CollectionForm from '../components/collections/CollectionForm'
@@ -27,6 +28,9 @@ export default function CollectionsPage() {
   } = useCollections()
 
   const { connectors } = useConnectors()
+
+  // KPI Stats (Issue #37)
+  const { stats, loading: statsLoading } = useCollectionStats()
 
   const [open, setOpen] = useState(false)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
@@ -86,6 +90,34 @@ export default function CollectionsPage() {
           New Collection
         </Button>
       </div>
+
+      {/* KPI Cards (Issue #37) */}
+      <KpiCardGrid>
+        <KpiCard
+          value={stats?.total_collections ?? 0}
+          label="Total Collections"
+          icon={<FolderOpen className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+        <KpiCard
+          value={stats?.storage_used_formatted ?? '0 B'}
+          label="Storage Used"
+          icon={<HardDrive className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+        <KpiCard
+          value={stats?.file_count ?? 0}
+          label="Total Files"
+          icon={<FileText className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+        <KpiCard
+          value={stats?.image_count ?? 0}
+          label="Total Images"
+          icon={<Image className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+      </KpiCardGrid>
 
       {/* Error Alert */}
       {error && (

@@ -422,3 +422,97 @@ class TestCollectionAPIRefreshCache:
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
+
+
+class TestCollectionAPIStats:
+    """Tests for GET /api/collections/stats - Issue #37"""
+
+    def test_get_stats_empty_database(self, test_client):
+        """Should return zero stats when no collections exist"""
+        response = test_client.get("/api/collections/stats")
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["total_collections"] == 0
+        assert json_data["storage_used_bytes"] == 0
+        assert json_data["storage_used_formatted"] == "0 B"
+        assert json_data["file_count"] == 0
+        assert json_data["image_count"] == 0
+
+    def test_get_stats_with_collections(self, test_client, sample_collection, test_db_session):
+        """Should return aggregated stats for all collections"""
+        with tempfile.TemporaryDirectory() as temp_dir1, \
+             tempfile.TemporaryDirectory() as temp_dir2:
+            # Create collections and update their stats
+            coll1 = sample_collection(name="Collection 1", type="local", location=temp_dir1)
+            coll2 = sample_collection(name="Collection 2", type="local", location=temp_dir2)
+
+            # Update stats directly on model (simulating scan results)
+            coll1.storage_bytes = 1073741824  # 1 GB
+            coll1.file_count = 1000
+            coll1.image_count = 800
+
+            coll2.storage_bytes = 2147483648  # 2 GB
+            coll2.file_count = 2000
+            coll2.image_count = 1500
+
+            test_db_session.commit()
+
+            response = test_client.get("/api/collections/stats")
+
+            assert response.status_code == 200
+            json_data = response.json()
+            assert json_data["total_collections"] == 2
+            assert json_data["storage_used_bytes"] == 3221225472  # 3 GB
+            assert json_data["storage_used_formatted"] == "3.0 GB"
+            assert json_data["file_count"] == 3000
+            assert json_data["image_count"] == 2300
+
+    def test_get_stats_handles_null_values(self, test_client, sample_collection, test_db_session):
+        """Should handle collections with null stats (not yet scanned)"""
+        with tempfile.TemporaryDirectory() as temp_dir1, \
+             tempfile.TemporaryDirectory() as temp_dir2:
+            # Create collections - one with stats, one without
+            coll1 = sample_collection(name="Scanned", type="local", location=temp_dir1)
+            coll1.storage_bytes = 1073741824
+            coll1.file_count = 1000
+            coll1.image_count = 800
+
+            # Second collection has no stats (NULL)
+            sample_collection(name="Unscanned", type="local", location=temp_dir2)
+
+            test_db_session.commit()
+
+            response = test_client.get("/api/collections/stats")
+
+            assert response.status_code == 200
+            json_data = response.json()
+            assert json_data["total_collections"] == 2
+            # Should only count non-null values
+            assert json_data["storage_used_bytes"] == 1073741824
+            assert json_data["file_count"] == 1000
+            assert json_data["image_count"] == 800
+
+    def test_get_stats_not_affected_by_filters(self, test_client, sample_collection, test_db_session):
+        """Stats should return totals regardless of collection state/type"""
+        with tempfile.TemporaryDirectory() as temp_dir1, \
+             tempfile.TemporaryDirectory() as temp_dir2:
+            coll1 = sample_collection(name="Live", type="local", location=temp_dir1, state="live")
+            coll1.storage_bytes = 1073741824
+            coll1.file_count = 1000
+            coll1.image_count = 800
+
+            coll2 = sample_collection(name="Archived", type="local", location=temp_dir2, state="archived")
+            coll2.storage_bytes = 1073741824
+            coll2.file_count = 1000
+            coll2.image_count = 800
+
+            test_db_session.commit()
+
+            response = test_client.get("/api/collections/stats")
+
+            assert response.status_code == 200
+            json_data = response.json()
+            # Both collections should be counted
+            assert json_data["total_collections"] == 2
+            assert json_data["storage_used_bytes"] == 2147483648  # 2 GB total

@@ -11,7 +11,8 @@ import type {
   CollectionUpdateRequest,
   CollectionListQueryParams,
   CollectionTestResponse,
-  CollectionDeleteResponse
+  CollectionDeleteResponse,
+  CollectionStatsResponse
 } from '@/contracts/api/collection-api'
 
 /**
@@ -85,5 +86,14 @@ export const testCollection = async (id: number): Promise<CollectionTestResponse
 export const refreshCollection = async (id: number, confirm = false): Promise<any> => {
   const params = confirm ? { confirm: true } : {}
   const response = await api.post(`/collections/${id}/refresh`, null, { params })
+  return response.data
+}
+
+/**
+ * Get collection statistics (KPIs)
+ * Returns aggregated stats unaffected by filters
+ */
+export const getCollectionStats = async (): Promise<CollectionStatsResponse> => {
+  const response = await api.get<CollectionStatsResponse>('/collections/stats')
   return response.data
 }

@@ -17,6 +17,7 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 from backend.src.models import Connector, ConnectorType
 from backend.src.utils.crypto import CredentialEncryptor
@@ -370,3 +371,43 @@ class ConnectorService:
             )
 
             return False, f"Test failed: {str(e)}"
+
+    # ============================================================================
+    # KPI Statistics Methods (Issue #37)
+    # ============================================================================
+
+    def get_connector_stats(self) -> Dict[str, int]:
+        """
+        Get aggregated statistics for all connectors.
+
+        Returns KPIs for the Connectors page topband:
+        - total_connectors: Count of all connectors
+        - active_connectors: Count of connectors where is_active=true
+
+        Returns:
+            Dict with total_connectors and active_connectors
+
+        Example:
+            >>> stats = service.get_connector_stats()
+            >>> print(f"Total: {stats['total_connectors']}, Active: {stats['active_connectors']}")
+        """
+        # Query aggregated stats
+        result = self.db.query(
+            func.count(Connector.id).label('total_connectors'),
+            func.count(Connector.id).filter(Connector.is_active == True).label('active_connectors')
+        ).first()
+
+        stats = {
+            'total_connectors': result.total_connectors,
+            'active_connectors': result.active_connectors
+        }
+
+        logger.info(
+            f"Retrieved connector stats",
+            extra={
+                "total_connectors": stats['total_connectors'],
+                "active_connectors": stats['active_connectors']
+            }
+        )
+
+        return stats

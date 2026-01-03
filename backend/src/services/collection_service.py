@@ -19,8 +19,10 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 from backend.src.models import Collection, CollectionType, CollectionState, Connector
+from backend.src.utils.formatting import format_storage_bytes
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.connector_service import ConnectorService
@@ -565,6 +567,59 @@ class CollectionService:
         )
 
         return True, f"Cache refreshed successfully. {file_count:,} files cached.", file_count
+
+    # ============================================================================
+    # KPI Statistics Methods (Issue #37)
+    # ============================================================================
+
+    def get_collection_stats(self) -> Dict[str, Any]:
+        """
+        Get aggregated statistics for all collections.
+
+        Returns KPIs for the Collections page topband:
+        - total_collections: Count of all collections
+        - storage_used_bytes: Sum of storage_bytes across all collections
+        - storage_used_formatted: Human-readable storage amount
+        - file_count: Sum of file_count across all collections
+        - image_count: Sum of image_count across all collections
+
+        These values are NOT affected by any filter parameters.
+
+        Returns:
+            Dict with total_collections, storage_used_bytes, storage_used_formatted,
+            file_count, and image_count
+
+        Example:
+            >>> stats = service.get_collection_stats()
+            >>> print(f"Total: {stats['total_collections']}, Storage: {stats['storage_used_formatted']}")
+        """
+        # Query aggregated stats
+        result = self.db.query(
+            func.count(Collection.id).label('total_collections'),
+            func.coalesce(func.sum(Collection.storage_bytes), 0).label('storage_used_bytes'),
+            func.coalesce(func.sum(Collection.file_count), 0).label('file_count'),
+            func.coalesce(func.sum(Collection.image_count), 0).label('image_count')
+        ).first()
+
+        storage_bytes = int(result.storage_used_bytes)
+
+        stats = {
+            'total_collections': result.total_collections,
+            'storage_used_bytes': storage_bytes,
+            'storage_used_formatted': format_storage_bytes(storage_bytes),
+            'file_count': int(result.file_count),
+            'image_count': int(result.image_count)
+        }
+
+        logger.info(
+            f"Retrieved collection stats",
+            extra={
+                "total_collections": stats['total_collections'],
+                "storage_bytes": storage_bytes
+            }
+        )
+
+        return stats
 
     # Private helper methods
 

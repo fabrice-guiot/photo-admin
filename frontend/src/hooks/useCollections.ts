@@ -12,7 +12,8 @@ import type {
   CollectionUpdateRequest,
   CollectionListQueryParams,
   CollectionTestResponse,
-  CollectionDeleteResponse
+  CollectionDeleteResponse,
+  CollectionStatsResponse
 } from '@/contracts/api/collection-api'
 
 interface UseCollectionsReturn {
@@ -160,4 +161,47 @@ export const useCollections = (autoFetch = true): UseCollectionsReturn => {
     testCollection,
     refreshCollection
   }
+}
+
+// ============================================================================
+// Collection Stats Hook (Issue #37)
+// ============================================================================
+
+interface UseCollectionStatsReturn {
+  stats: CollectionStatsResponse | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+
+/**
+ * Hook for fetching collection KPI statistics
+ * Stats are independent of any filters - always shows system-wide totals
+ */
+export const useCollectionStats = (autoFetch = true): UseCollectionStatsReturn => {
+  const [stats, setStats] = useState<CollectionStatsResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await collectionService.getCollectionStats()
+      setStats(data)
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to load collection statistics'
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoFetch) {
+      refetch()
+    }
+  }, [autoFetch, refetch])
+
+  return { stats, loading, error, refetch }
 }

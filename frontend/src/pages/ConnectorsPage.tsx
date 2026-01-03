@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Plug, PlugZap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,7 +14,8 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useConnectors } from '../hooks/useConnectors'
+import { KpiCard, KpiCardGrid } from '@/components/ui/kpi-card'
+import { useConnectors, useConnectorStats } from '../hooks/useConnectors'
 import { ConnectorList } from '../components/connectors/ConnectorList'
 import ConnectorForm from '../components/connectors/ConnectorForm'
 import type { Connector } from '@/contracts/api/connector-api'
@@ -29,6 +30,9 @@ export default function ConnectorsPage() {
     deleteConnector,
     testConnector
   } = useConnectors()
+
+  // KPI Stats (Issue #37)
+  const { stats, loading: statsLoading } = useConnectorStats()
 
   const [open, setOpen] = useState(false)
   const [editingConnector, setEditingConnector] = useState<Connector | null>(null)
@@ -82,6 +86,22 @@ export default function ConnectorsPage() {
           New Connector
         </Button>
       </div>
+
+      {/* KPI Cards (Issue #37) */}
+      <KpiCardGrid>
+        <KpiCard
+          value={stats?.total_connectors ?? 0}
+          label="Total Connectors"
+          icon={<Plug className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+        <KpiCard
+          value={stats?.active_connectors ?? 0}
+          label="Active Connectors"
+          icon={<PlugZap className="h-5 w-5" />}
+          loading={statsLoading}
+        />
+      </KpiCardGrid>
 
       {/* Error Alert */}
       {error && (
