@@ -87,9 +87,9 @@ describe('ConnectorList', () => {
       />
     )
 
-    expect(screen.getByText('S3')).toBeInTheDocument()
-    expect(screen.getByText('GCS')).toBeInTheDocument()
-    expect(screen.getByText('SMB')).toBeInTheDocument()
+    expect(screen.getByText('Amazon S3')).toBeInTheDocument()
+    expect(screen.getByText('Google Cloud Storage')).toBeInTheDocument()
+    expect(screen.getByText('SMB/CIFS')).toBeInTheDocument()
   })
 
   it('should display active/inactive status', () => {
