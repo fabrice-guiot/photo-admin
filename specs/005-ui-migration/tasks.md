@@ -168,13 +168,13 @@ description: "Task list for UI Migration to Modern Design System"
 
 ### Implementation for User Story 6
 
-- [ ] T048 [P] [US6] Update frontend/src/services/api.js to .ts with typed axios interceptors and ApiError
-- [ ] T049 [P] [US6] Rename frontend/src/main.jsx to main.tsx and update imports
-- [ ] T050 [US6] Add type-check script to frontend/package.json running tsc --noEmit
-- [ ] T051 [US6] Fix any remaining TypeScript errors across all migrated files
-- [ ] T052 [US6] Verify IDE autocomplete works correctly for all shadcn components and typed props
+- [X] T048 [P] [US6] Update frontend/src/services/api.js to .ts with typed axios interceptors and ApiError
+- [X] T049 [P] [US6] Rename frontend/src/main.jsx to main.tsx and update imports
+- [X] T050 [US6] Add type-check script to frontend/package.json running tsc --noEmit
+- [X] T051 [US6] Fix any remaining TypeScript errors across all migrated files
+- [X] T052 [US6] Verify IDE autocomplete works correctly for all shadcn components and typed props
 
-**Checkpoint**: All TypeScript compiles without errors, full type coverage achieved
+**Checkpoint**: ✅ All TypeScript compiles without errors, full type coverage achieved
 
 ---
 
