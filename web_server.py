@@ -30,6 +30,35 @@ Example:
 import argparse
 import os
 import sys
+from pathlib import Path
+
+
+def load_env_file() -> None:
+    """
+    Load environment variables from backend/.env file.
+
+    Reads the .env file and sets environment variables that are not
+    already set in the environment. This allows explicit environment
+    variables to take precedence over .env values.
+    """
+    env_path = Path(__file__).parent / "backend" / ".env"
+    if not env_path.exists():
+        return
+
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Parse KEY=value
+            if "=" in line:
+                key, _, value = line.partition("=")
+                key = key.strip()
+                value = value.strip()
+                # Only set if not already in environment
+                if key and key not in os.environ:
+                    os.environ[key] = value
 
 
 def validate_master_key() -> None:
@@ -142,6 +171,9 @@ def main() -> None:
     """
     # Parse command-line arguments first (allows --help without master key)
     args = parse_arguments()
+
+    # Load environment variables from backend/.env
+    load_env_file()
 
     # Validate master key before starting server
     validate_master_key()

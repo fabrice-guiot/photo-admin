@@ -16,6 +16,8 @@ eggs/
 .eggs/
 lib/
 lib64/
+# But keep frontend source lib directory
+!frontend/src/lib/
 parts/
 sdist/
 var/
