@@ -29,6 +29,7 @@ from backend.src.schemas.collection import (
     CollectionResponse,
     CollectionTestResponse,
     CollectionRefreshResponse,
+    CollectionStatsResponse,
 )
 from backend.src.services.collection_service import CollectionService
 from backend.src.services.connector_service import ConnectorService
@@ -85,15 +86,69 @@ def get_collection_service(
 # ============================================================================
 
 @router.get(
+    "/stats",
+    response_model=CollectionStatsResponse,
+    summary="Get collection statistics",
+    description="Get aggregated KPI statistics for all collections (Issue #37)"
+)
+async def get_collection_stats(
+    collection_service: CollectionService = Depends(get_collection_service)
+) -> CollectionStatsResponse:
+    """
+    Get aggregated statistics for all collections.
+
+    Returns KPIs for the Collections page topband. These values are NOT affected
+    by any filter parameters - always shows system-wide totals.
+
+    Returns:
+        CollectionStatsResponse with:
+        - total_collections: Count of all collections
+        - storage_used_bytes: Total storage in bytes
+        - storage_used_formatted: Human-readable storage (e.g., "2.5 TB")
+        - file_count: Total number of files
+        - image_count: Total number of images after grouping
+
+    Example:
+        GET /api/collections/stats
+
+        Response:
+        {
+          "total_collections": 42,
+          "storage_used_bytes": 2748779069440,
+          "storage_used_formatted": "2.5 TB",
+          "file_count": 125000,
+          "image_count": 98500
+        }
+    """
+    try:
+        stats = collection_service.get_collection_stats()
+
+        logger.info(
+            f"Retrieved collection stats",
+            extra={"total_collections": stats['total_collections']}
+        )
+
+        return CollectionStatsResponse(**stats)
+
+    except Exception as e:
+        logger.error(f"Error getting collection stats: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get collection statistics: {str(e)}"
+        )
+
+
+@router.get(
     "",
     response_model=List[CollectionResponse],
     summary="List collections",
-    description="List all collections with optional filtering by state, type, and accessibility"
+    description="List all collections with optional filtering by state, type, accessibility, and name search"
 )
 async def list_collections(
     state: Optional[CollectionState] = Query(None, description="Filter by state (live, closed, archived)"),
     type: Optional[CollectionType] = Query(None, description="Filter by type (local, s3, gcs, smb)"),
     accessible_only: bool = Query(False, description="Only return accessible collections"),
+    search: Optional[str] = Query(None, max_length=100, description="Search by collection name (case-insensitive partial match)"),
     collection_service: CollectionService = Depends(get_collection_service)
 ) -> List[CollectionResponse]:
     """
@@ -103,18 +158,20 @@ async def list_collections(
         - state: Filter by collection state (LIVE, CLOSED, ARCHIVED)
         - type: Filter by collection type (LOCAL, S3, GCS, SMB)
         - accessible_only: If true, only return collections with is_accessible=true
+        - search: Case-insensitive partial match on collection name (max 100 chars)
 
     Returns:
         List of CollectionResponse objects sorted by created_at descending
 
     Example:
-        GET /api/collections?state=live&type=s3&accessible_only=true
+        GET /api/collections?state=live&type=s3&accessible_only=true&search=vacation
     """
     try:
         collections = collection_service.list_collections(
             state_filter=state,
             type_filter=type,
-            accessible_only=accessible_only
+            accessible_only=accessible_only,
+            search=search
         )
 
         logger.info(
@@ -123,6 +180,7 @@ async def list_collections(
                 "state_filter": state.value if state else None,
                 "type_filter": type.value if type else None,
                 "accessible_only": accessible_only,
+                "search": search[:20] + "..." if search and len(search) > 20 else search,
                 "count": len(collections)
             }
         )
@@ -445,7 +503,7 @@ async def test_collection(
         collection_id: Collection ID
 
     Returns:
-        CollectionTestResponse with success status and message
+        CollectionTestResponse with success status, message, and updated collection
 
     Raises:
         404 Not Found: If collection doesn't exist
@@ -456,18 +514,23 @@ async def test_collection(
         Response:
         {
           "success": true,
-          "message": "Collection is accessible. Found 1,234 files."
+          "message": "Collection is accessible. Found 1,234 files.",
+          "collection": { "id": 1, "is_accessible": true, ... }
         }
     """
     try:
-        success, message = collection_service.test_collection_accessibility(collection_id)
+        success, message, collection = collection_service.test_collection_accessibility(collection_id)
 
         logger.info(
             f"Tested collection accessibility",
             extra={"collection_id": collection_id, "success": success}
         )
 
-        return CollectionTestResponse(success=success, message=message)
+        return CollectionTestResponse(
+            success=success,
+            message=message,
+            collection=CollectionResponse.model_validate(collection)
+        )
 
     except ValueError as e:
         # Not found

@@ -28,6 +28,7 @@ from backend.src.schemas.collection import (
     ConnectorUpdate,
     ConnectorResponse,
     ConnectorTestResponse,
+    ConnectorStatsResponse,
 )
 from backend.src.services.connector_service import ConnectorService
 from backend.src.utils.crypto import CredentialEncryptor
@@ -62,6 +63,52 @@ def get_connector_service(
 # ============================================================================
 # API Endpoints
 # ============================================================================
+
+@router.get(
+    "/stats",
+    response_model=ConnectorStatsResponse,
+    summary="Get connector statistics",
+    description="Get aggregated KPI statistics for all connectors (Issue #37)"
+)
+async def get_connector_stats(
+    connector_service: ConnectorService = Depends(get_connector_service)
+) -> ConnectorStatsResponse:
+    """
+    Get aggregated statistics for all connectors.
+
+    Returns KPIs for the Connectors page topband.
+
+    Returns:
+        ConnectorStatsResponse with:
+        - total_connectors: Count of all connectors
+        - active_connectors: Count of active connectors (is_active=true)
+
+    Example:
+        GET /api/connectors/stats
+
+        Response:
+        {
+          "total_connectors": 5,
+          "active_connectors": 3
+        }
+    """
+    try:
+        stats = connector_service.get_connector_stats()
+
+        logger.info(
+            f"Retrieved connector stats",
+            extra={"total_connectors": stats['total_connectors']}
+        )
+
+        return ConnectorStatsResponse(**stats)
+
+    except Exception as e:
+        logger.error(f"Error getting connector stats: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get connector statistics: {str(e)}"
+        )
+
 
 @router.get(
     "",

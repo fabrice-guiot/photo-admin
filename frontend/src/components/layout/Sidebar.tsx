@@ -16,6 +16,8 @@ import {
   Plug,
   Settings,
   X,
+  ChevronLeft,
+  Pin,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -37,6 +39,19 @@ export interface SidebarProps {
   className?: string
   isMobileMenuOpen?: boolean
   onCloseMobileMenu?: () => void
+  /**
+   * Whether the sidebar is collapsed (tablet hamburger mode via user preference)
+   * Issue #41: Allow manual collapse on tablet screens
+   */
+  isCollapsed?: boolean
+  /**
+   * Callback when collapse button is clicked (collapse sidebar to hamburger)
+   */
+  onCollapse?: () => void
+  /**
+   * Callback when pin button is clicked (restore sidebar from hamburger)
+   */
+  onPin?: () => void
 }
 
 // ============================================================================
@@ -62,7 +77,10 @@ export function Sidebar({
   activeItem,
   className,
   isMobileMenuOpen = false,
-  onCloseMobileMenu
+  onCloseMobileMenu,
+  isCollapsed = false,
+  onCollapse,
+  onPin
 }: SidebarProps) {
   const location = useLocation()
 
@@ -87,10 +105,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile overlay */}
+      {/* Overlay - shown when mobile menu is open (on mobile or when collapsed on tablet+) */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
+          className={cn(
+            'fixed inset-0 z-40 bg-background/80 backdrop-blur-sm',
+            // On mobile: always show when menu is open
+            // On tablet+: only show when collapsed (hamburger mode)
+            isCollapsed ? '' : 'md:hidden'
+          )}
           onClick={onCloseMobileMenu}
           aria-hidden="true"
         />
@@ -100,9 +123,19 @@ export function Sidebar({
       <aside
         className={cn(
           'flex h-screen w-56 flex-col border-r border-sidebar-border bg-sidebar',
-          // Mobile: fixed positioned, slide in from left
-          'fixed left-0 top-0 z-50 transition-transform duration-300 md:relative md:translate-x-0',
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          // Position and transition
+          'fixed left-0 top-0 z-50 transition-transform duration-300',
+          // On desktop (md+): relative positioning ONLY when not collapsed
+          // When collapsed, stay fixed so it doesn't take layout space (Issue #41)
+          !isCollapsed && 'md:relative',
+          // Visibility logic:
+          // - Mobile (<md): show when isMobileMenuOpen, hide otherwise
+          // - Tablet/Desktop (md+): show unless isCollapsed (or mobile menu open)
+          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
+          // On md+, show if not collapsed OR if mobile menu is open (for collapsed+hamburger click)
+          isCollapsed
+            ? (isMobileMenuOpen ? 'md:translate-x-0' : 'md:-translate-x-full')
+            : 'md:translate-x-0',
           className
         )}
       >
@@ -114,14 +147,28 @@ export function Sidebar({
             Photo Admin
           </span>
         </div>
-        {/* Mobile close button */}
-        <button
-          onClick={onCloseMobileMenu}
-          className="md:hidden rounded-md p-1 hover:bg-sidebar-accent transition-colors"
-          aria-label="Close menu"
-        >
-          <X className="h-5 w-5 text-sidebar-foreground" />
-        </button>
+        {/* Header buttons: Pin (for collapsed state) or Close (for mobile menu) */}
+        <div className="flex items-center gap-1">
+          {/* Pin button - shown when collapsed on tablet (Issue #41) */}
+          {isCollapsed && onPin && (
+            <button
+              onClick={onPin}
+              className="hidden md:flex rounded-md p-1 hover:bg-sidebar-accent transition-colors"
+              aria-label="Pin sidebar"
+              title="Pin sidebar"
+            >
+              <Pin className="h-5 w-5 text-sidebar-foreground" />
+            </button>
+          )}
+          {/* Close button - shown on mobile */}
+          <button
+            onClick={onCloseMobileMenu}
+            className="md:hidden rounded-md p-1 hover:bg-sidebar-accent transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5 text-sidebar-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Navigation Menu */}
@@ -150,11 +197,30 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-sidebar-border px-3 py-3">
+      {/* Footer with collapse button */}
+      <div className="border-t border-sidebar-border px-3 py-3 flex items-center justify-between">
         <div className="text-xs text-muted-foreground px-3">
           v1.0.0
         </div>
+        {/* Collapse button - aligned with version number (Issue #41)
+            Only visible on tablet+ (md:) and when not already collapsed */}
+        {!isCollapsed && onCollapse && (
+          <button
+            onClick={onCollapse}
+            className={cn(
+              'hidden md:flex items-center justify-center',
+              'h-6 w-6 rounded-full',
+              'bg-sidebar border border-sidebar-border',
+              'text-sidebar-foreground hover:bg-sidebar-accent',
+              'transition-colors duration-200',
+              'shadow-sm'
+            )}
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </aside>
     </>

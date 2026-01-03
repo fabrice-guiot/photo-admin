@@ -9,7 +9,8 @@ import type {
   Connector,
   ConnectorCreateRequest,
   ConnectorUpdateRequest,
-  ConnectorTestResponse
+  ConnectorTestResponse,
+  ConnectorStatsResponse
 } from '@/contracts/api/connector-api'
 
 /**
@@ -62,5 +63,14 @@ export const deleteConnector = async (id: number): Promise<void> => {
  */
 export const testConnector = async (id: number): Promise<ConnectorTestResponse> => {
   const response = await api.post<ConnectorTestResponse>(`/connectors/${id}/test`)
+  return response.data
+}
+
+/**
+ * Get connector statistics (KPIs)
+ * Returns aggregated stats for all connectors
+ */
+export const getConnectorStats = async (): Promise<ConnectorStatsResponse> => {
+  const response = await api.get<ConnectorStatsResponse>('/connectors/stats')
   return response.data
 }

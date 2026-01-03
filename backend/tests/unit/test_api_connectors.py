@@ -393,3 +393,56 @@ class TestConnectorAPITestConnection:
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"]
+
+
+class TestConnectorAPIStats:
+    """Tests for GET /api/connectors/stats - Issue #37"""
+
+    def test_get_stats_empty_database(self, test_client):
+        """Should return zero stats when no connectors exist"""
+        response = test_client.get("/api/connectors/stats")
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["total_connectors"] == 0
+        assert json_data["active_connectors"] == 0
+
+    def test_get_stats_with_connectors(self, test_client, sample_connector):
+        """Should return correct counts for all connectors"""
+        sample_connector(name="S3 Connector 1", type="s3", is_active=True)
+        sample_connector(name="S3 Connector 2", type="s3", is_active=True)
+        sample_connector(name="GCS Connector", type="gcs", is_active=True)
+
+        response = test_client.get("/api/connectors/stats")
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["total_connectors"] == 3
+        assert json_data["active_connectors"] == 3
+
+    def test_get_stats_with_inactive_connectors(self, test_client, sample_connector):
+        """Should correctly count active vs total connectors"""
+        sample_connector(name="Active 1", is_active=True)
+        sample_connector(name="Active 2", is_active=True)
+        sample_connector(name="Inactive 1", is_active=False)
+        sample_connector(name="Inactive 2", is_active=False)
+        sample_connector(name="Inactive 3", is_active=False)
+
+        response = test_client.get("/api/connectors/stats")
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["total_connectors"] == 5
+        assert json_data["active_connectors"] == 2
+
+    def test_get_stats_all_inactive(self, test_client, sample_connector):
+        """Should return 0 active when all connectors are inactive"""
+        sample_connector(name="Inactive 1", is_active=False)
+        sample_connector(name="Inactive 2", is_active=False)
+
+        response = test_client.get("/api/connectors/stats")
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["total_connectors"] == 2
+        assert json_data["active_connectors"] == 0

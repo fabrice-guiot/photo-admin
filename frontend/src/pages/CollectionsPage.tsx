@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,17 +8,23 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useCollections } from '../hooks/useCollections'
+import { useCollections, useCollectionStats } from '../hooks/useCollections'
 import { useConnectors } from '../hooks/useConnectors'
+import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
+import { FiltersSection } from '../components/collections/FiltersSection'
 import CollectionForm from '../components/collections/CollectionForm'
-import type { Collection } from '@/contracts/api/collection-api'
+import type { Collection, CollectionState, CollectionType } from '@/contracts/api/collection-api'
 
 export default function CollectionsPage() {
   const {
     collections,
     loading,
     error,
+    search,
+    setSearch,
+    filters,
+    setFilters,
     createCollection,
     updateCollection,
     deleteCollection,
@@ -26,7 +32,38 @@ export default function CollectionsPage() {
     refreshCollection
   } = useCollections()
 
+  // Filter UI state (for select components)
+  const [selectedState, setSelectedState] = useState<CollectionState | 'ALL' | ''>('ALL')
+  const [selectedType, setSelectedType] = useState<CollectionType | 'ALL' | ''>('ALL')
+  const [accessibleOnly, setAccessibleOnly] = useState(false)
+
+  // Update filters when UI state changes
+  useEffect(() => {
+    setFilters({
+      state: selectedState === 'ALL' || selectedState === '' ? undefined : selectedState,
+      type: selectedType === 'ALL' || selectedType === '' ? undefined : selectedType,
+      accessible_only: accessibleOnly || undefined
+    })
+  }, [selectedState, selectedType, accessibleOnly, setFilters])
+
   const { connectors } = useConnectors()
+
+  // KPI Stats for header (Issue #37)
+  const { stats, refetch: refetchStats } = useCollectionStats()
+  const { setStats } = useHeaderStats()
+
+  // Update header stats when data changes
+  useEffect(() => {
+    if (stats) {
+      setStats([
+        { label: 'Total Collections', value: stats.total_collections },
+        { label: 'Storage Used', value: stats.storage_used_formatted },
+        { label: 'Total Files', value: stats.file_count.toLocaleString() },
+        { label: 'Total Images', value: stats.image_count.toLocaleString() },
+      ])
+    }
+    return () => setStats([]) // Clear stats on unmount
+  }, [stats, setStats])
 
   const [open, setOpen] = useState(false)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
@@ -51,6 +88,8 @@ export default function CollectionsPage() {
         await updateCollection(editingCollection.id, formData)
       } else {
         await createCollection(formData)
+        // Refresh KPI stats after creating a new collection
+        refetchStats()
       }
       handleClose()
     } catch (err: any) {
@@ -59,9 +98,14 @@ export default function CollectionsPage() {
   }
 
   const handleDelete = (collection: Collection) => {
-    deleteCollection(collection.id, false).catch(() => {
-      // Error handled by hook
-    })
+    deleteCollection(collection.id, false)
+      .then(() => {
+        // Refresh KPI stats after deleting a collection
+        refetchStats()
+      })
+      .catch(() => {
+        // Error handled by hook
+      })
   }
 
   const handleInfo = (collection: Collection) => {
@@ -94,6 +138,18 @@ export default function CollectionsPage() {
         </Alert>
       )}
 
+      {/* Filters Section with Search (Issue #38) */}
+      <FiltersSection
+        selectedState={selectedState}
+        setSelectedState={setSelectedState}
+        selectedType={selectedType}
+        setSelectedType={setSelectedType}
+        accessibleOnly={accessibleOnly}
+        setAccessibleOnly={setAccessibleOnly}
+        search={search}
+        onSearchChange={setSearch}
+      />
+
       {/* Collection List */}
       <CollectionList
         collections={collections}
@@ -102,6 +158,7 @@ export default function CollectionsPage() {
         onDelete={handleDelete}
         onInfo={handleInfo}
         onRefresh={handleRefresh}
+        search={search}
       />
 
       {/* Create/Edit Dialog */}

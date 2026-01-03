@@ -10,7 +10,8 @@ import type {
   Connector,
   ConnectorCreateRequest,
   ConnectorUpdateRequest,
-  ConnectorTestResponse
+  ConnectorTestResponse,
+  ConnectorStatsResponse
 } from '@/contracts/api/connector-api'
 
 interface UseConnectorsReturn {
@@ -136,4 +137,47 @@ export const useConnectors = (autoFetch = true): UseConnectorsReturn => {
     deleteConnector,
     testConnector
   }
+}
+
+// ============================================================================
+// Connector Stats Hook (Issue #37)
+// ============================================================================
+
+interface UseConnectorStatsReturn {
+  stats: ConnectorStatsResponse | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+
+/**
+ * Hook for fetching connector KPI statistics
+ * Returns total and active connector counts
+ */
+export const useConnectorStats = (autoFetch = true): UseConnectorStatsReturn => {
+  const [stats, setStats] = useState<ConnectorStatsResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await connectorService.getConnectorStats()
+      setStats(data)
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to load connector statistics'
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoFetch) {
+      refetch()
+    }
+  }, [autoFetch, refetch])
+
+  return { stats, loading, error, refetch }
 }

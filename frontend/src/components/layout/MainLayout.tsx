@@ -8,8 +8,10 @@
 import { useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Sidebar } from './Sidebar'
-import { TopHeader, type HeaderStat } from './TopHeader'
+import { TopHeader } from './TopHeader'
 import { cn } from '@/lib/utils'
+import { HeaderStatsProvider, useHeaderStats } from '@/contexts/HeaderStatsContext'
+import { useSidebarCollapse } from '@/hooks/useSidebarCollapse'
 
 // ============================================================================
 // Types
@@ -33,18 +35,76 @@ export interface MainLayoutProps {
   pageIcon?: LucideIcon
 
   /**
-   * Optional stats for TopHeader
-   */
-  stats?: HeaderStat[]
-
-  /**
    * Additional CSS classes for content area
    */
   className?: string
 }
 
 // ============================================================================
-// Component
+// Inner Layout Component (uses context)
+// ============================================================================
+
+interface MainLayoutInnerProps extends MainLayoutProps {
+  onOpenMobileMenu: () => void
+  onCloseMobileMenu: () => void
+  isMobileMenuOpen: boolean
+  // Collapse state for tablet screens (Issue #41)
+  isCollapsed: boolean
+  onCollapse: () => void
+  onPin: () => void
+}
+
+function MainLayoutInner({
+  children,
+  pageTitle = 'Photo Admin',
+  pageIcon,
+  className,
+  onOpenMobileMenu,
+  onCloseMobileMenu,
+  isMobileMenuOpen,
+  isCollapsed,
+  onCollapse,
+  onPin,
+}: MainLayoutInnerProps) {
+  // Get stats from context (set by page components)
+  const { stats } = useHeaderStats()
+
+  return (
+    <div className="flex h-screen w-full bg-background">
+      {/* Sidebar: Fixed left navigation with collapse support (Issue #41) */}
+      <Sidebar
+        isMobileMenuOpen={isMobileMenuOpen}
+        onCloseMobileMenu={onCloseMobileMenu}
+        isCollapsed={isCollapsed}
+        onCollapse={onCollapse}
+        onPin={onPin}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex flex-1 flex-col">
+        {/* TopHeader: Page title, stats, notifications, user profile */}
+        <TopHeader
+          pageTitle={pageTitle}
+          pageIcon={pageIcon}
+          stats={stats}
+          onOpenMobileMenu={onOpenMobileMenu}
+          isSidebarCollapsed={isCollapsed}
+        />
+
+        {/* Scrollable Content Area */}
+        <main className={cn('flex-1 overflow-auto p-4 md:p-6', className)}>
+          {/* Max-width container for ultra-wide monitors */}
+          <div className="mx-auto w-full max-w-[2560px]">
+            {children}
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// Main Component
 // ============================================================================
 
 /**
@@ -63,41 +123,32 @@ export function MainLayout({
   children,
   pageTitle = 'Photo Admin',
   pageIcon,
-  stats,
   className,
 }: MainLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Sidebar collapse state with localStorage persistence (Issue #41)
+  const { isCollapsed, collapse, expand } = useSidebarCollapse()
 
   const handleOpenMobileMenu = () => setIsMobileMenuOpen(true)
   const handleCloseMobileMenu = () => setIsMobileMenuOpen(false)
 
   return (
-    <div className="flex h-screen w-full bg-background">
-      {/* Sidebar: Fixed left navigation */}
-      <Sidebar
-        isMobileMenuOpen={isMobileMenuOpen}
+    <HeaderStatsProvider>
+      <MainLayoutInner
+        pageTitle={pageTitle}
+        pageIcon={pageIcon}
+        className={className}
+        onOpenMobileMenu={handleOpenMobileMenu}
         onCloseMobileMenu={handleCloseMobileMenu}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex flex-1 flex-col">
-        {/* TopHeader: Page title, stats, notifications, user profile */}
-        <TopHeader
-          pageTitle={pageTitle}
-          pageIcon={pageIcon}
-          stats={stats}
-          onOpenMobileMenu={handleOpenMobileMenu}
-        />
-
-        {/* Scrollable Content Area */}
-        <main className={cn('flex-1 overflow-auto p-4 md:p-6', className)}>
-          {/* Max-width container for ultra-wide monitors */}
-          <div className="mx-auto w-full max-w-[2560px]">
-            {children}
-          </div>
-        </main>
-      </div>
-    </div>
+        isMobileMenuOpen={isMobileMenuOpen}
+        isCollapsed={isCollapsed}
+        onCollapse={collapse}
+        onPin={expand}
+      >
+        {children}
+      </MainLayoutInner>
+    </HeaderStatsProvider>
   )
 }
 

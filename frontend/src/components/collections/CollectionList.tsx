@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { FolderCheck, FolderSync, Edit, Trash2 } from 'lucide-react'
+import { FolderCheck, FolderSync, Edit, Trash2, Search } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -26,9 +26,8 @@ import {
 } from '@/components/ui/tooltip'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CollectionStatus } from './CollectionStatus'
-import { FiltersSection } from './FiltersSection'
 import type { CollectionListProps } from '@/contracts/components/collection-components'
-import type { Collection, CollectionState, CollectionType } from '@/contracts/api/collection-api'
+import type { Collection } from '@/contracts/api/collection-api'
 import {
   COLLECTION_TYPE_LABELS,
   COLLECTION_STATE_LABELS,
@@ -40,6 +39,7 @@ import { cn } from '@/lib/utils'
 /**
  * Collection list component
  * Displays collections in a table with actions and tab navigation
+ * Filtering is now handled via API (server-side) through useCollections hook
  */
 export function CollectionList({
   collections,
@@ -48,6 +48,7 @@ export function CollectionList({
   onDelete,
   onRefresh,
   onInfo,
+  search,
   className
 }: CollectionListProps) {
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -55,44 +56,20 @@ export function CollectionList({
     collection: Collection | null
   }>({ open: false, collection: null })
 
-  // Filter state
-  const [selectedState, setSelectedState] = useState<CollectionState | 'ALL' | ''>('ALL')
-  const [selectedType, setSelectedType] = useState<CollectionType | 'ALL' | ''>('ALL')
-  const [accessibleOnly, setAccessibleOnly] = useState(false)
-
-  // Apply filters first, then tab filtering
-  const baseFilteredCollections = useMemo(() => {
-    return collections.filter((c) => {
-      // State filter
-      if (selectedState && selectedState !== 'ALL' && c.state !== selectedState) {
-        return false
-      }
-      // Type filter
-      if (selectedType && selectedType !== 'ALL' && c.type !== selectedType) {
-        return false
-      }
-      // Accessible only filter
-      if (accessibleOnly && !c.is_accessible) {
-        return false
-      }
-      return true
-    })
-  }, [collections, selectedState, selectedType, accessibleOnly])
-
-  // Filter collections by tab
+  // Filter collections by tab (client-side tab filtering only)
   const filteredCollections = useMemo(() => {
     return {
-      all: baseFilteredCollections,
-      recent: [...baseFilteredCollections]
+      all: collections,
+      recent: [...collections]
         .filter((c) => c.last_scanned_at !== null)
         .sort((a, b) => {
           const dateA = new Date(a.last_scanned_at!).getTime()
           const dateB = new Date(b.last_scanned_at!).getTime()
           return dateB - dateA
         }),
-      archived: baseFilteredCollections.filter((c) => c.state === 'archived')
+      archived: collections.filter((c) => c.state === 'archived')
     }
-  }, [baseFilteredCollections])
+  }, [collections])
 
   const handleDeleteClick = (collection: Collection) => {
     setDeleteDialog({ open: true, collection })
@@ -124,7 +101,19 @@ export function CollectionList({
     if (tabCollections.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-muted-foreground">No collections found</p>
+          {search ? (
+            <>
+              <Search className="h-10 w-10 text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">
+                No collections matching "{search}"
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Try a different search term or clear the search
+              </p>
+            </>
+          ) : (
+            <p className="text-muted-foreground">No collections found</p>
+          )}
         </div>
       )
     }
@@ -240,16 +229,6 @@ export function CollectionList({
   return (
     <>
       <div className={cn('flex flex-col gap-4', className)}>
-        {/* Filters Section */}
-        <FiltersSection
-          selectedState={selectedState}
-          setSelectedState={setSelectedState}
-          selectedType={selectedType}
-          setSelectedType={setSelectedType}
-          accessibleOnly={accessibleOnly}
-          setAccessibleOnly={setAccessibleOnly}
-        />
-
         {/* Tabs and Table */}
         <Tabs defaultValue="all" className="w-full">
           <TabsList>

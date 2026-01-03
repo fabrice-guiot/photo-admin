@@ -3,11 +3,18 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import ConnectorsPage from '../../src/pages/ConnectorsPage';
 import CollectionsPage from '../../src/pages/CollectionsPage';
+import { HeaderStatsProvider } from '../../src/contexts/HeaderStatsContext';
 import { resetMockData } from '../mocks/handlers';
 
-// Helper to render with router
-const renderWithRouter = (component) => {
-  return render(<BrowserRouter>{component}</BrowserRouter>);
+// Helper to render with router and required providers
+const renderWithProviders = (component) => {
+  return render(
+    <BrowserRouter>
+      <HeaderStatsProvider>
+        {component}
+      </HeaderStatsProvider>
+    </BrowserRouter>
+  );
 };
 
 describe('Connector-Collection Integration', () => {
@@ -16,7 +23,7 @@ describe('Connector-Collection Integration', () => {
   });
 
   it('should render ConnectorsPage with initial data', async () => {
-    renderWithRouter(<ConnectorsPage />);
+    renderWithProviders(<ConnectorsPage />);
 
     // Wait for connectors to load
     await waitFor(() => {
@@ -28,7 +35,7 @@ describe('Connector-Collection Integration', () => {
   });
 
   it('should render CollectionsPage with initial data', async () => {
-    renderWithRouter(<CollectionsPage />);
+    renderWithProviders(<CollectionsPage />);
 
     // Wait for collections to load
     await waitFor(() => {

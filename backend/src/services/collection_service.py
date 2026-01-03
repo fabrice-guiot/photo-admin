@@ -19,8 +19,10 @@ from typing import List, Optional, Dict, Any
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 
 from backend.src.models import Collection, CollectionType, CollectionState, Connector
+from backend.src.utils.formatting import format_storage_bytes
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.connector_service import ConnectorService
@@ -185,7 +187,8 @@ class CollectionService:
         self,
         state_filter: Optional[CollectionState] = None,
         type_filter: Optional[CollectionType] = None,
-        accessible_only: bool = False
+        accessible_only: bool = False,
+        search: Optional[str] = None
     ) -> List[Collection]:
         """
         List collections with optional filtering, sorted by creation date (newest first).
@@ -194,6 +197,7 @@ class CollectionService:
             state_filter: Filter by collection state (LIVE, CLOSED, ARCHIVED)
             type_filter: Filter by collection type (LOCAL, S3, GCS, SMB)
             accessible_only: If True, only return accessible collections
+            search: Case-insensitive partial match on collection name (max 100 chars)
 
         Returns:
             List of Collection instances sorted by created_at DESC
@@ -201,7 +205,8 @@ class CollectionService:
         Example:
             >>> collections = service.list_collections(
             ...     state_filter=CollectionState.LIVE,
-            ...     accessible_only=True
+            ...     accessible_only=True,
+            ...     search="vacation"
             ... )
         """
         query = self.db.query(Collection)
@@ -215,6 +220,13 @@ class CollectionService:
         if accessible_only:
             query = query.filter(Collection.is_accessible == True)
 
+        # Search by name (case-insensitive partial match)
+        # Uses SQLAlchemy's ilike with parameterized queries for SQL injection protection
+        if search:
+            # Truncate to 100 chars to prevent excessive query length
+            search_term = search[:100]
+            query = query.filter(Collection.name.ilike(f"%{search_term}%"))
+
         collections = query.order_by(Collection.created_at.desc()).all()
 
         logger.info(
@@ -222,7 +234,8 @@ class CollectionService:
             extra={
                 "state_filter": state_filter.value if state_filter else None,
                 "type_filter": type_filter.value if type_filter else None,
-                "accessible_only": accessible_only
+                "accessible_only": accessible_only,
+                "search": search[:20] + "..." if search and len(search) > 20 else search
             }
         )
 
@@ -270,13 +283,15 @@ class CollectionService:
         try:
             # Track if state changes (requires cache invalidation)
             state_changed = False
+            location_changed = False
 
             # Update fields
             if name is not None:
                 collection.name = name
 
-            if location is not None:
+            if location is not None and location != collection.location:
                 collection.location = location
+                location_changed = True
 
             if state is not None and state != collection.state:
                 collection.state = state
@@ -288,11 +303,33 @@ class CollectionService:
             if metadata is not None:
                 collection.metadata_json = json.dumps(metadata)
 
+            # If location changed, re-test accessibility
+            if location_changed:
+                # Test accessibility with new location
+                is_accessible, last_error = self._test_accessibility(
+                    collection.type,
+                    collection.location,
+                    collection.connector_id
+                )
+                collection.is_accessible = is_accessible
+                collection.last_error = last_error
+
+                # Invalidate cache since location changed
+                self.file_cache.invalidate(collection_id)
+                logger.info(
+                    f"Location changed, re-tested accessibility: {collection.name}",
+                    extra={
+                        "collection_id": collection_id,
+                        "new_location": location,
+                        "accessible": is_accessible
+                    }
+                )
+
             self.db.commit()
             self.db.refresh(collection)
 
             # Invalidate cache if state changed (different TTL applies)
-            if state_changed:
+            if state_changed and not location_changed:  # Don't invalidate twice
                 self.file_cache.invalidate(collection_id)
                 logger.info(
                     f"Invalidated cache due to state change: {collection.name}",
@@ -385,7 +422,7 @@ class CollectionService:
             logger.error(f"Failed to delete collection: {str(e)}", extra={"collection_id": collection_id})
             raise
 
-    def test_collection_accessibility(self, collection_id: int) -> tuple[bool, str]:
+    def test_collection_accessibility(self, collection_id: int) -> tuple[bool, str, "Collection"]:
         """
         Test collection accessibility.
 
@@ -398,14 +435,14 @@ class CollectionService:
             collection_id: Collection ID to test
 
         Returns:
-            Tuple of (success: bool, message: str)
+            Tuple of (success: bool, message: str, collection: Collection)
 
         Raises:
             ValueError: If collection not found
 
         Example:
-            >>> success, message = service.test_collection_accessibility(1)
-            >>> print(f"Accessible: {success}, {message}")
+            >>> success, message, collection = service.test_collection_accessibility(1)
+            >>> print(f"Accessible: {success}, {message}, Updated: {collection.is_accessible}")
         """
         collection = self.get_collection(collection_id)
 
@@ -422,6 +459,7 @@ class CollectionService:
         collection.is_accessible = is_accessible
         collection.last_error = last_error
         self.db.commit()
+        self.db.refresh(collection)
 
         logger.info(
             f"Tested collection accessibility: {collection.name}",
@@ -429,7 +467,7 @@ class CollectionService:
         )
 
         message = "Collection is accessible" if is_accessible else last_error
-        return is_accessible, message
+        return is_accessible, message, collection
 
     def get_collection_files(
         self,
@@ -565,6 +603,59 @@ class CollectionService:
         )
 
         return True, f"Cache refreshed successfully. {file_count:,} files cached.", file_count
+
+    # ============================================================================
+    # KPI Statistics Methods (Issue #37)
+    # ============================================================================
+
+    def get_collection_stats(self) -> Dict[str, Any]:
+        """
+        Get aggregated statistics for all collections.
+
+        Returns KPIs for the Collections page topband:
+        - total_collections: Count of all collections
+        - storage_used_bytes: Sum of storage_bytes across all collections
+        - storage_used_formatted: Human-readable storage amount
+        - file_count: Sum of file_count across all collections
+        - image_count: Sum of image_count across all collections
+
+        These values are NOT affected by any filter parameters.
+
+        Returns:
+            Dict with total_collections, storage_used_bytes, storage_used_formatted,
+            file_count, and image_count
+
+        Example:
+            >>> stats = service.get_collection_stats()
+            >>> print(f"Total: {stats['total_collections']}, Storage: {stats['storage_used_formatted']}")
+        """
+        # Query aggregated stats
+        result = self.db.query(
+            func.count(Collection.id).label('total_collections'),
+            func.coalesce(func.sum(Collection.storage_bytes), 0).label('storage_used_bytes'),
+            func.coalesce(func.sum(Collection.file_count), 0).label('file_count'),
+            func.coalesce(func.sum(Collection.image_count), 0).label('image_count')
+        ).first()
+
+        storage_bytes = int(result.storage_used_bytes)
+
+        stats = {
+            'total_collections': result.total_collections,
+            'storage_used_bytes': storage_bytes,
+            'storage_used_formatted': format_storage_bytes(storage_bytes),
+            'file_count': int(result.file_count),
+            'image_count': int(result.image_count)
+        }
+
+        logger.info(
+            f"Retrieved collection stats",
+            extra={
+                "total_collections": stats['total_collections'],
+                "storage_bytes": storage_bytes
+            }
+        )
+
+        return stats
 
     # Private helper methods
 

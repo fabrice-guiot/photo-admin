@@ -4,7 +4,7 @@
  * Manage remote storage connectors with CRUD operations
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,7 +14,8 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useConnectors } from '../hooks/useConnectors'
+import { useConnectors, useConnectorStats } from '../hooks/useConnectors'
+import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { ConnectorList } from '../components/connectors/ConnectorList'
 import ConnectorForm from '../components/connectors/ConnectorForm'
 import type { Connector } from '@/contracts/api/connector-api'
@@ -29,6 +30,21 @@ export default function ConnectorsPage() {
     deleteConnector,
     testConnector
   } = useConnectors()
+
+  // KPI Stats for header (Issue #37)
+  const { stats, refetch: refetchStats } = useConnectorStats()
+  const { setStats } = useHeaderStats()
+
+  // Update header stats when data changes
+  useEffect(() => {
+    if (stats) {
+      setStats([
+        { label: 'Active Connectors', value: stats.active_connectors },
+        { label: 'Total Connectors', value: stats.total_connectors },
+      ])
+    }
+    return () => setStats([]) // Clear stats on unmount
+  }, [stats, setStats])
 
   const [open, setOpen] = useState(false)
   const [editingConnector, setEditingConnector] = useState<Connector | null>(null)
@@ -53,6 +69,8 @@ export default function ConnectorsPage() {
         await updateConnector(editingConnector.id, formData)
       } else {
         await createConnector(formData)
+        // Refresh KPI stats after creating a new connector
+        refetchStats()
       }
       handleClose()
     } catch (err: any) {
@@ -61,9 +79,14 @@ export default function ConnectorsPage() {
   }
 
   const handleDelete = (connector: Connector) => {
-    deleteConnector(connector.id).catch(() => {
-      // Error handled by hook
-    })
+    deleteConnector(connector.id)
+      .then(() => {
+        // Refresh KPI stats after deleting a connector
+        refetchStats()
+      })
+      .catch(() => {
+        // Error handled by hook
+      })
   }
 
   const handleTest = (connector: Connector) => {

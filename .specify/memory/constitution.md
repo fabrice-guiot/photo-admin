@@ -1,32 +1,36 @@
 <!--
-SYNC IMPACT REPORT (Constitution v1.1.1 - Cross-Platform Encoding Standard)
+SYNC IMPACT REPORT (Constitution v1.2.0 - Frontend UI Standards)
 
-Version change: 1.1.0 → 1.1.1 (PATCH)
+Version change: 1.1.1 → 1.2.0 (MINOR)
 Modified principles:
-  - Shared Infrastructure Standards: Added Cross-Platform File Encoding requirement
+  - Added new section: Frontend UI Standards
 
 Added requirements:
-  - All file read/write operations MUST explicitly specify encoding='utf-8' for text files
-  - Never rely on platform default encodings (prevents Windows cp1252 failures)
+  - All frontend pages MUST display relevant KPIs in the TopHeader stats area
+  - Pages MUST use HeaderStatsContext to dynamically set their KPIs
+  - KPIs MUST be fetched from dedicated /stats API endpoints
+  - Stats MUST clear on page unmount to prevent stale data
 
 Rationale:
-  - Recurring Windows CI failures due to missing UTF-8 encoding specification
-  - Windows defaults to cp1252, which fails on UTF-8 content from templates
-  - Explicit encoding ensures consistent behavior across all platforms (Windows, macOS, Linux)
-  - Prevents test failures and runtime errors in production
+  - Issue #37 implementation revealed need for consistent KPI display pattern
+  - Initial implementation incorrectly placed KPIs in page content instead of topbar
+  - Establishing pattern ensures consistent UX across all future pages
+  - TopHeader stats area provides persistent, non-intrusive KPI visibility
 
 Impact:
-  - Code reviews MUST check for explicit encoding parameters
-  - All text file operations need encoding='utf-8' parameter
-  - Applies to: open(), Path.read_text(), Path.write_text(), json.load(), etc.
+  - All new frontend pages MUST implement KPI stats in topbar
+  - Backend endpoints for new domains SHOULD include a /stats endpoint
+  - Code reviews MUST verify KPI implementation follows this pattern
 
 Templates requiring updates:
-  ✅ No template changes needed - this is a coding standard
+  ✅ No template changes needed - this is a frontend coding standard
+
+Previous Amendment (v1.1.1 - Cross-Platform Encoding Standard):
+  - Shared Infrastructure Standards: Added Cross-Platform File Encoding requirement
 
 Previous Amendment (v1.1.0 - CLI Standards):
   - User-Centric Design: Added requirements for --help option and CTRL+C handling
   - Shared Infrastructure Standards: Added HTML Report Consistency requirement
-  - Issues #13, #14, and #16 identified gaps in professional CLI behavior
 -->
 
 # photo-admin Constitution
@@ -64,6 +68,37 @@ All tools MUST provide `--help` and `-h` options that display comprehensive usag
 - **HTML Report Consistency**: All tools MUST use a centralized HTML templating approach with consistent styling for common elements (headers, footers, metadata sections, KPI cards, charts, warnings, errors). Tools MAY have tool-specific content sections but MUST maintain consistent visual design and user experience
 - **Cross-Platform File Encoding**: All file read and write operations MUST explicitly specify `encoding='utf-8'` for text files. This includes `open()`, `Path.read_text()`, `Path.write_text()`, and similar operations. Never rely on platform default encodings (Windows defaults to cp1252, which causes failures on UTF-8 content)
 
+## Frontend UI Standards
+
+### TopHeader KPI Display Pattern
+
+All frontend pages MUST display relevant Key Performance Indicators (KPIs) in the TopHeader stats area (next to the notification bell icon). This provides users with at-a-glance metrics for the current domain without consuming page content real estate.
+
+**Implementation Requirements**:
+- Pages MUST use `useHeaderStats()` hook from `HeaderStatsContext` to set their KPIs
+- KPIs MUST be fetched from dedicated backend `/stats` API endpoints (e.g., `/api/collections/stats`)
+- Stats MUST be cleared on page unmount (via useEffect cleanup) to prevent stale data when navigating
+- Backend stats endpoints MUST return aggregated data independent of any filter parameters
+
+**Standard Pattern**:
+```typescript
+// In page component
+const { stats } = useCollectionStats()  // Fetch from API
+const { setStats } = useHeaderStats()   // Context hook
+
+useEffect(() => {
+  if (stats) {
+    setStats([
+      { label: 'Total Items', value: stats.total_count },
+      { label: 'Active Items', value: stats.active_count },
+    ])
+  }
+  return () => setStats([])  // Clear on unmount
+}, [stats, setStats])
+```
+
+**Rationale**: Consistent KPI placement in the topbar creates a predictable user experience across all pages. Users always know where to find key metrics. This pattern avoids duplicating KPIs in both the topbar and page content, which wastes space and creates confusion.
+
 ## Development Philosophy
 
 - **Simplicity First**: Start with the simplest implementation that solves the problem. Avoid premature abstraction or optimization.
@@ -94,4 +129,4 @@ All tools MUST provide `--help` and `-h` options that display comprehensive usag
 - Repeated exceptions to a principle suggest it needs revision
 - Project direction or scope changes significantly
 
-**Version**: 1.1.1 | **Ratified**: 2025-12-23 | **Last Amended**: 2025-12-25
+**Version**: 1.2.0 | **Ratified**: 2025-12-23 | **Last Amended**: 2026-01-03

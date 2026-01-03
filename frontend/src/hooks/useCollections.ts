@@ -2,9 +2,10 @@
  * useCollections React hook
  *
  * Manages collection state with fetch, create, update, delete operations
+ * Includes search with debounce support (Issue #38)
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import * as collectionService from '../services/collections'
 import type {
   Collection,
@@ -12,13 +13,26 @@ import type {
   CollectionUpdateRequest,
   CollectionListQueryParams,
   CollectionTestResponse,
-  CollectionDeleteResponse
+  CollectionDeleteResponse,
+  CollectionStatsResponse
 } from '@/contracts/api/collection-api'
+
+// Debounce delay in milliseconds
+const SEARCH_DEBOUNCE_MS = 300
+
+interface UseCollectionsOptions {
+  autoFetch?: boolean
+  debounceMs?: number
+}
 
 interface UseCollectionsReturn {
   collections: Collection[]
   loading: boolean
   error: string | null
+  search: string
+  setSearch: (value: string) => void
+  filters: CollectionListQueryParams
+  setFilters: (filters: CollectionListQueryParams) => void
   fetchCollections: (filters?: CollectionListQueryParams) => Promise<Collection[]>
   createCollection: (collectionData: CollectionCreateRequest) => Promise<Collection>
   updateCollection: (id: number, updates: CollectionUpdateRequest) => Promise<Collection>
@@ -27,19 +41,31 @@ interface UseCollectionsReturn {
   refreshCollection: (id: number, confirm?: boolean) => Promise<any>
 }
 
-export const useCollections = (autoFetch = true): UseCollectionsReturn => {
+export const useCollections = (
+  options: UseCollectionsOptions | boolean = true
+): UseCollectionsReturn => {
+  // Handle legacy boolean parameter for backwards compatibility
+  const opts = typeof options === 'boolean'
+    ? { autoFetch: options, debounceMs: SEARCH_DEBOUNCE_MS }
+    : { autoFetch: true, debounceMs: SEARCH_DEBOUNCE_MS, ...options }
+
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearchState] = useState('')
+  const [filters, setFilters] = useState<CollectionListQueryParams>({})
+
+  // Debounce timer ref
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /**
    * Fetch collections with optional filters
    */
-  const fetchCollections = useCallback(async (filters: CollectionListQueryParams = {}) => {
+  const fetchCollections = useCallback(async (queryFilters: CollectionListQueryParams = {}) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await collectionService.listCollections(filters)
+      const data = await collectionService.listCollections(queryFilters)
       setCollections(data)
       return data
     } catch (err: any) {
@@ -49,6 +75,13 @@ export const useCollections = (autoFetch = true): UseCollectionsReturn => {
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  /**
+   * Set search term with debounce
+   */
+  const setSearch = useCallback((value: string) => {
+    setSearchState(value)
   }, [])
 
   /**
@@ -116,10 +149,17 @@ export const useCollections = (autoFetch = true): UseCollectionsReturn => {
 
   /**
    * Test collection accessibility
+   * Updates local collection state with the returned updated collection
    */
   const testCollection = useCallback(async (id: number) => {
     try {
       const result = await collectionService.testCollection(id)
+      // Update local state with the updated collection from the response
+      if (result.collection) {
+        setCollections(prev =>
+          prev.map(c => c.id === id ? result.collection : c)
+        )
+      }
       return result
     } catch (err: any) {
       const errorMessage = err.userMessage || 'Accessibility test failed'
@@ -142,17 +182,47 @@ export const useCollections = (autoFetch = true): UseCollectionsReturn => {
     }
   }, [fetchCollections])
 
-  // Auto-fetch on mount if enabled
+  // Debounced search effect
   useEffect(() => {
-    if (autoFetch) {
-      fetchCollections()
+    // Clear any existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
-  }, [autoFetch, fetchCollections])
+
+    // Set new timer for debounced fetch
+    debounceTimerRef.current = setTimeout(() => {
+      const queryFilters: CollectionListQueryParams = {
+        ...filters,
+        search: search || undefined  // Don't send empty string
+      }
+      fetchCollections(queryFilters)
+    }, opts.debounceMs)
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [search, filters, opts.debounceMs, fetchCollections])
+
+  // Auto-fetch on mount if enabled (initial load without debounce)
+  useEffect(() => {
+    if (opts.autoFetch) {
+      fetchCollections(filters)
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return {
     collections,
     loading,
     error,
+    search,
+    setSearch,
+    filters,
+    setFilters,
     fetchCollections,
     createCollection,
     updateCollection,
@@ -160,4 +230,47 @@ export const useCollections = (autoFetch = true): UseCollectionsReturn => {
     testCollection,
     refreshCollection
   }
+}
+
+// ============================================================================
+// Collection Stats Hook (Issue #37)
+// ============================================================================
+
+interface UseCollectionStatsReturn {
+  stats: CollectionStatsResponse | null
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+
+/**
+ * Hook for fetching collection KPI statistics
+ * Stats are independent of any filters - always shows system-wide totals
+ */
+export const useCollectionStats = (autoFetch = true): UseCollectionStatsReturn => {
+  const [stats, setStats] = useState<CollectionStatsResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refetch = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await collectionService.getCollectionStats()
+      setStats(data)
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to load collection statistics'
+      setError(errorMessage)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoFetch) {
+      refetch()
+    }
+  }, [autoFetch, refetch])
+
+  return { stats, loading, error, refetch }
 }
