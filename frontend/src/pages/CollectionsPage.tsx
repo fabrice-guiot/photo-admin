@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, FolderOpen, HardDrive, FileText, Image } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -8,9 +8,9 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { KpiCard, KpiCardGrid } from '@/components/ui/kpi-card'
 import { useCollections, useCollectionStats } from '../hooks/useCollections'
 import { useConnectors } from '../hooks/useConnectors'
+import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
 import CollectionForm from '../components/collections/CollectionForm'
 import type { Collection } from '@/contracts/api/collection-api'
@@ -29,8 +29,22 @@ export default function CollectionsPage() {
 
   const { connectors } = useConnectors()
 
-  // KPI Stats (Issue #37)
-  const { stats, loading: statsLoading } = useCollectionStats()
+  // KPI Stats for header (Issue #37)
+  const { stats } = useCollectionStats()
+  const { setStats } = useHeaderStats()
+
+  // Update header stats when data changes
+  useEffect(() => {
+    if (stats) {
+      setStats([
+        { label: 'Total Collections', value: stats.total_collections },
+        { label: 'Storage Used', value: stats.storage_used_formatted },
+        { label: 'Total Files', value: stats.file_count.toLocaleString() },
+        { label: 'Total Images', value: stats.image_count.toLocaleString() },
+      ])
+    }
+    return () => setStats([]) // Clear stats on unmount
+  }, [stats, setStats])
 
   const [open, setOpen] = useState(false)
   const [editingCollection, setEditingCollection] = useState<Collection | null>(null)
@@ -90,34 +104,6 @@ export default function CollectionsPage() {
           New Collection
         </Button>
       </div>
-
-      {/* KPI Cards (Issue #37) */}
-      <KpiCardGrid>
-        <KpiCard
-          value={stats?.total_collections ?? 0}
-          label="Total Collections"
-          icon={<FolderOpen className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-        <KpiCard
-          value={stats?.storage_used_formatted ?? '0 B'}
-          label="Storage Used"
-          icon={<HardDrive className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-        <KpiCard
-          value={stats?.file_count ?? 0}
-          label="Total Files"
-          icon={<FileText className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-        <KpiCard
-          value={stats?.image_count ?? 0}
-          label="Total Images"
-          icon={<Image className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-      </KpiCardGrid>
 
       {/* Error Alert */}
       {error && (

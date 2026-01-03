@@ -64,14 +64,14 @@
 
 ### Frontend Implementation for User Story 1
 
-- [x] T015 [P] [US1] Create KpiCard component in frontend/src/components/ui/kpi-card.tsx
-- [x] T016 [P] [US1] Create KpiCardGrid component in frontend/src/components/ui/kpi-card.tsx
-- [x] T017 [US1] Add useCollectionStats hook in frontend/src/hooks/useCollections.ts (or new file)
-- [x] T018 [P] [US1] Add useConnectorStats hook in frontend/src/hooks/useConnectors.ts (or new file)
-- [x] T019 [US1] Integrate KPI grid into CollectionsPage in frontend/src/pages/CollectionsPage.tsx
-- [x] T020 [US1] Integrate KPI grid into ConnectorsPage in frontend/src/pages/ConnectorsPage.tsx
-- [x] T021 [US1] Add loading state for KPI cards (skeleton/spinner)
-- [x] T022 [US1] Add fallback for null/missing KPI values (display "0" or "N/A")
+- [x] T015 [P] [US1] Create HeaderStatsContext for dynamic topbar stats in frontend/src/contexts/HeaderStatsContext.tsx
+- [x] T016 [P] [US1] Update MainLayout to use HeaderStatsContext (replaces static route stats)
+- [x] T017 [US1] Add useCollectionStats hook in frontend/src/hooks/useCollections.ts
+- [x] T018 [P] [US1] Add useConnectorStats hook in frontend/src/hooks/useConnectors.ts
+- [x] T019 [US1] Integrate KPI stats into CollectionsPage topbar (4 stats: Total Collections, Storage Used, Files, Images)
+- [x] T020 [US1] Integrate KPI stats into ConnectorsPage topbar (2 stats: Active Connectors, Total Connectors)
+- [x] T021 [US1] Remove static placeholder stats from App.tsx routes
+- [x] T022 [US1] Stats auto-clear on page unmount (prevents stale data)
 
 **Checkpoint**: KPI metrics visible on both pages - User Story 1 complete
 

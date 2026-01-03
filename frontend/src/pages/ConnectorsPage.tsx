@@ -4,8 +4,8 @@
  * Manage remote storage connectors with CRUD operations
  */
 
-import { useState } from 'react'
-import { Plus, Plug, PlugZap } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,8 +14,8 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { KpiCard, KpiCardGrid } from '@/components/ui/kpi-card'
 import { useConnectors, useConnectorStats } from '../hooks/useConnectors'
+import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { ConnectorList } from '../components/connectors/ConnectorList'
 import ConnectorForm from '../components/connectors/ConnectorForm'
 import type { Connector } from '@/contracts/api/connector-api'
@@ -31,8 +31,20 @@ export default function ConnectorsPage() {
     testConnector
   } = useConnectors()
 
-  // KPI Stats (Issue #37)
-  const { stats, loading: statsLoading } = useConnectorStats()
+  // KPI Stats for header (Issue #37)
+  const { stats } = useConnectorStats()
+  const { setStats } = useHeaderStats()
+
+  // Update header stats when data changes
+  useEffect(() => {
+    if (stats) {
+      setStats([
+        { label: 'Active Connectors', value: stats.active_connectors },
+        { label: 'Total Connectors', value: stats.total_connectors },
+      ])
+    }
+    return () => setStats([]) // Clear stats on unmount
+  }, [stats, setStats])
 
   const [open, setOpen] = useState(false)
   const [editingConnector, setEditingConnector] = useState<Connector | null>(null)
@@ -86,22 +98,6 @@ export default function ConnectorsPage() {
           New Connector
         </Button>
       </div>
-
-      {/* KPI Cards (Issue #37) */}
-      <KpiCardGrid>
-        <KpiCard
-          value={stats?.total_connectors ?? 0}
-          label="Total Connectors"
-          icon={<Plug className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-        <KpiCard
-          value={stats?.active_connectors ?? 0}
-          label="Active Connectors"
-          icon={<PlugZap className="h-5 w-5" />}
-          loading={statsLoading}
-        />
-      </KpiCardGrid>
 
       {/* Error Alert */}
       {error && (
