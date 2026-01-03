@@ -24,7 +24,7 @@ describe('ConnectorForm', () => {
     )
 
     expect(screen.getByLabelText(/Name/i)).toBeInTheDocument()
-    expect(screen.getByText(/Create Connector/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Create/i })).toBeInTheDocument()
     expect(screen.getByText(/Cancel/i)).toBeInTheDocument()
   })
 
@@ -78,7 +78,7 @@ describe('ConnectorForm', () => {
       />
     )
 
-    expect(screen.getByText(/Update Connector/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Update/i })).toBeInTheDocument()
   })
 
   it('should show validation error for empty name', async () => {
@@ -93,7 +93,7 @@ describe('ConnectorForm', () => {
     )
 
     // Submit without filling form
-    const submitButton = screen.getByText(/Create Connector/i)
+    const submitButton = screen.getByRole('button', { name: /Create/i })
     await user.click(submitButton)
 
     // Should show validation error

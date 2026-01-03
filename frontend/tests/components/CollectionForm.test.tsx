@@ -66,7 +66,7 @@ describe('CollectionForm', () => {
 
     expect(screen.getByLabelText(/Name/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Location/i)).toBeInTheDocument()
-    expect(screen.getByText(/Create Collection/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Create/i })).toBeInTheDocument()
     expect(screen.getByText(/Cancel/i)).toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('CollectionForm', () => {
     )
 
     // Submit without filling form
-    await user.click(screen.getByText(/Create Collection/i))
+    await user.click(screen.getByRole('button', { name: /Create/i }))
 
     // Should show validation errors
     await waitFor(() => {
@@ -148,7 +148,7 @@ describe('CollectionForm', () => {
       />
     )
 
-    expect(screen.getByText(/Update Collection/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Update/i })).toBeInTheDocument()
   })
 
   it('should have type selector with all collection types', () => {

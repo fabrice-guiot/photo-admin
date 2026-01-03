@@ -210,9 +210,9 @@ description: "Task list for UI Migration to Modern Design System"
 - [X] T063 [P] Update frontend/tests/components/CollectionForm.test.jsx to .tsx with react-hook-form field selectors
 - [X] T064 [P] Update frontend/tests/hooks/useConnectors.test.js to .ts with type assertions
 - [X] T065 [P] Update frontend/tests/hooks/useCollections.test.js to .ts with type assertions
-- [ ] T066 Update frontend/tests/integration/connector-collection-flow.test.jsx to .tsx with new layout selectors
-- [ ] T067 Run full test suite and verify >75% coverage maintained
-- [ ] T068 Fix any failing tests related to component selector changes or type mismatches
+- [X] T066 Update frontend/tests/integration/connector-collection-flow.test.jsx to .tsx with new layout selectors
+- [X] T067 Run full test suite and verify >75% coverage maintained
+- [X] T068 Fix any failing tests related to component selector changes or type mismatches
 
 **Checkpoint**: All tests pass, coverage >75%, TypeScript compiles in test files
 

@@ -116,7 +116,10 @@ export function ConnectorList({
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div
+          role="status"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+        />
       </div>
     )
   }
@@ -216,6 +219,7 @@ export function ConnectorList({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onTest(connector)}
+                                aria-label="Test Connection"
                               >
                                 <Info className="h-4 w-4" />
                               </Button>
@@ -231,6 +235,7 @@ export function ConnectorList({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onEdit(connector)}
+                                aria-label="Edit Connector"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -246,6 +251,7 @@ export function ConnectorList({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDeleteClick(connector)}
+                                aria-label="Delete Connector"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

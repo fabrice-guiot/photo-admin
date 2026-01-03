@@ -73,38 +73,6 @@ export const collectionFormSchema = z
     }
   )
 
-/**
- * LOCAL Collection Form Schema (specific type)
- */
-export const localCollectionFormSchema = collectionFormSchema.extend({
-  type: z.literal('LOCAL'),
-  connector_id: z.literal(null)
-})
-
-/**
- * S3 Collection Form Schema (specific type)
- */
-export const s3CollectionFormSchema = collectionFormSchema.extend({
-  type: z.literal('S3'),
-  connector_id: z.number().int().positive()
-})
-
-/**
- * GCS Collection Form Schema (specific type)
- */
-export const gcsCollectionFormSchema = collectionFormSchema.extend({
-  type: z.literal('GCS'),
-  connector_id: z.number().int().positive()
-})
-
-/**
- * SMB Collection Form Schema (specific type)
- */
-export const smbCollectionFormSchema = collectionFormSchema.extend({
-  type: z.literal('SMB'),
-  connector_id: z.number().int().positive()
-})
-
 // ============================================================================
 // Type Inference
 // ============================================================================
@@ -114,24 +82,6 @@ export type CollectionFormData = z.infer<typeof collectionFormSchema>
 // ============================================================================
 // Helper Functions
 // ============================================================================
-
-/**
- * Get the appropriate collection form schema for a collection type
- */
-export function getCollectionFormSchemaForType(type: CollectionType) {
-  switch (type) {
-    case 'LOCAL':
-      return localCollectionFormSchema
-    case 'S3':
-      return s3CollectionFormSchema
-    case 'GCS':
-      return gcsCollectionFormSchema
-    case 'SMB':
-      return smbCollectionFormSchema
-    default:
-      throw new Error(`Unknown collection type: ${type}`)
-  }
-}
 
 /**
  * Check if a collection type requires a connector
