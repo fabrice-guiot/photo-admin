@@ -54,7 +54,7 @@ describe('useCollections', () => {
       (c) => c.name === 'New Local Collection'
     )
     expect(created).toBeDefined()
-    expect(created?.type).toBe('LOCAL')
+    expect(created?.type).toBe('local')
     expect(created?.connector_id).toBeNull()
   })
 
@@ -135,7 +135,7 @@ describe('useCollections', () => {
     await waitFor(() => {
       const updated = result.current.collections.find((c) => c.id === collectionId)
       expect(updated?.name).toBe('Updated Collection Name')
-      expect(updated?.state).toBe('ARCHIVED')
+      expect(updated?.state).toBe('archived')
     })
   })
 

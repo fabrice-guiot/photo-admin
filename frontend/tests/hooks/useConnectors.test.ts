@@ -57,7 +57,7 @@ describe('useConnectors', () => {
       (c) => c.name === 'New S3 Connector'
     )
     expect(createdConnector).toBeDefined()
-    expect(createdConnector?.type).toBe('S3')
+    expect(createdConnector?.type).toBe('s3')
   })
 
   it('should update an existing connector', async () => {
