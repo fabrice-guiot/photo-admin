@@ -114,13 +114,13 @@
 
 ### Frontend Implementation for User Story 3
 
-- [ ] T032 [P] [US3] Create useSidebarCollapse hook with localStorage persistence in frontend/src/hooks/useSidebarCollapse.ts
-- [ ] T033 [US3] Add collapse arrow button (ChevronLeft) to Sidebar right edge in frontend/src/components/layout/Sidebar.tsx
-- [ ] T034 [US3] Add Pin button to hamburger menu header in frontend/src/components/layout/Sidebar.tsx
-- [ ] T035 [US3] Update MainLayout to use useSidebarCollapse hook in frontend/src/components/layout/MainLayout.tsx
-- [ ] T036 [US3] Add CSS transitions for collapse animation (300ms duration) in frontend/src/components/layout/Sidebar.tsx
-- [ ] T037 [US3] Hide collapse arrow when viewport < 768px (already hamburger mode)
-- [ ] T038 [US3] Add vitest test for collapse state persistence in frontend/tests/components/layout/Sidebar.test.tsx
+- [x] T032 [P] [US3] Create useSidebarCollapse hook with localStorage persistence in frontend/src/hooks/useSidebarCollapse.ts
+- [x] T033 [US3] Add collapse arrow button (ChevronLeft) to Sidebar right edge in frontend/src/components/layout/Sidebar.tsx
+- [x] T034 [US3] Add Pin button to hamburger menu header in frontend/src/components/layout/Sidebar.tsx
+- [x] T035 [US3] Update MainLayout to use useSidebarCollapse hook in frontend/src/components/layout/MainLayout.tsx
+- [x] T036 [US3] Add CSS transitions for collapse animation (300ms duration) in frontend/src/components/layout/Sidebar.tsx
+- [x] T037 [US3] Hide collapse arrow when viewport < 768px (already hamburger mode)
+- [x] T038 [US3] Add vitest test for collapse state persistence in frontend/tests/components/layout/Sidebar.test.tsx
 
 **Checkpoint**: Sidebar collapse/expand working on tablet - User Story 3 complete
 

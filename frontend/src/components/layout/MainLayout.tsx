@@ -11,6 +11,7 @@ import { Sidebar } from './Sidebar'
 import { TopHeader } from './TopHeader'
 import { cn } from '@/lib/utils'
 import { HeaderStatsProvider, useHeaderStats } from '@/contexts/HeaderStatsContext'
+import { useSidebarCollapse } from '@/hooks/useSidebarCollapse'
 
 // ============================================================================
 // Types
@@ -47,6 +48,10 @@ interface MainLayoutInnerProps extends MainLayoutProps {
   onOpenMobileMenu: () => void
   onCloseMobileMenu: () => void
   isMobileMenuOpen: boolean
+  // Collapse state for tablet screens (Issue #41)
+  isCollapsed: boolean
+  onCollapse: () => void
+  onPin: () => void
 }
 
 function MainLayoutInner({
@@ -57,16 +62,22 @@ function MainLayoutInner({
   onOpenMobileMenu,
   onCloseMobileMenu,
   isMobileMenuOpen,
+  isCollapsed,
+  onCollapse,
+  onPin,
 }: MainLayoutInnerProps) {
   // Get stats from context (set by page components)
   const { stats } = useHeaderStats()
 
   return (
     <div className="flex h-screen w-full bg-background">
-      {/* Sidebar: Fixed left navigation */}
+      {/* Sidebar: Fixed left navigation with collapse support (Issue #41) */}
       <Sidebar
         isMobileMenuOpen={isMobileMenuOpen}
         onCloseMobileMenu={onCloseMobileMenu}
+        isCollapsed={isCollapsed}
+        onCollapse={onCollapse}
+        onPin={onPin}
       />
 
       {/* Main Content Area */}
@@ -115,6 +126,9 @@ export function MainLayout({
 }: MainLayoutProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
+  // Sidebar collapse state with localStorage persistence (Issue #41)
+  const { isCollapsed, collapse, expand } = useSidebarCollapse()
+
   const handleOpenMobileMenu = () => setIsMobileMenuOpen(true)
   const handleCloseMobileMenu = () => setIsMobileMenuOpen(false)
 
@@ -127,6 +141,9 @@ export function MainLayout({
         onOpenMobileMenu={handleOpenMobileMenu}
         onCloseMobileMenu={handleCloseMobileMenu}
         isMobileMenuOpen={isMobileMenuOpen}
+        isCollapsed={isCollapsed}
+        onCollapse={collapse}
+        onPin={expand}
       >
         {children}
       </MainLayoutInner>
