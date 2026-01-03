@@ -94,6 +94,52 @@ black .
 - **Type hints**: Use where beneficial for clarity
 - **Testing**: Write tests alongside implementation (flexible TDD)
 
+## Frontend Architecture
+
+### TopHeader KPI Pattern (Required for all pages)
+
+All frontend pages MUST display relevant KPIs in the TopHeader stats area (next to the bell icon). This is a mandatory UX pattern established in Issue #37.
+
+**Key Files**:
+- `frontend/src/contexts/HeaderStatsContext.tsx` - Context for dynamic stats
+- `frontend/src/components/layout/TopHeader.tsx` - Displays stats in header
+- `frontend/src/components/layout/MainLayout.tsx` - Wraps pages in HeaderStatsProvider
+
+**Implementation Pattern**:
+```typescript
+// 1. Create a stats hook in hooks/use<Domain>.ts
+export const use<Domain>Stats = () => {
+  const [stats, setStats] = useState<StatsResponse | null>(null)
+  // Fetch from /api/<domain>/stats endpoint
+  return { stats, loading, error, refetch }
+}
+
+// 2. In page component, set header stats
+import { useHeaderStats } from '@/contexts/HeaderStatsContext'
+
+const { stats } = use<Domain>Stats()
+const { setStats } = useHeaderStats()
+
+useEffect(() => {
+  if (stats) {
+    setStats([
+      { label: 'Total Items', value: stats.total_count },
+      { label: 'Active Items', value: stats.active_count },
+    ])
+  }
+  return () => setStats([])  // Clear on unmount
+}, [stats, setStats])
+```
+
+**Backend Requirements**:
+- Each domain SHOULD have a `GET /api/<domain>/stats` endpoint
+- Stats endpoints return aggregated KPIs independent of any filters
+- Response schema: `<Domain>StatsResponse` in `backend/src/schemas/`
+
+**Examples**:
+- Collections: Total Collections, Storage Used, Total Files, Total Images
+- Connectors: Active Connectors, Total Connectors
+
 ## Architecture Principles (Constitution)
 
 ### 1. Independent CLI Tools
