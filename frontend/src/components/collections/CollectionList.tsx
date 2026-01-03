@@ -113,7 +113,10 @@ export function CollectionList({
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <div
+          role="status"
+          className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"
+        />
       </div>
     )
   }
@@ -169,6 +172,7 @@ export function CollectionList({
                             variant="ghost"
                             size="icon"
                             onClick={() => onInfo(collection)}
+                            aria-label="View Details"
                           >
                             <Info className="h-4 w-4" />
                           </Button>
@@ -184,6 +188,7 @@ export function CollectionList({
                             variant="ghost"
                             size="icon"
                             onClick={() => onRefresh(collection)}
+                            aria-label="Test Accessibility"
                           >
                             <RefreshCw className="h-4 w-4" />
                           </Button>
@@ -199,6 +204,7 @@ export function CollectionList({
                             variant="ghost"
                             size="icon"
                             onClick={() => onEdit(collection)}
+                            aria-label="Edit Collection"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -214,6 +220,7 @@ export function CollectionList({
                             variant="ghost"
                             size="icon"
                             onClick={() => handleDeleteClick(collection)}
+                            aria-label="Delete Collection"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
