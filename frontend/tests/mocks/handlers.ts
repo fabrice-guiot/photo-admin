@@ -63,6 +63,11 @@ let nextCollectionId = 3
 const BASE_URL = 'http://localhost:8000/api'
 
 export const handlers = [
+  // Version endpoint
+  http.get(`${BASE_URL}/version`, () => {
+    return HttpResponse.json({ version: 'v1.0.0' })
+  }),
+
   // Connectors endpoints
   http.get(`${BASE_URL}/connectors`, () => {
     return HttpResponse.json(connectors)
