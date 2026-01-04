@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from '@/components/layout/Sidebar'
 
@@ -56,10 +56,12 @@ describe('Sidebar', () => {
       expect(screen.getByText('Connectors')).toBeInTheDocument()
     })
 
-    it('renders version in footer', () => {
+    it('renders version in footer', async () => {
       renderSidebar()
 
-      expect(screen.getByText('v1.0.0')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('v1.0.0')).toBeInTheDocument()
+      })
     })
   })
 

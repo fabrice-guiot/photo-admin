@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useVersion } from '@/hooks/useVersion'
 
 // ============================================================================
 // Types
@@ -83,6 +84,7 @@ export function Sidebar({
   onPin
 }: SidebarProps) {
   const location = useLocation()
+  const { version } = useVersion()
 
   // Determine active menu item based on current route
   const getActiveItem = () => {
@@ -200,7 +202,7 @@ export function Sidebar({
       {/* Footer with collapse button */}
       <div className="border-t border-sidebar-border px-3 py-3 flex items-center justify-between">
         <div className="text-xs text-muted-foreground px-3">
-          v1.0.0
+          {version}
         </div>
         {/* Collapse button - aligned with version number (Issue #41)
             Only visible on tablet+ (md:) and when not already collapsed */}

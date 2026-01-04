@@ -30,6 +30,11 @@ import argparse
 import signal
 
 from utils.config_manager import PhotoAdminConfig
+from version import __version__
+
+
+# Tool version from centralized version management
+TOOL_VERSION = __version__
 
 
 # Global flag for graceful shutdown
@@ -323,7 +328,7 @@ class PhotoStats:
             # Create report context
             context = ReportContext(
                 tool_name="PhotoStats",
-                tool_version="1.0.0",
+                tool_version=TOOL_VERSION,
                 scan_path=str(self.stats['folder_path']),
                 scan_timestamp=datetime.now(),
                 scan_duration=self.stats['scan_time'],
@@ -513,6 +518,12 @@ Report Output:
         type=str,
         default=None,
         help='Path to configuration file (default: auto-discovered)'
+    )
+
+    parser.add_argument(
+        '--version',
+        action='version',
+        version=f'%(prog)s {TOOL_VERSION}'
     )
 
     args = parser.parse_args()
