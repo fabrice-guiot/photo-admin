@@ -29,6 +29,7 @@ from backend.src.utils.cache import FileListingCache
 from backend.src.utils.job_queue import JobQueue
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.logging_config import init_logging, get_logger
+from backend.src.utils.websocket import get_connection_manager, ConnectionManager
 
 # Import version management
 from version import __version__
@@ -103,10 +104,11 @@ async def lifespan(app: FastAPI):
     logger.info("Master key validation successful")
 
     # Initialize application state
-    logger.info("Initializing application state (cache, job queue, encryptor)")
+    logger.info("Initializing application state (cache, job queue, encryptor, websocket)")
     app.state.file_cache = FileListingCache()
     app.state.job_queue = JobQueue()
     app.state.credential_encryptor = CredentialEncryptor()
+    app.state.websocket_manager = get_connection_manager()
     logger.info("Application state initialized successfully")
 
     # Log CORS configuration

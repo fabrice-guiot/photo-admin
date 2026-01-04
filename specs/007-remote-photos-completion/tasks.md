@@ -25,15 +25,15 @@
 
 **Purpose**: Project initialization and foundational infrastructure shared across all user stories
 
-- [ ] T001 Create WebSocket connection manager in backend/src/utils/websocket.py
-- [ ] T002 [P] Add WebSocket route to main app in backend/src/main.py
-- [ ] T003 [P] Create result status enum in backend/src/models/__init__.py
-- [ ] T004 [P] Add navigation menu items for Tools, Results, Pipelines, Config pages in frontend/src/components/layout/Sidebar.tsx
-- [ ] T005 [P] Create TypeScript types for tool execution in frontend/src/contracts/api/tools-api.ts
-- [ ] T006 [P] Create TypeScript types for analysis results in frontend/src/contracts/api/results-api.ts
-- [ ] T007 [P] Create TypeScript types for pipelines in frontend/src/contracts/api/pipelines-api.ts
-- [ ] T008 [P] Create TypeScript types for trends in frontend/src/contracts/api/trends-api.ts
-- [ ] T009 [P] Create TypeScript types for configuration in frontend/src/contracts/api/config-api.ts
+- [x] T001 Create WebSocket connection manager in backend/src/utils/websocket.py
+- [x] T002 [P] Add WebSocket route to main app in backend/src/main.py
+- [x] T003 [P] Create result status enum in backend/src/models/__init__.py
+- [x] T004 [P] Add navigation menu items for Tools, Results, Pipelines, Config pages in frontend/src/components/layout/Sidebar.tsx
+- [x] T005 [P] Create TypeScript types for tool execution in frontend/src/contracts/api/tools-api.ts
+- [x] T006 [P] Create TypeScript types for analysis results in frontend/src/contracts/api/results-api.ts
+- [x] T007 [P] Create TypeScript types for pipelines in frontend/src/contracts/api/pipelines-api.ts
+- [x] T008 [P] Create TypeScript types for trends in frontend/src/contracts/api/trends-api.ts
+- [x] T009 [P] Create TypeScript types for configuration in frontend/src/contracts/api/config-api.ts
 
 **Checkpoint**: Navigation structure ready, TypeScript contracts defined, WebSocket infrastructure in place
 
