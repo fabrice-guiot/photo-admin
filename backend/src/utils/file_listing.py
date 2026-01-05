@@ -702,7 +702,9 @@ class FileListingFactory:
         Raises:
             ValueError: If collection type is not supported or connector not found
         """
-        collection_type = collection.type.lower()
+        # Handle both enum (real model) and string (tests/mocks) types
+        raw_type = collection.type
+        collection_type = (raw_type.value if hasattr(raw_type, 'value') else raw_type).lower()
 
         if collection_type == "local":
             return LocalFileListingAdapter(collection.location)
