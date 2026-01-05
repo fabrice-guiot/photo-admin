@@ -589,7 +589,7 @@ class ToolService:
         """
         Generate HTML report for PhotoStats results.
 
-        Uses Jinja2 template to generate report matching CLI tool format.
+        Uses Jinja2 template with ReportContext to match CLI tool format.
 
         Args:
             results: PhotoStats results dictionary
@@ -601,21 +601,158 @@ class ToolService:
         from jinja2 import Environment, FileSystemLoader
         from pathlib import Path
         from datetime import datetime
+        from dataclasses import dataclass, field
+        from typing import List, Optional
 
-        # Load template
-        template_dir = Path(__file__).parent.parent.parent.parent / "templates"
-        if template_dir.exists():
-            env = Environment(loader=FileSystemLoader(str(template_dir)))
-            try:
-                template = env.get_template("photostats_report.html.j2")
-                return template.render(
-                    stats=results,
-                    folder_path=location,
-                    scan_time=results.get('scan_time', 0),
-                    generation_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        # Define report data structures (matching utils/report_renderer.py)
+        @dataclass
+        class KPICard:
+            title: str
+            value: str
+            status: str
+            unit: Optional[str] = None
+
+        @dataclass
+        class ReportSection:
+            title: str
+            type: str
+            data: Optional[Dict[str, Any]] = None
+            html_content: Optional[str] = None
+            description: Optional[str] = None
+
+        @dataclass
+        class WarningMessage:
+            message: str
+            details: Optional[List[str]] = None
+            severity: str = "medium"
+
+        def format_size(size_bytes: int) -> str:
+            """Format bytes to human-readable size."""
+            for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+                if size_bytes < 1024.0:
+                    return f"{size_bytes:.2f} {unit}"
+                size_bytes /= 1024.0
+            return f"{size_bytes:.2f} PB"
+
+        try:
+            # Build KPI cards
+            total_images = sum(
+                count for ext, count in results.get('file_counts', {}).items()
+                if ext not in {'.xmp'}
+            )
+            kpis = [
+                KPICard(
+                    title="Total Images",
+                    value=str(total_images),
+                    status="success",
+                    unit="files"
+                ),
+                KPICard(
+                    title="Total Size",
+                    value=format_size(results.get('total_size', 0)),
+                    status="info"
+                ),
+                KPICard(
+                    title="Orphaned Images",
+                    value=str(len(results.get('orphaned_images', []))),
+                    status="warning" if results.get('orphaned_images') else "success",
+                    unit="files"
+                ),
+                KPICard(
+                    title="Orphaned Sidecars",
+                    value=str(len(results.get('orphaned_xmp', []))),
+                    status="warning" if results.get('orphaned_xmp') else "success",
+                    unit="files"
                 )
-            except Exception as e:
-                logger.warning(f"Failed to render template: {e}")
+            ]
+
+            # Build chart sections
+            file_counts = results.get('file_counts', {})
+            image_labels = [ext.upper() for ext in file_counts.keys() if ext != '.xmp']
+            image_counts = [file_counts[ext] for ext in file_counts.keys() if ext != '.xmp']
+
+            sections = [
+                ReportSection(
+                    title="📊 Image Type Distribution",
+                    type="chart_pie",
+                    data={
+                        "labels": image_labels,
+                        "values": image_counts
+                    },
+                    description="Number of images by file type"
+                )
+            ]
+
+            # Add file pairing status
+            orphaned_count = len(results.get('orphaned_images', [])) + len(results.get('orphaned_xmp', []))
+            if orphaned_count > 0:
+                rows = []
+                for file_path in results.get('orphaned_images', [])[:100]:
+                    rows.append([Path(file_path).name, "Missing XMP sidecar"])
+                for file_path in results.get('orphaned_xmp', [])[:100]:
+                    rows.append([Path(file_path).name, "Missing image file"])
+
+                sections.append(
+                    ReportSection(
+                        title="🔗 File Pairing Status",
+                        type="table",
+                        data={
+                            "headers": ["File", "Issue"],
+                            "rows": rows
+                        },
+                        description=f"Found {orphaned_count} orphaned files"
+                    )
+                )
+            else:
+                sections.append(
+                    ReportSection(
+                        title="🔗 File Pairing Status",
+                        type="html",
+                        html_content='<div class="message-box" style="background: #d4edda; border-left: 4px solid #28a745; padding: 20px; border-radius: 8px;"><strong>✓ All image files have corresponding XMP metadata files!</strong></div>'
+                    )
+                )
+
+            # Build warnings
+            warnings = []
+            if orphaned_count > 0:
+                orphaned_details = []
+                if results.get('orphaned_images'):
+                    orphaned_details.append(f"{len(results['orphaned_images'])} images without XMP files")
+                if results.get('orphaned_xmp'):
+                    orphaned_details.append(f"{len(results['orphaned_xmp'])} XMP files without images")
+                warnings.append(
+                    WarningMessage(
+                        message=f"Found {orphaned_count} orphaned files",
+                        details=orphaned_details,
+                        severity="medium"
+                    )
+                )
+
+            # Load and render template
+            template_dir = Path(__file__).parent.parent.parent.parent / "templates"
+            if template_dir.exists():
+                env = Environment(
+                    loader=FileSystemLoader(str(template_dir)),
+                    autoescape=True,
+                    trim_blocks=True,
+                    lstrip_blocks=True
+                )
+                template = env.get_template("photo_stats.html.j2")
+                return template.render(
+                    tool_name="PhotoStats",
+                    tool_version="1.0.0",
+                    scan_path=location,
+                    scan_timestamp=datetime.now(),
+                    scan_duration=results.get('scan_time', 0),
+                    kpis=kpis,
+                    sections=sections,
+                    warnings=warnings,
+                    errors=[],
+                    footer_note=None
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to render template: {e}")
 
         # Fallback: simple HTML report
         return f"""
