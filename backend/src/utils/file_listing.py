@@ -349,7 +349,12 @@ class S3FileListingAdapter(FileListingAdapter):
             normalized_ext = {ext.lower() for ext in extensions}
 
         # Parse bucket and prefix from location
-        parts = self.location.split("/", 1)
+        # Handle both "bucket/prefix" and "s3://bucket/prefix" formats
+        location = self.location
+        if location.startswith("s3://"):
+            location = location[5:]  # Remove "s3://" prefix
+
+        parts = location.split("/", 1)
         bucket = parts[0]
         prefix = parts[1] if len(parts) > 1 else ""
 
@@ -478,7 +483,12 @@ class GCSFileListingAdapter(FileListingAdapter):
             normalized_ext = {ext.lower() for ext in extensions}
 
         # Parse bucket and prefix from location
-        parts = self.location.split("/", 1)
+        # Handle both "bucket/prefix" and "gs://bucket/prefix" formats
+        location = self.location
+        if location.startswith("gs://"):
+            location = location[5:]  # Remove "gs://" prefix
+
+        parts = location.split("/", 1)
         bucket_name = parts[0]
         prefix = parts[1] if len(parts) > 1 else ""
 
