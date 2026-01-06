@@ -345,8 +345,14 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
                     <Input
                       value={Array.isArray(node.properties[prop.key])
                         ? (node.properties[prop.key] as string[]).join(', ')
-                        : ''}
+                        : String(node.properties[prop.key] || '')}
                       onChange={(e) =>
+                        handlePropertyChange(
+                          prop.key,
+                          e.target.value
+                        )
+                      }
+                      onBlur={(e) =>
                         handlePropertyChange(
                           prop.key,
                           e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
