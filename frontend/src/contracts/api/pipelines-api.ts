@@ -258,16 +258,8 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
   {
     type: 'pairing',
     label: 'Pairing',
-    description: 'Groups exactly 2 files together based on incoming edges',
-    properties: [
-      {
-        key: 'inputs',
-        label: 'Input Node IDs',
-        type: 'array',
-        required: false,
-        hint: 'Auto-populated from incoming edges. Pairing nodes must have exactly 2 inputs.',
-      },
-    ],
+    description: 'Groups exactly 2 files together. Inputs are defined by edges pointing to this node.',
+    properties: [],
   },
   {
     type: 'branching',
