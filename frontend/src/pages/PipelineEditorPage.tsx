@@ -818,17 +818,17 @@ export const PipelineEditorPage: React.FC = () => {
 
           {/* Validation Errors (View mode only) */}
           {!pipeline.is_valid && pipeline.validation_errors && pipeline.validation_errors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="font-medium mb-2">Validation Errors</div>
-                <ul className="list-disc list-inside space-y-1 text-sm">
-                  {pipeline.validation_errors.map((err, i) => (
-                    <li key={i}>{err}</li>
-                  ))}
-                </ul>
-              </AlertDescription>
-            </Alert>
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+              <div className="flex items-center gap-2 font-medium mb-2 text-red-700 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                Validation Errors
+              </div>
+              <ul className="list-disc list-inside space-y-1 text-sm text-red-600 dark:text-red-300">
+                {pipeline.validation_errors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {/* Nodes */}
