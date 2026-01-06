@@ -258,14 +258,14 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
   {
     type: 'pairing',
     label: 'Pairing',
-    description: 'Groups multiple files together',
+    description: 'Groups exactly 2 files together based on incoming edges',
     properties: [
       {
         key: 'inputs',
         label: 'Input Node IDs',
         type: 'array',
-        required: true,
-        hint: 'Comma-separated node IDs to pair. Example: raw_file, xmp_file',
+        required: false,
+        hint: 'Auto-populated from incoming edges. Pairing nodes must have exactly 2 inputs.',
       },
     ],
   },

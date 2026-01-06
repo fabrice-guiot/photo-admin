@@ -363,6 +363,16 @@ class PipelineService:
             if to_node not in node_ids:
                 errors.append(f"Edge references non-existent node: {to_node}")
 
+        # Check that pairing nodes have exactly 2 inputs (edges pointing to them)
+        pairing_nodes = [n for n in nodes if n.get("type") == "pairing"]
+        for pairing_node in pairing_nodes:
+            pairing_id = pairing_node.get("id", "")
+            input_count = sum(1 for e in edges if e.get("to") == pairing_id)
+            if input_count != 2:
+                errors.append(
+                    f"Pairing node '{pairing_id}' must have exactly 2 inputs (has {input_count})"
+                )
+
         # Note: Cycles ARE allowed in pipelines - the CLI pipeline_validation tool
         # handles loop execution limits to prevent infinite loops at runtime.
 

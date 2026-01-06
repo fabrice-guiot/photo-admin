@@ -560,6 +560,15 @@ export const PipelineEditorPage: React.FC = () => {
       hints.push(`Orphaned nodes not connected by any edge: ${orphanedIds}`)
     }
 
+    // Check that pairing nodes have exactly 2 inputs (edges pointing to them)
+    const pairingNodes = typedNodes.filter((n) => n.type === 'pairing')
+    pairingNodes.forEach((pairingNode) => {
+      const inputCount = validEdges.filter((e) => e.to === pairingNode.id).length
+      if (inputCount !== 2) {
+        hints.push(`Pairing node "${pairingNode.id}" must have exactly 2 inputs (currently has ${inputCount})`)
+      }
+    })
+
     return hints
   }, [nodes, edges])
 
