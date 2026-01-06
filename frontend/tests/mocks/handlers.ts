@@ -3,10 +3,93 @@ import type { Connector } from '@/contracts/api/connector-api'
 import type { Collection } from '@/contracts/api/collection-api'
 import type { JobResponse, JobStatus, ToolType, QueueStatusResponse } from '@/contracts/api/tools-api'
 import type { AnalysisResult, AnalysisResultSummary, ResultStatsResponse } from '@/contracts/api/results-api'
+import type { Pipeline, PipelineSummary, PipelineStatsResponse, ValidationResult, PipelineHistoryEntry, FilenamePreviewResponse } from '@/contracts/api/pipelines-api'
 
 // Mock data
 let jobs: JobResponse[] = []
 let nextJobId = 1
+
+let pipelines: Pipeline[] = [
+  {
+    id: 1,
+    name: 'Standard RAW Workflow',
+    description: 'RAW capture to processed TIFF export',
+    nodes: [
+      { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
+      { id: 'raw', type: 'file', properties: { extension: '.dng' } },
+      { id: 'xmp', type: 'file', properties: { extension: '.xmp' } },
+      { id: 'done', type: 'termination', properties: { termination_type: 'Black Box Archive' } },
+    ],
+    edges: [
+      { from: 'capture', to: 'raw' },
+      { from: 'capture', to: 'xmp' },
+      { from: 'raw', to: 'done' },
+    ],
+    version: 1,
+    is_active: true,
+    is_valid: true,
+    validation_errors: null,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+  {
+    id: 2,
+    name: 'HDR Workflow',
+    description: 'HDR processing pipeline',
+    nodes: [
+      { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
+      { id: 'raw', type: 'file', properties: { extension: '.cr3' } },
+      { id: 'hdr', type: 'process', properties: { suffix: '-HDR' } },
+      { id: 'done', type: 'termination', properties: { termination_type: 'Black Box Archive' } },
+    ],
+    edges: [
+      { from: 'capture', to: 'raw' },
+      { from: 'raw', to: 'hdr' },
+      { from: 'hdr', to: 'done' },
+    ],
+    version: 2,
+    is_active: false,
+    is_valid: true,
+    validation_errors: null,
+    created_at: '2025-01-01T10:00:00Z',
+    updated_at: '2025-01-01T11:00:00Z',
+  },
+  {
+    id: 3,
+    name: 'Invalid Pipeline',
+    description: 'Pipeline with validation errors',
+    nodes: [
+      { id: 'capture', type: 'capture', properties: {} },
+      { id: 'orphan', type: 'file', properties: { extension: '.dng' } },
+    ],
+    edges: [],
+    version: 1,
+    is_active: false,
+    is_valid: false,
+    validation_errors: ['Orphaned node: orphan'],
+    created_at: '2025-01-01T12:00:00Z',
+    updated_at: '2025-01-01T12:00:00Z',
+  },
+]
+let nextPipelineId = 4
+
+let pipelineHistory: PipelineHistoryEntry[] = [
+  {
+    id: 1,
+    version: 1,
+    change_summary: 'Initial version',
+    changed_by: null,
+    created_at: '2025-01-01T10:00:00Z',
+  },
+  {
+    id: 2,
+    version: 2,
+    change_summary: 'Updated HDR settings',
+    changed_by: null,
+    created_at: '2025-01-01T11:00:00Z',
+  },
+]
+let nextHistoryId = 3
 
 let results: AnalysisResult[] = [
   {
@@ -541,10 +624,367 @@ export const handlers = [
       },
     })
   }),
+
+  // ============================================================================
+  // Pipelines API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/pipelines`, ({ request }) => {
+    const url = new URL(request.url)
+    const isActive = url.searchParams.get('is_active')
+    const isValid = url.searchParams.get('is_valid')
+
+    let filteredPipelines = [...pipelines]
+    if (isActive !== null) {
+      filteredPipelines = filteredPipelines.filter((p) => p.is_active === (isActive === 'true'))
+    }
+    if (isValid !== null) {
+      filteredPipelines = filteredPipelines.filter((p) => p.is_valid === (isValid === 'true'))
+    }
+
+    const items: PipelineSummary[] = filteredPipelines.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      version: p.version,
+      is_active: p.is_active,
+      is_valid: p.is_valid,
+      node_count: p.nodes.length,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+    }))
+
+    return HttpResponse.json({ items })
+  }),
+
+  http.get(`${BASE_URL}/pipelines/stats`, () => {
+    const activePipeline = pipelines.find((p) => p.is_active)
+    const stats: PipelineStatsResponse = {
+      total_pipelines: pipelines.length,
+      valid_pipelines: pipelines.filter((p) => p.is_valid).length,
+      active_pipeline_id: activePipeline?.id ?? null,
+      active_pipeline_name: activePipeline?.name ?? null,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/pipelines/:id`, ({ params }) => {
+    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    if (!pipeline) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    return HttpResponse.json(pipeline)
+  }),
+
+  http.post(`${BASE_URL}/pipelines`, async ({ request }) => {
+    const data = await request.json() as { name: string; description?: string; nodes: Pipeline['nodes']; edges: Pipeline['edges'] }
+
+    // Check for duplicate name
+    if (pipelines.some((p) => p.name === data.name)) {
+      return HttpResponse.json(
+        { detail: `Pipeline with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    const newPipeline: Pipeline = {
+      id: nextPipelineId++,
+      name: data.name,
+      description: data.description ?? null,
+      nodes: data.nodes,
+      edges: data.edges,
+      version: 1,
+      is_active: false,
+      is_valid: true,
+      validation_errors: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    pipelines.push(newPipeline)
+    return HttpResponse.json(newPipeline, { status: 201 })
+  }),
+
+  http.put(`${BASE_URL}/pipelines/:id`, async ({ params, request }) => {
+    const data = await request.json() as { name?: string; description?: string; nodes?: Pipeline['nodes']; edges?: Pipeline['edges']; change_summary?: string }
+    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    if (index === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+
+    // Check for duplicate name (excluding current pipeline)
+    if (data.name && pipelines.some((p) => p.name === data.name && p.id !== Number(params.id))) {
+      return HttpResponse.json(
+        { detail: `Pipeline with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    // Save to history
+    const historyEntry: PipelineHistoryEntry = {
+      id: nextHistoryId++,
+      version: pipelines[index].version,
+      change_summary: data.change_summary ?? null,
+      changed_by: null,
+      created_at: new Date().toISOString(),
+    }
+    pipelineHistory.push(historyEntry)
+
+    pipelines[index] = {
+      ...pipelines[index],
+      ...data,
+      version: pipelines[index].version + 1,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(pipelines[index])
+  }),
+
+  http.delete(`${BASE_URL}/pipelines/:id`, ({ params }) => {
+    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    if (index === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    if (pipelines[index].is_active) {
+      return HttpResponse.json(
+        { detail: 'Cannot delete active pipeline' },
+        { status: 409 }
+      )
+    }
+    const deletedId = pipelines[index].id
+    pipelines.splice(index, 1)
+    return HttpResponse.json({ message: 'Pipeline deleted successfully', deleted_id: deletedId })
+  }),
+
+  http.post(`${BASE_URL}/pipelines/:id/activate`, ({ params }) => {
+    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    if (index === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    if (!pipelines[index].is_valid) {
+      return HttpResponse.json(
+        { detail: 'Cannot activate invalid pipeline' },
+        { status: 400 }
+      )
+    }
+
+    // Deactivate other pipelines
+    pipelines.forEach((p) => { p.is_active = false })
+    pipelines[index].is_active = true
+    pipelines[index].updated_at = new Date().toISOString()
+
+    return HttpResponse.json(pipelines[index])
+  }),
+
+  http.post(`${BASE_URL}/pipelines/:id/deactivate`, ({ params }) => {
+    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    if (index === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+
+    pipelines[index].is_active = false
+    pipelines[index].updated_at = new Date().toISOString()
+
+    return HttpResponse.json(pipelines[index])
+  }),
+
+  http.post(`${BASE_URL}/pipelines/:id/validate`, ({ params }) => {
+    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    if (!pipeline) {
+      return new HttpResponse(null, { status: 404 })
+    }
+
+    const result: ValidationResult = {
+      is_valid: pipeline.is_valid,
+      errors: pipeline.validation_errors
+        ? pipeline.validation_errors.map((msg) => ({
+            type: 'orphaned_node' as const,
+            message: msg,
+            node_id: null,
+            suggestion: null,
+          }))
+        : [],
+    }
+    return HttpResponse.json(result)
+  }),
+
+  http.post(`${BASE_URL}/pipelines/:id/preview`, async ({ params, request }) => {
+    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    if (!pipeline) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    if (!pipeline.is_valid) {
+      return HttpResponse.json(
+        { detail: 'Cannot preview invalid pipeline' },
+        { status: 400 }
+      )
+    }
+
+    const data = await request.json() as { camera_id?: string; counter?: string }
+    const cameraId = data.camera_id ?? 'AB3D'
+    const counter = data.counter ?? '0001'
+    const baseFilename = `${cameraId}${counter}`
+
+    const preview: FilenamePreviewResponse = {
+      base_filename: baseFilename,
+      expected_files: pipeline.nodes
+        .filter((n) => n.type === 'file')
+        .map((n) => ({
+          path: `capture -> ${n.id}`,
+          filename: `${baseFilename}${n.properties.extension || '.unknown'}`,
+          optional: n.properties.optional === true,
+        })),
+    }
+    return HttpResponse.json(preview)
+  }),
+
+  http.get(`${BASE_URL}/pipelines/:id/history`, ({ params }) => {
+    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    if (!pipeline) {
+      return new HttpResponse(null, { status: 404 })
+    }
+
+    // Return history entries for the pipeline (mock just returns the global history)
+    return HttpResponse.json(pipelineHistory)
+  }),
+
+  http.get(`${BASE_URL}/pipelines/:id/export`, ({ params }) => {
+    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    if (!pipeline) {
+      return new HttpResponse(null, { status: 404 })
+    }
+
+    const yamlContent = `name: ${pipeline.name}
+description: ${pipeline.description ?? ''}
+nodes:
+${pipeline.nodes.map((n) => `  - id: ${n.id}
+    type: ${n.type}
+    properties: ${JSON.stringify(n.properties)}`).join('\n')}
+edges:
+${pipeline.edges.map((e) => `  - from: ${e.from}
+    to: ${e.to}`).join('\n')}
+`
+
+    return new HttpResponse(yamlContent, {
+      headers: {
+        'Content-Type': 'application/x-yaml',
+        'Content-Disposition': `attachment; filename="${pipeline.name.replace(/\s+/g, '_')}.yaml"`,
+      },
+    })
+  }),
+
+  http.post(`${BASE_URL}/pipelines/import`, async ({ request }) => {
+    // For simplicity, just create a new pipeline with default values
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+    if (!file) {
+      return HttpResponse.json(
+        { detail: 'No file provided' },
+        { status: 400 }
+      )
+    }
+
+    const newPipeline: Pipeline = {
+      id: nextPipelineId++,
+      name: `Imported Pipeline ${nextPipelineId - 1}`,
+      description: 'Imported from YAML',
+      nodes: [
+        { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
+        { id: 'done', type: 'termination', properties: { termination_type: 'Black Box Archive' } },
+      ],
+      edges: [{ from: 'capture', to: 'done' }],
+      version: 1,
+      is_active: false,
+      is_valid: true,
+      validation_errors: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    pipelines.push(newPipeline)
+    return HttpResponse.json(newPipeline, { status: 201 })
+  }),
 ]
 
 // Helper to reset mock data (useful for tests)
 export function resetMockData(): void {
+  pipelines = [
+    {
+      id: 1,
+      name: 'Standard RAW Workflow',
+      description: 'RAW capture to processed TIFF export',
+      nodes: [
+        { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
+        { id: 'raw', type: 'file', properties: { extension: '.dng' } },
+        { id: 'xmp', type: 'file', properties: { extension: '.xmp' } },
+        { id: 'done', type: 'termination', properties: { termination_type: 'Black Box Archive' } },
+      ],
+      edges: [
+        { from: 'capture', to: 'raw' },
+        { from: 'capture', to: 'xmp' },
+        { from: 'raw', to: 'done' },
+      ],
+      version: 1,
+      is_active: true,
+      is_valid: true,
+      validation_errors: null,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      id: 2,
+      name: 'HDR Workflow',
+      description: 'HDR processing pipeline',
+      nodes: [
+        { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
+        { id: 'raw', type: 'file', properties: { extension: '.cr3' } },
+        { id: 'hdr', type: 'process', properties: { suffix: '-HDR' } },
+        { id: 'done', type: 'termination', properties: { termination_type: 'Black Box Archive' } },
+      ],
+      edges: [
+        { from: 'capture', to: 'raw' },
+        { from: 'raw', to: 'hdr' },
+        { from: 'hdr', to: 'done' },
+      ],
+      version: 2,
+      is_active: false,
+      is_valid: true,
+      validation_errors: null,
+      created_at: '2025-01-01T10:00:00Z',
+      updated_at: '2025-01-01T11:00:00Z',
+    },
+    {
+      id: 3,
+      name: 'Invalid Pipeline',
+      description: 'Pipeline with validation errors',
+      nodes: [
+        { id: 'capture', type: 'capture', properties: {} },
+        { id: 'orphan', type: 'file', properties: { extension: '.dng' } },
+      ],
+      edges: [],
+      version: 1,
+      is_active: false,
+      is_valid: false,
+      validation_errors: ['Orphaned node: orphan'],
+      created_at: '2025-01-01T12:00:00Z',
+      updated_at: '2025-01-01T12:00:00Z',
+    },
+  ]
+  nextPipelineId = 4
+  pipelineHistory = [
+    {
+      id: 1,
+      version: 1,
+      change_summary: 'Initial version',
+      changed_by: null,
+      created_at: '2025-01-01T10:00:00Z',
+    },
+    {
+      id: 2,
+      version: 2,
+      change_summary: 'Updated HDR settings',
+      changed_by: null,
+      created_at: '2025-01-01T11:00:00Z',
+    },
+  ]
+  nextHistoryId = 3
   connectors = [
     {
       id: 1,

@@ -352,7 +352,7 @@ class ToolService:
                 elif job.tool == "photo_pairing":
                     results = await self._run_photo_pairing(job, db)
                 elif job.tool == "pipeline_validation":
-                    results = await self._run_pipeline_validation(job)
+                    results = await self._run_pipeline_validation(job, db)
                 else:
                     raise ValueError(f"Unknown tool: {job.tool}")
 
@@ -953,36 +953,403 @@ class ToolService:
             "issues_found": len(invalid_files)
         }
 
-    async def _run_pipeline_validation(self, job: AnalysisJob) -> Dict[str, Any]:
+    async def _run_pipeline_validation(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
         """
         Execute Pipeline Validation tool.
 
-        NOTE: Pipeline validation requires architectural alignment between the CLI tool
-        (which reads pipeline config from YAML files) and the backend (which stores
-        pipelines in the database). This integration is not yet implemented.
+        Integrates database-stored pipelines with the CLI validation logic by:
+        1. Loading pipeline from database and converting to PipelineConfig
+        2. Running Photo Pairing to get ImageGroups
+        3. Validating images against pipeline paths
+        4. Generating HTML report
 
         Args:
             job: Job being executed
+            db: Database session for this job execution
 
         Returns:
             Pipeline Validation results dictionary
-
-        Raises:
-            NotImplementedError: Pipeline validation is not yet integrated
         """
-        # Pipeline validation CLI tool reads pipeline config from YAML files via PhotoAdminConfig.
-        # The backend stores pipelines in the database (Pipeline model with nodes_json, edges_json).
-        # Integrating these requires either:
-        # 1. Creating a temporary YAML file from database pipeline, or
-        # 2. Refactoring pipeline_validation.py to accept pipeline config as parameters
-        #
-        # For now, raise a clear error to indicate this is not yet implemented.
-        raise NotImplementedError(
-            "Pipeline validation is not yet integrated with the backend. "
-            "The CLI tool expects pipeline configuration from YAML files, "
-            "but the backend stores pipelines in the database. "
-            "This integration requires architectural alignment."
+        import time
+        import tempfile
+        import os
+        from pathlib import Path
+
+        collection = db.query(Collection).filter(
+            Collection.id == job.collection_id
+        ).first()
+
+        if not collection:
+            raise ValueError(f"Collection {job.collection_id} not found")
+
+        pipeline = db.query(Pipeline).filter(
+            Pipeline.id == job.pipeline_id
+        ).first()
+
+        if not pipeline:
+            raise ValueError(f"Pipeline {job.pipeline_id} not found")
+
+        # Initialize progress
+        job.progress = {"stage": "initializing", "percentage": 0}
+        await self._broadcast_progress(job)
+
+        # Import pipeline processor and adapter
+        from backend.src.utils.pipeline_adapter import convert_db_pipeline_to_config
+        from utils.pipeline_processor import (
+            validate_all_images,
+            classify_validation_status,
+            ValidationStatus,
         )
+        from utils.config_manager import PhotoAdminConfig
+        from utils.report_renderer import ReportRenderer
+
+        config = PhotoAdminConfig()
+        scan_start = time.time()
+
+        # Convert database pipeline to PipelineConfig
+        job.progress = {"stage": "loading_pipeline", "percentage": 5}
+        await self._broadcast_progress(job)
+
+        pipeline_config = convert_db_pipeline_to_config(
+            pipeline.nodes_json,
+            pipeline.edges_json
+        )
+
+        # Check if local or remote collection
+        is_local = collection.type.value.lower() == "local"
+
+        job.progress = {"stage": "scanning", "percentage": 10}
+        await self._broadcast_progress(job)
+
+        if is_local:
+            # Use Photo Pairing for local collections
+            folder_path = Path(collection.location)
+
+            # Import photo_pairing
+            import photo_pairing
+            from photo_pairing import scan_folder, build_imagegroups
+
+            # Scan for photo files
+            photo_files = list(scan_folder(folder_path, config.photo_extensions))
+
+            job.progress = {"stage": "building_imagegroups", "percentage": 20}
+            await self._broadcast_progress(job)
+
+            # Build image groups
+            result = build_imagegroups(photo_files, folder_path)
+            imagegroups = result.get('imagegroups', [])
+            invalid_files = result.get('invalid_files', [])
+        else:
+            # Use FileListingAdapter for remote collections
+            from backend.src.utils.file_listing import FileListingFactory, VirtualPath
+            import photo_pairing
+
+            encryptor = getattr(self, '_encryptor', None)
+            adapter = FileListingFactory.create_adapter(collection, db, encryptor)
+
+            # Get all photo files
+            file_infos = adapter.list_files(extensions=config.photo_extensions)
+
+            job.progress = {"stage": "building_imagegroups", "percentage": 20}
+            await self._broadcast_progress(job)
+
+            # Convert to VirtualPath for photo_pairing
+            photo_files = [fi.to_virtual_path("") for fi in file_infos]
+            folder_path = VirtualPath("", 0, "")
+
+            # Build image groups
+            result = photo_pairing.build_imagegroups(photo_files, folder_path)
+            imagegroups = result.get('imagegroups', [])
+            invalid_files = result.get('invalid_files', [])
+
+        job.progress = {"stage": "validating", "percentage": 40}
+        await self._broadcast_progress(job)
+
+        # Flatten imagegroups to specific images
+        from pipeline_validation import (
+            flatten_imagegroups_to_specific_images,
+            add_metadata_files_to_specific_images
+        )
+
+        specific_images = flatten_imagegroups_to_specific_images(imagegroups)
+
+        # Add metadata files (XMP, etc.) for local collections
+        if is_local:
+            add_metadata_files_to_specific_images(specific_images, folder_path, config)
+
+        # Validate all images against pipeline
+        job.progress = {"stage": "analyzing", "percentage": 60}
+        await self._broadcast_progress(job)
+
+        validation_results = validate_all_images(specific_images, pipeline_config)
+
+        # Classify results
+        status_counts = {
+            ValidationStatus.CONSISTENT: 0,
+            ValidationStatus.CONSISTENT_WITH_WARNING: 0,
+            ValidationStatus.PARTIAL: 0,
+            ValidationStatus.INCONSISTENT: 0,
+        }
+
+        for result in validation_results:
+            status_counts[result.status] = status_counts.get(result.status, 0) + 1
+
+        scan_duration = time.time() - scan_start
+
+        job.progress = {"stage": "generating_report", "percentage": 80}
+        await self._broadcast_progress(job)
+
+        # Generate HTML report
+        report_html = self._generate_pipeline_validation_report(
+            validation_results,
+            pipeline.name,
+            collection.location,
+            scan_duration,
+            len(imagegroups),
+            len(specific_images),
+            status_counts
+        )
+
+        # Calculate issues (PARTIAL + INCONSISTENT)
+        issues_found = (
+            status_counts[ValidationStatus.PARTIAL] +
+            status_counts[ValidationStatus.INCONSISTENT]
+        )
+
+        job.progress = {
+            "stage": "completed",
+            "files_scanned": len(specific_images),
+            "total_files": len(specific_images),
+            "issues_found": issues_found,
+            "percentage": 100
+        }
+        await self._broadcast_progress(job)
+
+        return {
+            "results": {
+                "pipeline_name": pipeline.name,
+                "pipeline_id": pipeline.id,
+                "total_images": len(specific_images),
+                "group_count": len(imagegroups),
+                "consistent_count": status_counts[ValidationStatus.CONSISTENT],
+                "consistent_with_warning_count": status_counts[ValidationStatus.CONSISTENT_WITH_WARNING],
+                "partial_count": status_counts[ValidationStatus.PARTIAL],
+                "inconsistent_count": status_counts[ValidationStatus.INCONSISTENT],
+                "invalid_files_count": len(invalid_files),
+                "scan_duration": scan_duration
+            },
+            "report_html": report_html,
+            "files_scanned": len(specific_images),
+            "issues_found": issues_found
+        }
+
+    def _generate_pipeline_validation_report(
+        self,
+        validation_results: list,
+        pipeline_name: str,
+        location: str,
+        scan_duration: float,
+        group_count: int,
+        image_count: int,
+        status_counts: dict
+    ) -> str:
+        """
+        Generate HTML report for Pipeline Validation results.
+
+        Args:
+            validation_results: List of ValidationResult objects
+            pipeline_name: Name of the pipeline used
+            location: Collection location
+            scan_duration: Time taken to scan
+            group_count: Number of image groups
+            image_count: Number of specific images validated
+            status_counts: Dict mapping ValidationStatus to count
+
+        Returns:
+            HTML report string
+        """
+        from jinja2 import Environment, FileSystemLoader
+        from pathlib import Path
+        from datetime import datetime
+        from dataclasses import dataclass
+        from typing import Optional
+        from utils.pipeline_processor import ValidationStatus
+
+        @dataclass
+        class KPICard:
+            title: str
+            value: str
+            status: str
+            unit: Optional[str] = None
+
+        @dataclass
+        class ReportSection:
+            title: str
+            type: str
+            data: Optional[Dict[str, Any]] = None
+            html_content: Optional[str] = None
+            description: Optional[str] = None
+
+        @dataclass
+        class WarningMessage:
+            message: str
+            details: Optional[List[str]] = None
+            severity: str = "medium"
+
+        try:
+            # Build KPI cards
+            consistent_pct = (
+                status_counts[ValidationStatus.CONSISTENT] / image_count * 100
+                if image_count > 0 else 0
+            )
+
+            kpis = [
+                KPICard(
+                    title="Total Images",
+                    value=str(image_count),
+                    status="info",
+                    unit="images"
+                ),
+                KPICard(
+                    title="Consistent",
+                    value=str(status_counts[ValidationStatus.CONSISTENT]),
+                    status="success",
+                    unit="images"
+                ),
+                KPICard(
+                    title="Partial",
+                    value=str(status_counts[ValidationStatus.PARTIAL]),
+                    status="warning" if status_counts[ValidationStatus.PARTIAL] > 0 else "success",
+                    unit="images"
+                ),
+                KPICard(
+                    title="Inconsistent",
+                    value=str(status_counts[ValidationStatus.INCONSISTENT]),
+                    status="error" if status_counts[ValidationStatus.INCONSISTENT] > 0 else "success",
+                    unit="images"
+                )
+            ]
+
+            # Build chart sections
+            sections = [
+                ReportSection(
+                    title="📊 Validation Status Distribution",
+                    type="chart_pie",
+                    data={
+                        "labels": ["Consistent", "With Warning", "Partial", "Inconsistent"],
+                        "values": [
+                            status_counts[ValidationStatus.CONSISTENT],
+                            status_counts[ValidationStatus.CONSISTENT_WITH_WARNING],
+                            status_counts[ValidationStatus.PARTIAL],
+                            status_counts[ValidationStatus.INCONSISTENT]
+                        ]
+                    },
+                    description="Distribution of validation statuses across all images"
+                )
+            ]
+
+            # Add issues table if there are any
+            partial_and_inconsistent = [
+                r for r in validation_results
+                if r.status in [ValidationStatus.PARTIAL, ValidationStatus.INCONSISTENT]
+            ]
+
+            if partial_and_inconsistent:
+                rows = []
+                for result in partial_and_inconsistent[:100]:  # Limit to 100
+                    rows.append([
+                        result.specific_image.base_filename,
+                        result.status.value,
+                        result.matched_termination.node_id if result.matched_termination else "None",
+                        ", ".join(result.specific_image.files[:3]) + ("..." if len(result.specific_image.files) > 3 else "")
+                    ])
+
+                sections.append(
+                    ReportSection(
+                        title="⚠️ Images Requiring Attention",
+                        type="table",
+                        data={
+                            "headers": ["Image", "Status", "Termination", "Files"],
+                            "rows": rows
+                        },
+                        description=f"Found {len(partial_and_inconsistent)} images that are partial or inconsistent"
+                    )
+                )
+            else:
+                sections.append(
+                    ReportSection(
+                        title="✓ Validation Complete",
+                        type="html",
+                        html_content='<div class="message-box" style="background: #d4edda; border-left: 4px solid #28a745; padding: 20px; border-radius: 8px;"><strong>✓ All images are consistent with the pipeline!</strong></div>'
+                    )
+                )
+
+            # Build warnings
+            warnings = []
+            if status_counts[ValidationStatus.INCONSISTENT] > 0:
+                warnings.append(
+                    WarningMessage(
+                        message=f"Found {status_counts[ValidationStatus.INCONSISTENT]} inconsistent images",
+                        details=["These images do not match any expected workflow path"],
+                        severity="high"
+                    )
+                )
+            if status_counts[ValidationStatus.PARTIAL] > 0:
+                warnings.append(
+                    WarningMessage(
+                        message=f"Found {status_counts[ValidationStatus.PARTIAL]} partially processed images",
+                        details=["These images are missing expected files"],
+                        severity="medium"
+                    )
+                )
+
+            # Load and render template (reuse pipeline_validation template if exists, otherwise use base)
+            template_dir = Path(__file__).parent.parent.parent.parent / "templates"
+            if template_dir.exists():
+                env = Environment(
+                    loader=FileSystemLoader(str(template_dir)),
+                    autoescape=True,
+                    trim_blocks=True,
+                    lstrip_blocks=True
+                )
+
+                # Try to use pipeline_validation template, fall back to photo_stats
+                try:
+                    template = env.get_template("pipeline_validation.html.j2")
+                except:
+                    template = env.get_template("photo_stats.html.j2")
+
+                return template.render(
+                    tool_name=f"Pipeline Validation ({pipeline_name})",
+                    tool_version=TOOL_VERSION,
+                    scan_path=location,
+                    scan_timestamp=datetime.now(),
+                    scan_duration=scan_duration,
+                    kpis=kpis,
+                    sections=sections,
+                    warnings=warnings,
+                    errors=[],
+                    footer_note=f"Validated against pipeline: {pipeline_name}"
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to render template: {e}")
+
+        # Fallback: simple HTML report
+        return f"""
+        <html>
+        <head><title>Pipeline Validation Report</title></head>
+        <body>
+            <h1>Pipeline Validation Report</h1>
+            <p>Pipeline: {pipeline_name}</p>
+            <p>Location: {location}</p>
+            <p>Total Images: {image_count}</p>
+            <p>Consistent: {status_counts.get(ValidationStatus.CONSISTENT, 0)}</p>
+            <p>Partial: {status_counts.get(ValidationStatus.PARTIAL, 0)}</p>
+            <p>Inconsistent: {status_counts.get(ValidationStatus.INCONSISTENT, 0)}</p>
+        </body>
+        </html>
+        """
 
     def _store_result(self, job: AnalysisJob, tool_results: Dict[str, Any], db: Session) -> AnalysisResult:
         """

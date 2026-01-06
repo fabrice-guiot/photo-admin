@@ -11,8 +11,9 @@
 
 export type NodeType = 'capture' | 'file' | 'process' | 'pairing' | 'branching' | 'termination'
 
+// Note: Cycles are allowed in pipelines - the CLI pipeline_validation tool
+// handles loop execution limits to prevent infinite loops at runtime.
 export type ValidationErrorType =
-  | 'cycle_detected'
   | 'orphaned_node'
   | 'invalid_reference'
   | 'missing_required_node'
@@ -190,6 +191,7 @@ export interface PropertyDefinition {
   required: boolean
   options?: string[] // For 'select' type
   default?: unknown
+  hint?: string // Helper text with example syntax
 }
 
 /**
@@ -201,8 +203,20 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
     label: 'Capture',
     description: 'Defines camera ID and counter patterns',
     properties: [
-      { key: 'camera_id_pattern', label: 'Camera ID Pattern', type: 'string', required: true },
-      { key: 'counter_pattern', label: 'Counter Pattern', type: 'string', required: true },
+      {
+        key: 'camera_id_pattern',
+        label: 'Camera ID Pattern',
+        type: 'string',
+        required: true,
+        hint: 'Regex pattern for camera ID. Example: [A-Z0-9]{4} matches "AB3D"',
+      },
+      {
+        key: 'counter_pattern',
+        label: 'Counter Pattern',
+        type: 'string',
+        required: true,
+        hint: 'Regex pattern for counter. Example: [0-9]{4} matches "0001"',
+      },
     ],
   },
   {
@@ -210,8 +224,21 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
     label: 'File',
     description: 'Defines expected file with extension',
     properties: [
-      { key: 'extension', label: 'Extension', type: 'string', required: true },
-      { key: 'optional', label: 'Optional', type: 'boolean', required: false, default: false },
+      {
+        key: 'extension',
+        label: 'Extension',
+        type: 'string',
+        required: true,
+        hint: 'File extension with dot. Example: .dng, .cr3, .xmp',
+      },
+      {
+        key: 'optional',
+        label: 'Optional',
+        type: 'boolean',
+        required: false,
+        default: false,
+        hint: 'If checked, missing files won\'t cause validation errors',
+      },
     ],
   },
   {
@@ -219,7 +246,13 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
     label: 'Process',
     description: 'Defines processing step with suffix',
     properties: [
-      { key: 'suffix', label: 'Suffix', type: 'string', required: true },
+      {
+        key: 'suffix',
+        label: 'Suffix',
+        type: 'string',
+        required: true,
+        hint: 'Filename suffix indicating processing. Example: -HDR, -BW, -Edit',
+      },
     ],
   },
   {
@@ -227,7 +260,13 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
     label: 'Pairing',
     description: 'Groups multiple files together',
     properties: [
-      { key: 'inputs', label: 'Input Node IDs', type: 'array', required: true },
+      {
+        key: 'inputs',
+        label: 'Input Node IDs',
+        type: 'array',
+        required: true,
+        hint: 'Comma-separated node IDs to pair. Example: raw_file, xmp_file',
+      },
     ],
   },
   {
@@ -235,17 +274,35 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
     label: 'Branching',
     description: 'Conditional branch based on file properties',
     properties: [
-      { key: 'condition', label: 'Condition', type: 'select', required: true, options: ['has_suffix', 'has_extension'] },
-      { key: 'value', label: 'Value', type: 'string', required: true },
+      {
+        key: 'condition',
+        label: 'Condition',
+        type: 'select',
+        required: true,
+        options: ['has_suffix', 'has_extension'],
+        hint: 'Property to check for branching decision',
+      },
+      {
+        key: 'value',
+        label: 'Value',
+        type: 'string',
+        required: true,
+        hint: 'Value to match. Example: -HDR for suffix, .xmp for extension',
+      },
     ],
   },
   {
     type: 'termination',
     label: 'Termination',
-    description: 'End point with classification',
+    description: 'End point representing an archival-ready state',
     properties: [
-      { key: 'name', label: 'Name', type: 'string', required: false },
-      { key: 'classification', label: 'Classification', type: 'select', required: true, options: ['CONSISTENT', 'PARTIAL', 'INCONSISTENT'] },
+      {
+        key: 'termination_type',
+        label: 'Termination Type',
+        type: 'string',
+        required: true,
+        hint: 'Type of archival state. Example: Black Box Archive, Browsable Archive, Web Export Ready',
+      },
     ],
   },
 ]

@@ -48,7 +48,7 @@ class TestPipelineModel:
             {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
             {"id": "xmp", "type": "file", "properties": {"extension": ".xmp"}},
             {"id": "pair", "type": "pairing", "properties": {"inputs": ["raw", "xmp"]}},
-            {"id": "end", "type": "termination", "properties": {"classification": "CONSISTENT"}}
+            {"id": "end", "type": "termination", "properties": {"termination_type": "Black Box Archive"}}
         ]
         edges = [
             {"from": "capture", "to": "raw"},

@@ -159,52 +159,52 @@
 
 ### Tests for User Story 2
 
-- [ ] T069 [P] [US2] Contract test for GET /api/pipelines in backend/tests/unit/test_api_pipelines.py
-- [ ] T070 [P] [US2] Contract test for POST /api/pipelines in backend/tests/unit/test_api_pipelines.py
-- [ ] T071 [P] [US2] Contract test for PUT /api/pipelines/{id} in backend/tests/unit/test_api_pipelines.py
-- [ ] T072 [P] [US2] Contract test for POST /api/pipelines/{id}/activate in backend/tests/unit/test_api_pipelines.py
-- [ ] T073 [P] [US2] Contract test for POST /api/pipelines/{id}/validate in backend/tests/unit/test_api_pipelines.py
-- [ ] T074 [P] [US2] Contract test for POST /api/pipelines/{id}/preview in backend/tests/unit/test_api_pipelines.py
-- [ ] T075 [P] [US2] Unit test for PipelineService CRUD in backend/tests/unit/test_pipeline_service.py
-- [ ] T076 [P] [US2] Unit test for pipeline structure validation in backend/tests/unit/test_pipeline_service.py
-- [ ] T077 [P] [US2] Unit test for pipeline activation logic in backend/tests/unit/test_pipeline_service.py
-- [ ] T078 [P] [US2] Unit test for filename preview generation in backend/tests/unit/test_pipeline_service.py
-- [ ] T079 [P] [US2] Unit test for version history creation in backend/tests/unit/test_pipeline_service.py
-- [ ] T080 [P] [US2] Frontend test for usePipelines hook in frontend/tests/hooks/usePipelines.test.ts
-- [ ] T081 [P] [US2] Frontend test for PipelineFormEditor component in frontend/tests/components/PipelineFormEditor.test.tsx
-- [ ] T082 [P] [US2] Frontend test for NodeEditor component in frontend/tests/components/NodeEditor.test.tsx
+- [x] T069 [P] [US2] Contract test for GET /api/pipelines in backend/tests/unit/test_api_pipelines.py
+- [x] T070 [P] [US2] Contract test for POST /api/pipelines in backend/tests/unit/test_api_pipelines.py
+- [x] T071 [P] [US2] Contract test for PUT /api/pipelines/{id} in backend/tests/unit/test_api_pipelines.py
+- [x] T072 [P] [US2] Contract test for POST /api/pipelines/{id}/activate in backend/tests/unit/test_api_pipelines.py
+- [x] T073 [P] [US2] Contract test for POST /api/pipelines/{id}/validate in backend/tests/unit/test_api_pipelines.py
+- [x] T074 [P] [US2] Contract test for POST /api/pipelines/{id}/preview in backend/tests/unit/test_api_pipelines.py
+- [x] T075 [P] [US2] Unit test for PipelineService CRUD in backend/tests/unit/test_pipeline_service.py
+- [x] T076 [P] [US2] Unit test for pipeline structure validation in backend/tests/unit/test_pipeline_service.py
+- [x] T077 [P] [US2] Unit test for pipeline activation logic in backend/tests/unit/test_pipeline_service.py
+- [x] T078 [P] [US2] Unit test for filename preview generation in backend/tests/unit/test_pipeline_service.py
+- [x] T079 [P] [US2] Unit test for version history creation in backend/tests/unit/test_pipeline_service.py
+- [x] T080 [P] [US2] Frontend test for usePipelines hook in frontend/tests/hooks/usePipelines.test.ts
+- [x] T081 [P] [US2] Frontend test for PipelineFormEditor component in frontend/tests/components/PipelineFormEditor.test.tsx
+- [x] T082 [P] [US2] Frontend test for NodeEditor component in frontend/tests/components/NodeEditor.test.tsx
 
 ### Backend Implementation for User Story 2
 
-- [ ] T083 [US2] Create PipelineService class in backend/src/services/pipeline_service.py with CRUD methods
-- [ ] T084 [US2] Add validate method using utils/pipeline_processor.py in backend/src/services/pipeline_service.py
-- [ ] T085 [US2] Add activate/deactivate methods (single active enforcement) in backend/src/services/pipeline_service.py
-- [ ] T086 [US2] Add filename preview generation using pipeline_processor in backend/src/services/pipeline_service.py
-- [ ] T087 [US2] Add version history tracking on save in backend/src/services/pipeline_service.py
-- [ ] T088 [US2] Add YAML import/export methods in backend/src/services/pipeline_service.py
-- [ ] T089 [US2] Add stats method for KPIs in backend/src/services/pipeline_service.py
-- [ ] T090 [US2] Create pipelines API router in backend/src/api/pipelines.py with full CRUD
-- [ ] T091 [US2] Add activate, deactivate, validate endpoints in backend/src/api/pipelines.py
-- [ ] T092 [US2] Add preview, history endpoints in backend/src/api/pipelines.py
-- [ ] T093 [US2] Add import, export endpoints in backend/src/api/pipelines.py
-- [ ] T094 [US2] Add stats endpoint in backend/src/api/pipelines.py
-- [ ] T095 [US2] Register pipelines router in backend/src/main.py
-- [ ] T096 [US2] Integration test for pipeline lifecycle in backend/tests/integration/test_pipeline_lifecycle.py
+- [x] T083 [US2] Create PipelineService class in backend/src/services/pipeline_service.py with CRUD methods
+- [x] T084 [US2] Add validate method using utils/pipeline_processor.py in backend/src/services/pipeline_service.py
+- [x] T085 [US2] Add activate/deactivate methods (single active enforcement) in backend/src/services/pipeline_service.py
+- [x] T086 [US2] Add filename preview generation using pipeline_processor in backend/src/services/pipeline_service.py
+- [x] T087 [US2] Add version history tracking on save in backend/src/services/pipeline_service.py
+- [x] T088 [US2] Add YAML import/export methods in backend/src/services/pipeline_service.py
+- [x] T089 [US2] Add stats method for KPIs in backend/src/services/pipeline_service.py
+- [x] T090 [US2] Create pipelines API router in backend/src/api/pipelines.py with full CRUD
+- [x] T091 [US2] Add activate, deactivate, validate endpoints in backend/src/api/pipelines.py
+- [x] T092 [US2] Add preview, history endpoints in backend/src/api/pipelines.py
+- [x] T093 [US2] Add import, export endpoints in backend/src/api/pipelines.py
+- [x] T094 [US2] Add stats endpoint in backend/src/api/pipelines.py
+- [x] T095 [US2] Register pipelines router in backend/src/main.py
+- [x] T096 [US2] Integration test for pipeline lifecycle in backend/tests/integration/test_pipeline_lifecycle.py
 
 ### Frontend Implementation for User Story 2
 
-- [ ] T097 [P] [US2] Create pipelines API service in frontend/src/services/pipelines.ts
-- [ ] T098 [US2] Create usePipelines hook with CRUD, activate, validate in frontend/src/hooks/usePipelines.ts
-- [ ] T099 [US2] Create usePipelineStats hook for KPIs in frontend/src/hooks/usePipelines.ts
-- [ ] T100 [P] [US2] Create PipelineList component with active badge in frontend/src/components/pipelines/PipelineList.tsx
-- [ ] T101 [US2] Create PipelineFormEditor component with react-hook-form + Zod in frontend/src/components/pipelines/PipelineFormEditor.tsx
-- [ ] T102 [US2] Create NodeEditor component for type-specific node properties in frontend/src/components/pipelines/NodeEditor.tsx
-- [ ] T103 [P] [US2] Create FilenamePreview component showing expected outputs in frontend/src/components/pipelines/FilenamePreview.tsx
-- [ ] T104 [P] [US2] Create ValidationErrors component with shadcn/ui Alert in frontend/src/components/pipelines/ValidationErrors.tsx
-- [ ] T105 [P] [US2] Create PipelineHistory component for version history in frontend/src/components/pipelines/PipelineHistory.tsx
-- [ ] T106 [US2] Create PipelinesPage with TopHeader KPI integration in frontend/src/pages/PipelinesPage.tsx
-- [ ] T107 [US2] Add route for /pipelines in frontend/src/App.tsx
-- [ ] T108 [US2] Integration test for pipeline creation flow in frontend/tests/integration/pipelineCreation.test.tsx
+- [x] T097 [P] [US2] Create pipelines API service in frontend/src/services/pipelines.ts
+- [x] T098 [US2] Create usePipelines hook with CRUD, activate, validate in frontend/src/hooks/usePipelines.ts
+- [x] T099 [US2] Create usePipelineStats hook for KPIs in frontend/src/hooks/usePipelines.ts
+- [x] T100 [P] [US2] Create PipelineList component with active badge in frontend/src/components/pipelines/PipelineList.tsx
+- [x] T101 [US2] Create PipelineFormEditor component with react-hook-form + Zod in frontend/src/components/pipelines/PipelineFormEditor.tsx
+- [x] T102 [US2] Create NodeEditor component for type-specific node properties in frontend/src/components/pipelines/NodeEditor.tsx
+- [x] T103 [P] [US2] Create FilenamePreview component showing expected outputs in frontend/src/components/pipelines/FilenamePreview.tsx
+- [x] T104 [P] [US2] Create ValidationErrors component with shadcn/ui Alert in frontend/src/components/pipelines/ValidationErrors.tsx
+- [x] T105 [P] [US2] Create PipelineHistory component for version history in frontend/src/components/pipelines/PipelineHistory.tsx
+- [x] T106 [US2] Create PipelinesPage with TopHeader KPI integration in frontend/src/pages/PipelinesPage.tsx
+- [x] T107 [US2] Add route for /pipelines in frontend/src/App.tsx
+- [x] T108 [US2] Integration test for pipeline creation flow in frontend/tests/integration/pipelineCreation.test.tsx
 
 ### Pipeline Validation Tool Integration for User Story 2
 
@@ -214,12 +214,12 @@
 
 #### Backend Implementation for Pipeline Validation Integration
 
-- [ ] T108a [US2] Create PipelineConfigAdapter in backend/src/utils/pipeline_adapter.py to convert Pipeline model to format expected by pipeline_validation
-- [ ] T108b [US2] Update _run_pipeline_validation in backend/src/services/tool_service.py to load pipeline from database and use PipelineConfigAdapter
-- [ ] T108c [US2] Implement pipeline validation execution using pipeline_validation functions with database pipeline in backend/src/services/tool_service.py
-- [ ] T108d [US2] Generate HTML report for pipeline validation results in backend/src/services/tool_service.py
-- [ ] T108e [P] [US2] Unit test for PipelineConfigAdapter in backend/tests/unit/test_pipeline_adapter.py
-- [ ] T108f [US2] Integration test for pipeline validation with database pipeline in backend/tests/integration/test_tool_execution_flow.py
+- [x] T108a [US2] Create PipelineConfigAdapter in backend/src/utils/pipeline_adapter.py to convert Pipeline model to format expected by pipeline_validation
+- [x] T108b [US2] Update _run_pipeline_validation in backend/src/services/tool_service.py to load pipeline from database and use PipelineConfigAdapter
+- [x] T108c [US2] Implement pipeline validation execution using pipeline_validation functions with database pipeline in backend/src/services/tool_service.py
+- [x] T108d [US2] Generate HTML report for pipeline validation results in backend/src/services/tool_service.py
+- [x] T108e [P] [US2] Unit test for PipelineConfigAdapter in backend/tests/unit/test_pipeline_adapter.py
+- [x] T108f [US2] Integration test for pipeline validation with database pipeline in backend/tests/integration/test_tool_execution_flow.py
 
 **Checkpoint**: User Story 2 complete. Users can create/edit pipelines via forms, validate structure, preview filenames, activate pipelines. Pipeline Validation tool uses database-stored pipelines.
 

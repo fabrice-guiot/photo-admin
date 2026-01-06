@@ -17,6 +17,7 @@ import {
   Settings,
   Wrench,
   FileText,
+  GitBranch,
   type LucideIcon
 } from 'lucide-react'
 import { MainLayout } from './components/layout/MainLayout'
@@ -32,6 +33,8 @@ import ConnectorsPage from './pages/ConnectorsPage'
 import SettingsPage from './pages/SettingsPage'
 import ToolsPage from './pages/ToolsPage'
 import ResultsPage from './pages/ResultsPage'
+import PipelinesPage from './pages/PipelinesPage'
+import PipelineEditorPage from './pages/PipelineEditorPage'
 
 // ============================================================================
 // Route Configuration
@@ -100,6 +103,12 @@ const routes: RouteConfig[] = [
     pageIcon: FileText,
   },
   {
+    path: '/pipelines',
+    element: <PipelinesPage />,
+    pageTitle: 'Pipelines',
+    pageIcon: GitBranch,
+  },
+  {
     path: '/settings',
     element: <SettingsPage />,
     pageTitle: 'Settings',
@@ -126,6 +135,10 @@ function App() {
             }
           />
         ))}
+        {/* Pipeline editor routes - these pages include their own MainLayout */}
+        <Route path="/pipelines/new" element={<PipelineEditorPage />} />
+        <Route path="/pipelines/:id" element={<PipelineEditorPage />} />
+        <Route path="/pipelines/:id/edit" element={<PipelineEditorPage />} />
       </Routes>
     </BrowserRouter>
   )
