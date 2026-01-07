@@ -128,6 +128,7 @@ The application implements team-based data isolation:
 | [Organizer](#organizer) | :construction: | Reference | Low |
 | [Performer](#performer) | :construction: | Reference | Low |
 | [Category](#category) | :construction: | Reference | Low |
+| [ImagePerformer](#imageperformer-junction-table) | :construction: | Junction | Medium |
 | [Agent](#agent) | :thought_balloon: | Infrastructure | Future |
 
 ---
@@ -597,6 +598,73 @@ The application implements team-based data isolation:
 - Archived collections: Timestamp estimation from event date, user refinement
 - Group optimization: Extract from one file (e.g., JPG), apply to related files
 
+**Relationships:**
+- Many-to-one with Album (optional)
+- Many-to-one with Collection (required)
+- Many-to-many with Performer (via ImagePerformer junction)
+
+**Performer Identification:**
+- Images may contain zero, one, or many Performers
+- Zero performers: Ambiance shots, surroundings, equipment, landscapes
+- Identification methods:
+  - **Manual tagging**: User identifies performers in images (initial approach)
+  - **AI/ML detection**: Automated identification (future enhancement)
+- Supports cross-referencing: "Show all images of Performer X across all events"
+
+---
+
+### ImagePerformer (Junction Table)
+
+**Priority:** Medium
+**Target Epic:** 009 or later
+
+**Purpose:** Links Images to Performers they contain, supporting both manual tagging and AI identification.
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `image_id` | Integer | FK(images.id), not null | The image |
+| `performer_id` | Integer | FK(performers.id), not null | The performer in the image |
+| `identification_method` | Enum | not null | `MANUAL`, `AI_DETECTED`, `AI_CONFIRMED` |
+| `confidence_score` | Float | nullable | AI confidence (0.0-1.0), null for manual |
+| `bounding_box_json` | JSONB | nullable | Face/subject location in image |
+| `identified_by` | Integer | FK(users.id), nullable | User who tagged (manual) |
+| `identified_at` | DateTime | not null | When identification was made |
+| `verified` | Boolean | not null, default=false | Human-verified AI detection |
+| `verified_by` | Integer | FK(users.id), nullable | User who verified |
+| `verified_at` | DateTime | nullable | When verification occurred |
+| `created_at` | DateTime | not null | Record creation timestamp |
+
+**Constraints:**
+- `(image_id, performer_id)` is unique (one entry per performer per image)
+- CASCADE delete when Image or Performer is deleted
+
+**Identification Methods:**
+
+| Method | Description | Confidence | Verified |
+|--------|-------------|------------|----------|
+| `MANUAL` | User-tagged | null | true (implicit) |
+| `AI_DETECTED` | ML model identified | 0.0-1.0 | false |
+| `AI_CONFIRMED` | AI detection verified by user | 0.0-1.0 | true |
+
+**Bounding Box Format:**
+```json
+{
+  "x": 0.25,      // Relative position (0-1) from left
+  "y": 0.15,      // Relative position (0-1) from top
+  "width": 0.20,  // Relative width (0-1)
+  "height": 0.30, // Relative height (0-1)
+  "type": "face"  // "face", "full_body", "partial"
+}
+```
+
+**Use Cases:**
+- Manual workflow: User browses images, tags performers for identification
+- AI workflow: ML model processes images, suggests performers with confidence scores
+- Verification workflow: User reviews AI detections, confirms or rejects
+- Search: "Find all images containing [Performer]" across entire collection
+- Analytics: Track which performers are photographed most frequently
+
 ---
 
 ### Location/Venue
@@ -680,9 +748,19 @@ The application implements team-based data isolation:
 | `created_at` | DateTime | not null | Creation timestamp |
 | `updated_at` | DateTime | not null | Last modification |
 
-**Event Association:**
-- Many-to-many with Event
-- Junction table includes `status`: `CONFIRMED`, `CANCELLED`, `TENTATIVE`
+**Relationships:**
+- Many-to-many with Event (via EventPerformer junction)
+  - Junction includes `status`: `CONFIRMED`, `CANCELLED`, `TENTATIVE`
+- Many-to-many with Image (via ImagePerformer junction)
+  - Junction includes identification method, confidence, bounding box
+  - Enables "show all images of this performer" queries
+
+**As Photo Subject:**
+Performers are the primary subjects being photographed. The Image-Performer relationship is central to the application's value:
+- Not all images at an Event contain Performers (ambiance, surroundings, etc.)
+- An image may contain multiple Performers (group shots)
+- Initial identification is manual; AI/ML assists over time
+- Reference images (stored in `reference_images`) help train ML models
 
 ---
 
@@ -796,27 +874,28 @@ The application implements team-based data isolation:
          ▼ *:1                     ▼ *:1                      ▼ 1:*
 ┌──────────────┐          ┌──────────────┐            ┌──────────────┐
 │   Location   │          │   Category   │            │    Image     │
-└──────────────┘          └──────────────┘            └──────┬───────┘
+└──────────────┘          └──────────────┘            └───────┬──────┘
          │                         │                          │
-         │                         ▼ *:1                      │
-         │                ┌──────────────┐                    │
+         │                         ▼ *:1                      │ *:*
+         │                ┌──────────────┐                    │(ImagePerformer)
          └───────────────►│   Organizer  │                    │
                           └──────────────┘                    │
-                                                              │
-┌──────────────┐    *:*     ┌──────────────┐                  │
-│  Performer   │◄──────────►│    Event     │                  │
-└──────────────┘            └──────────────┘                  │
-                                                              │
-┌──────────────┐    1:*     ┌──────────────┐    1:*           │
-│  Connector   │───────────►│  Collection  │◄─────────────────┘
-└──────────────┘            └──────┬───────┘
-                                   │
-                            CASCADE│ 1:*
-                                   ▼
-┌──────────────┐    1:*     ┌──────────────┐
-│   Pipeline   │───────────►│AnalysisResult│
-└──────┬───────┘  SET NULL  └──────────────┘
-       │
+                                   ▲                          │
+┌──────────────┐    *:*     ┌──────┴───────┐    *:*           │
+│  Performer   │◄──────────►│    Event     │◄─────────────────┘
+│  (subject)   │ (scheduled)└──────────────┘   (in images)
+└──────────────┘
+
+┌──────────────┐    1:*     ┌──────────────┐    1:*
+│  Connector   │───────────►│  Collection  │◄────────────────────────┐
+└──────────────┘            └──────┬───────┘                         │
+                                   │                                 │
+                            CASCADE│ 1:*                             │
+                                   ▼                           (storage)
+┌──────────────┐    1:*     ┌──────────────┐                         │
+│   Pipeline   │───────────►│AnalysisResult│                   ┌─────┴──────┐
+└──────┬───────┘  SET NULL  └──────────────┘                   │   Image    │
+       │                                                       └────────────┘
 CASCADE│ 1:*
        ▼
 ┌──────────────┐
@@ -827,6 +906,35 @@ CASCADE│ 1:*
 │    Camera    │          │    Agent     │
 │ (standalone) │          │  (future)    │
 └──────────────┘          └──────────────┘
+
+Legend:
+  ──────►  One-to-many (arrow points to "many" side)
+  ◄──────► Many-to-many
+  (text)   Relationship context/junction table
+```
+
+**Key Relationship: Performer ↔ Image**
+
+The Performer-Image relationship is central to the application's value proposition:
+
+```
+┌──────────────┐                              ┌──────────────┐
+│  Performer   │                              │    Image     │
+│              │         *:*                  │              │
+│  - name      │◄────────────────────────────►│  - file_path │
+│  - type      │      ImagePerformer          │  - album_id  │
+│  - ref_imgs  │      (junction table)        │  - exif_json │
+└──────────────┘                              └──────────────┘
+                           │
+                           ▼
+              ┌─────────────────────────┐
+              │     ImagePerformer      │
+              │                         │
+              │  - identification_method│
+              │  - confidence_score     │
+              │  - bounding_box_json    │
+              │  - verified             │
+              └─────────────────────────┘
 ```
 
 ---
