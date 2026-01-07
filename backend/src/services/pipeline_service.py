@@ -13,12 +13,14 @@ Provides CRUD operations, validation, and version history for pipelines:
 Design:
 - Graph validation using topological sort
 - Version control with history snapshots
-- Single active pipeline constraint (application-enforced)
+- Multiple pipelines can be active (valid and ready for use)
+- Single default pipeline constraint (application-enforced)
 - YAML import/export for portability
 """
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any, Tuple
+import re
 import yaml
 
 from sqlalchemy.orm import Session
@@ -105,6 +107,7 @@ class PipelineService:
             edges_json=edges_json,
             version=1,
             is_active=False,
+            is_default=False,
             is_valid=is_valid,
             validation_errors=validation_errors if validation_errors else None
         )
@@ -135,6 +138,7 @@ class PipelineService:
     def list(
         self,
         is_active: Optional[bool] = None,
+        is_default: Optional[bool] = None,
         is_valid: Optional[bool] = None
     ) -> List[PipelineSummary]:
         """
@@ -142,6 +146,7 @@ class PipelineService:
 
         Args:
             is_active: Filter by active status
+            is_default: Filter by default status
             is_valid: Filter by validation status
 
         Returns:
@@ -151,6 +156,8 @@ class PipelineService:
 
         if is_active is not None:
             query = query.filter(Pipeline.is_active == is_active)
+        if is_default is not None:
+            query = query.filter(Pipeline.is_default == is_default)
         if is_valid is not None:
             query = query.filter(Pipeline.is_valid == is_valid)
 
@@ -217,6 +224,13 @@ class PipelineService:
             pipeline.is_valid = is_valid
             pipeline.validation_errors = validation_errors if validation_errors else None
 
+            # Auto-deactivate if pipeline becomes invalid
+            if not is_valid and pipeline.is_active:
+                pipeline.is_active = False
+                if pipeline.is_default:
+                    pipeline.is_default = False
+                logger.info(f"Auto-deactivated pipeline {pipeline_id} due to validation failure")
+
         # Increment version
         pipeline.version += 1
 
@@ -242,6 +256,8 @@ class PipelineService:
         """
         pipeline = self._get_pipeline(pipeline_id)
 
+        if pipeline.is_default:
+            raise ConflictError("Cannot delete default pipeline. Remove default status first.")
         if pipeline.is_active:
             raise ConflictError("Cannot delete active pipeline. Deactivate it first.")
 
@@ -325,6 +341,11 @@ class PipelineService:
             errors.append("Missing required node: pipeline must have a Capture node")
         elif capture_count > 1:
             errors.append("Invalid structure: pipeline can only have one Capture node")
+        else:
+            # Validate Capture node properties
+            capture_node = next(n for n in nodes if n.get("type") == "capture")
+            capture_errors = self._validate_capture_node_properties(capture_node)
+            errors.extend(capture_errors)
 
         # Must have at least one non-optional File node
         has_required_file = any(
@@ -379,15 +400,81 @@ class PipelineService:
         is_valid = len(errors) == 0
         return is_valid, errors if errors else None
 
+    def _validate_capture_node_properties(self, capture_node: Dict[str, Any]) -> List[str]:
+        """
+        Validate Capture node properties.
+
+        Validates:
+        - sample_filename is present
+        - filename_regex is a valid regex with exactly 2 capture groups
+        - sample_filename matches the regex
+        - Counter group (non-camera_id) captures only digits
+
+        Args:
+            capture_node: Capture node dictionary
+
+        Returns:
+            List of validation error messages (empty if valid)
+        """
+        errors = []
+        props = capture_node.get("properties", {})
+        node_id = capture_node.get("id", "capture")
+
+        sample = props.get("sample_filename")
+        regex_str = props.get("filename_regex")
+        group = props.get("camera_id_group")
+
+        # Check required properties
+        if not sample:
+            errors.append(f"Capture node '{node_id}': missing sample_filename")
+            return errors
+        if not regex_str:
+            errors.append(f"Capture node '{node_id}': missing filename_regex")
+            return errors
+        if group not in ("1", "2"):
+            errors.append(f"Capture node '{node_id}': camera_id_group must be '1' or '2'")
+            return errors
+
+        # Validate regex has exactly 2 groups
+        try:
+            compiled = re.compile(regex_str)
+            if compiled.groups != 2:
+                errors.append(
+                    f"Capture node '{node_id}': filename_regex must have exactly 2 capture groups, found {compiled.groups}"
+                )
+                return errors
+        except re.error as e:
+            errors.append(f"Capture node '{node_id}': invalid filename_regex: {e}")
+            return errors
+
+        # Validate sample matches regex
+        match = compiled.match(sample)
+        if not match:
+            errors.append(
+                f"Capture node '{node_id}': sample_filename '{sample}' does not match filename_regex"
+            )
+            return errors
+
+        # Validate counter group is all numeric
+        counter_group = 2 if group == "1" else 1
+        counter_value = match.group(counter_group)
+        if not counter_value.isdigit():
+            errors.append(
+                f"Capture node '{node_id}': Counter group (group {counter_group}) must be all numeric, got '{counter_value}'"
+            )
+
+        return errors
+
     # =========================================================================
     # Activation
     # =========================================================================
 
     def activate(self, pipeline_id: int) -> PipelineResponse:
         """
-        Activate a pipeline for validation runs.
+        Activate a pipeline.
 
-        Only one pipeline can be active at a time.
+        Multiple pipelines can be active at the same time.
+        Active pipelines are valid and ready for use.
 
         Args:
             pipeline_id: Pipeline ID
@@ -404,12 +491,7 @@ class PipelineService:
         if not pipeline.is_valid:
             raise ServiceValidationError("Cannot activate invalid pipeline. Fix validation errors first.")
 
-        # Deactivate any currently active pipeline
-        self.db.query(Pipeline).filter(Pipeline.is_active == True).update(
-            {"is_active": False}
-        )
-
-        # Activate this pipeline
+        # Activate this pipeline (multiple can be active)
         pipeline.is_active = True
         self.db.commit()
         self.db.refresh(pipeline)
@@ -420,6 +502,8 @@ class PipelineService:
     def deactivate(self, pipeline_id: int) -> PipelineResponse:
         """
         Deactivate a pipeline.
+
+        If the pipeline is the default, it also loses default status.
 
         Args:
             pipeline_id: Pipeline ID
@@ -432,29 +516,82 @@ class PipelineService:
         """
         pipeline = self._get_pipeline(pipeline_id)
         pipeline.is_active = False
+        if pipeline.is_default:
+            pipeline.is_default = False
         self.db.commit()
         self.db.refresh(pipeline)
 
         logger.info(f"Deactivated pipeline {pipeline_id}")
         return self._to_response(pipeline)
 
+    def set_default(self, pipeline_id: int) -> PipelineResponse:
+        """
+        Set a pipeline as the default for tool execution.
+
+        Only one pipeline can be default at a time.
+        The pipeline must be active to be set as default.
+
+        Args:
+            pipeline_id: Pipeline ID
+
+        Returns:
+            Pipeline details with is_default=True
+
+        Raises:
+            NotFoundError: If pipeline doesn't exist
+            ValidationError: If pipeline is not active
+        """
+        pipeline = self._get_pipeline(pipeline_id)
+
+        if not pipeline.is_active:
+            raise ServiceValidationError("Cannot set inactive pipeline as default. Activate it first.")
+
+        # Unset any currently default pipeline
+        self.db.query(Pipeline).filter(Pipeline.is_default == True).update(
+            {"is_default": False}
+        )
+
+        # Set this pipeline as default
+        pipeline.is_default = True
+        self.db.commit()
+        self.db.refresh(pipeline)
+
+        logger.info(f"Set pipeline {pipeline_id} as default")
+        return self._to_response(pipeline)
+
+    def unset_default(self, pipeline_id: int) -> PipelineResponse:
+        """
+        Remove default status from a pipeline.
+
+        Args:
+            pipeline_id: Pipeline ID
+
+        Returns:
+            Pipeline details with is_default=False
+
+        Raises:
+            NotFoundError: If pipeline doesn't exist
+        """
+        pipeline = self._get_pipeline(pipeline_id)
+        pipeline.is_default = False
+        self.db.commit()
+        self.db.refresh(pipeline)
+
+        logger.info(f"Removed default status from pipeline {pipeline_id}")
+        return self._to_response(pipeline)
+
     # =========================================================================
     # Preview
     # =========================================================================
 
-    def preview_filenames(
-        self,
-        pipeline_id: int,
-        camera_id: str = "AB3D",
-        counter: str = "0001"
-    ) -> FilenamePreviewResponse:
+    def preview_filenames(self, pipeline_id: int) -> FilenamePreviewResponse:
         """
         Preview expected filenames for a pipeline.
 
+        Uses the sample_filename from the Capture node as the base filename.
+
         Args:
             pipeline_id: Pipeline ID
-            camera_id: Camera ID to use in preview
-            counter: Counter to use in preview
 
         Returns:
             Preview with expected filenames
@@ -468,7 +605,10 @@ class PipelineService:
         if not pipeline.is_valid:
             raise ServiceValidationError("Cannot preview invalid pipeline. Fix validation errors first.")
 
-        base_filename = f"{camera_id}{counter}"
+        # Get base_filename from Capture node's sample_filename
+        capture_node = self._get_capture_node(pipeline)
+        base_filename = capture_node.get("properties", {}).get("sample_filename", "UNKNOWN0000")
+
         expected_files = []
 
         # Traverse the pipeline graph to find all file nodes
@@ -490,6 +630,24 @@ class PipelineService:
             base_filename=base_filename,
             expected_files=expected_files
         )
+
+    def _get_capture_node(self, pipeline: Pipeline) -> dict:
+        """
+        Get the Capture node from a pipeline.
+
+        Args:
+            pipeline: Pipeline model
+
+        Returns:
+            Capture node dictionary
+
+        Raises:
+            ValidationError: If no Capture node found
+        """
+        for node in pipeline.nodes_json:
+            if node.get("type") == "capture":
+                return node
+        raise ServiceValidationError("Pipeline missing Capture node")
 
     def _build_path_to_node(self, pipeline: Pipeline, target_id: str) -> str:
         """
@@ -590,6 +748,7 @@ class PipelineService:
             edges=[PipelineEdge(**e) for e in edges],
             version=version,  # The historical version
             is_active=False,  # Historical versions are never active
+            is_default=False,  # Historical versions are never default
             is_valid=pipeline.is_valid,  # Use current validity (historical may differ)
             validation_errors=None,
             created_at=history_entry.created_at,
@@ -727,20 +886,24 @@ class PipelineService:
         Get pipeline statistics for dashboard KPIs.
 
         Returns:
-            Statistics including counts and active pipeline info
+            Statistics including counts, active count, and default pipeline info
         """
         total = self.db.query(func.count(Pipeline.id)).scalar() or 0
         valid = self.db.query(func.count(Pipeline.id)).filter(
             Pipeline.is_valid == True
         ).scalar() or 0
+        active_count = self.db.query(func.count(Pipeline.id)).filter(
+            Pipeline.is_active == True
+        ).scalar() or 0
 
-        active = self.db.query(Pipeline).filter(Pipeline.is_active == True).first()
+        default = self.db.query(Pipeline).filter(Pipeline.is_default == True).first()
 
         return PipelineStatsResponse(
             total_pipelines=total,
             valid_pipelines=valid,
-            active_pipeline_id=active.id if active else None,
-            active_pipeline_name=active.name if active else None
+            active_pipeline_count=active_count,
+            default_pipeline_id=default.id if default else None,
+            default_pipeline_name=default.name if default else None
         )
 
     # =========================================================================
@@ -821,6 +984,7 @@ class PipelineService:
             edges=edges,
             version=pipeline.version,
             is_active=pipeline.is_active,
+            is_default=pipeline.is_default,
             is_valid=pipeline.is_valid,
             validation_errors=pipeline.validation_errors,
             created_at=pipeline.created_at,
@@ -843,6 +1007,7 @@ class PipelineService:
             description=pipeline.description,
             version=pipeline.version,
             is_active=pipeline.is_active,
+            is_default=pipeline.is_default,
             is_valid=pipeline.is_valid,
             node_count=pipeline.node_count,
             created_at=pipeline.created_at,

@@ -29,6 +29,7 @@ describe('JobProgressCard', () => {
     collection_id: 1,
     tool: 'photostats',
     pipeline_id: null,
+    mode: null,
     status: 'queued',
     position: 1,
     created_at: '2025-01-01T10:00:00Z',

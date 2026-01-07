@@ -40,6 +40,8 @@ interface UseCollectionsReturn {
   deleteCollection: (id: number, force?: boolean) => Promise<CollectionDeleteResponse | void>
   testCollection: (id: number) => Promise<CollectionTestResponse>
   refreshCollection: (id: number, confirm?: boolean) => Promise<any>
+  assignPipeline: (collectionId: number, pipelineId: number) => Promise<Collection>
+  clearPipeline: (collectionId: number) => Promise<Collection>
 }
 
 export const useCollections = (
@@ -195,6 +197,58 @@ export const useCollections = (
     }
   }, [fetchCollections])
 
+  /**
+   * Assign a pipeline to a collection
+   * Stores the pipeline's current version as the pinned version
+   */
+  const assignPipeline = useCallback(async (collectionId: number, pipelineId: number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const updated = await collectionService.assignPipeline(collectionId, pipelineId)
+      setCollections(prev =>
+        prev.map(c => c.id === collectionId ? updated : c)
+      )
+      toast.success('Pipeline assigned successfully')
+      return updated
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to assign pipeline'
+      setError(errorMessage)
+      toast.error('Failed to assign pipeline', {
+        description: errorMessage
+      })
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Clear pipeline assignment from a collection
+   * Collection will use default pipeline at runtime
+   */
+  const clearPipeline = useCallback(async (collectionId: number) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const updated = await collectionService.clearPipeline(collectionId)
+      setCollections(prev =>
+        prev.map(c => c.id === collectionId ? updated : c)
+      )
+      toast.success('Pipeline assignment cleared')
+      return updated
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to clear pipeline'
+      setError(errorMessage)
+      toast.error('Failed to clear pipeline', {
+        description: errorMessage
+      })
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   // Debounced search effect
   useEffect(() => {
     // Clear any existing timer
@@ -241,7 +295,9 @@ export const useCollections = (
     updateCollection,
     deleteCollection,
     testCollection,
-    refreshCollection
+    refreshCollection,
+    assignPipeline,
+    clearPipeline
   }
 }
 

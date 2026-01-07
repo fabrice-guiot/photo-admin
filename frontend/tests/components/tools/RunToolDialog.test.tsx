@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { render } from '../../utils/test-utils'
 import { RunToolDialog } from '@/components/tools/RunToolDialog'
 import type { Collection } from '@/contracts/api/collection-api'
+import type { PipelineSummary } from '@/contracts/api/pipelines-api'
 import type { ToolRunRequest } from '@/contracts/api/tools-api'
 import { resetMockData } from '../../mocks/handlers'
 
@@ -16,6 +17,9 @@ describe('RunToolDialog', () => {
       location: '/photos',
       state: 'live',
       connector_id: null,
+      pipeline_id: null,
+      pipeline_version: null,
+      pipeline_name: null,
       cache_ttl: 3600,
       is_accessible: true,
       accessibility_message: null,
@@ -30,6 +34,9 @@ describe('RunToolDialog', () => {
       location: 'my-bucket/photos',
       state: 'live',
       connector_id: 1,
+      pipeline_id: 1,
+      pipeline_version: 1,
+      pipeline_name: 'Standard RAW Workflow',
       cache_ttl: 86400,
       is_accessible: true,
       accessibility_message: null,
@@ -44,10 +51,40 @@ describe('RunToolDialog', () => {
       location: '/bad/path',
       state: 'live',
       connector_id: null,
+      pipeline_id: null,
+      pipeline_version: null,
+      pipeline_name: null,
       cache_ttl: null,
       is_accessible: false,
       accessibility_message: 'Path does not exist',
       last_scanned_at: null,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+  ]
+
+  const mockPipelines: PipelineSummary[] = [
+    {
+      id: 1,
+      name: 'Standard RAW Workflow',
+      description: 'Standard RAW processing pipeline',
+      version: 1,
+      is_active: true,
+      is_valid: true,
+      is_default: true,
+      node_count: 5,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      id: 2,
+      name: 'Draft Pipeline',
+      description: 'Work in progress',
+      version: 1,
+      is_active: false,
+      is_valid: false,
+      is_default: false,
+      node_count: 2,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
     },
@@ -70,12 +107,13 @@ describe('RunToolDialog', () => {
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
 
     expect(screen.getByText('Run Analysis Tool')).toBeInTheDocument()
-    expect(screen.getByText('Select a collection and tool to analyze your photos')).toBeInTheDocument()
+    expect(screen.getByText('Select a tool and target to analyze your photos')).toBeInTheDocument()
   })
 
   it('should not render dialog when closed', () => {
@@ -84,6 +122,7 @@ describe('RunToolDialog', () => {
         open={false}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
@@ -91,7 +130,7 @@ describe('RunToolDialog', () => {
     expect(screen.queryByText('Run Analysis Tool')).not.toBeInTheDocument()
   })
 
-  it('should only show accessible collections in dropdown', async () => {
+  it('should show tool selector first', async () => {
     const user = userEvent.setup()
 
     render(
@@ -99,59 +138,7 @@ describe('RunToolDialog', () => {
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
-        onRunTool={mockOnRunTool}
-      />
-    )
-
-    // Click the collection dropdown
-    const collectionTrigger = screen.getByRole('combobox', { name: /collection/i })
-    await user.click(collectionTrigger)
-
-    // Should show accessible collections only
-    expect(screen.getByText('Test Collection')).toBeInTheDocument()
-    expect(screen.getByText('Remote S3 Collection')).toBeInTheDocument()
-    // Inaccessible collection should NOT be shown
-    expect(screen.queryByText('Inaccessible Collection')).not.toBeInTheDocument()
-  })
-
-  it('should show warning when no accessible collections', () => {
-    const inaccessibleOnly = [mockCollections[2]] // Only the inaccessible one
-
-    render(
-      <RunToolDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        collections={inaccessibleOnly}
-        onRunTool={mockOnRunTool}
-      />
-    )
-
-    expect(screen.getByText(/No accessible collections available/i)).toBeInTheDocument()
-  })
-
-  it('should pre-select collection when preSelectedCollectionId is provided', () => {
-    render(
-      <RunToolDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        collections={mockCollections}
-        onRunTool={mockOnRunTool}
-        preSelectedCollectionId={1}
-      />
-    )
-
-    // The collection name should be shown in the trigger
-    expect(screen.getByText('Test Collection')).toBeInTheDocument()
-  })
-
-  it('should show tool descriptions when selected', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <RunToolDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
@@ -160,14 +147,93 @@ describe('RunToolDialog', () => {
     const toolTrigger = screen.getByRole('combobox', { name: /tool/i })
     await user.click(toolTrigger)
 
-    // Select PhotoStats
-    await user.click(screen.getByText('PhotoStats'))
-
-    // Should show description
-    expect(screen.getByText(/Analyze photo collection for orphaned files/i)).toBeInTheDocument()
+    // Should show all tools
+    expect(screen.getByText('PhotoStats')).toBeInTheDocument()
+    expect(screen.getByText('Photo Pairing')).toBeInTheDocument()
+    expect(screen.getByText('Pipeline Validation')).toBeInTheDocument()
   })
 
-  it('should call onRunTool when form is submitted', async () => {
+  it('should show collection selector after selecting PhotoStats', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <RunToolDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        collections={mockCollections}
+        pipelines={mockPipelines}
+        onRunTool={mockOnRunTool}
+      />
+    )
+
+    // Select PhotoStats tool
+    await user.click(screen.getByRole('combobox', { name: /tool/i }))
+    await user.click(screen.getByText('PhotoStats'))
+
+    // Should show collection dropdown
+    const collectionTrigger = screen.getByRole('combobox', { name: /collection/i })
+    await user.click(collectionTrigger)
+
+    // Should show accessible collections only
+    expect(screen.getByText('Test Collection')).toBeInTheDocument()
+    expect(screen.getByText('Remote S3 Collection')).toBeInTheDocument()
+    expect(screen.queryByText('Inaccessible Collection')).not.toBeInTheDocument()
+  })
+
+  it('should show mode selector for Pipeline Validation', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <RunToolDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        collections={mockCollections}
+        pipelines={mockPipelines}
+        onRunTool={mockOnRunTool}
+      />
+    )
+
+    // Select Pipeline Validation tool
+    await user.click(screen.getByRole('combobox', { name: /tool/i }))
+    await user.click(screen.getByText('Pipeline Validation'))
+
+    // Should show mode selector
+    const modeTrigger = screen.getByRole('combobox', { name: /mode/i })
+    await user.click(modeTrigger)
+
+    // Both mode options should be visible (may appear multiple times due to dropdown)
+    expect(screen.getAllByText('Validate Collection').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Validate Pipeline Graph').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('should show pipeline selector for display_graph mode', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <RunToolDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        collections={mockCollections}
+        pipelines={mockPipelines}
+        onRunTool={mockOnRunTool}
+      />
+    )
+
+    // Select Pipeline Validation tool
+    await user.click(screen.getByRole('combobox', { name: /tool/i }))
+    await user.click(screen.getByText('Pipeline Validation'))
+
+    // Select display_graph mode (should be default)
+    // Pipeline selector should be visible
+    const pipelineTrigger = screen.getByRole('combobox', { name: /pipeline/i })
+    await user.click(pipelineTrigger)
+
+    // Should show only active and valid pipelines
+    expect(screen.getByText(/Standard RAW Workflow/)).toBeInTheDocument()
+    expect(screen.queryByText('Draft Pipeline')).not.toBeInTheDocument()
+  })
+
+  it('should call onRunTool for PhotoStats with collection', async () => {
     const user = userEvent.setup()
     mockOnRunTool.mockResolvedValueOnce(undefined)
 
@@ -176,78 +242,84 @@ describe('RunToolDialog', () => {
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
 
+    // Select tool first
+    await user.click(screen.getByRole('combobox', { name: /tool/i }))
+    await user.click(screen.getByText('PhotoStats'))
+
     // Select collection
     await user.click(screen.getByRole('combobox', { name: /collection/i }))
     await user.click(screen.getByText('Test Collection'))
-
-    // Select tool
-    await user.click(screen.getByRole('combobox', { name: /tool/i }))
-    await user.click(screen.getByText('PhotoStats'))
 
     // Click Run Tool
     await user.click(screen.getByRole('button', { name: /run tool/i }))
 
     await waitFor(() => {
       expect(mockOnRunTool).toHaveBeenCalledWith({
-        collection_id: 1,
-        tool: 'photostats'
+        tool: 'photostats',
+        collection_id: 1
       })
     })
 
-    // Should close dialog on success
     expect(mockOnOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('should show error when tool selection is missing', async () => {
+  it('should call onRunTool for display_graph mode with pipeline', async () => {
     const user = userEvent.setup()
+    mockOnRunTool.mockResolvedValueOnce(undefined)
 
     render(
       <RunToolDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
-        preSelectedCollectionId={1}
       />
     )
 
-    // The Run Tool button should be disabled when no tool is selected
-    const runButton = screen.getByRole('button', { name: /run tool/i })
-    expect(runButton).toBeDisabled()
-
-    expect(mockOnRunTool).not.toHaveBeenCalled()
-  })
-
-  it('should show error for pipeline_validation tool', async () => {
-    const user = userEvent.setup()
-
-    render(
-      <RunToolDialog
-        open={true}
-        onOpenChange={mockOnOpenChange}
-        collections={mockCollections}
-        onRunTool={mockOnRunTool}
-        preSelectedCollectionId={1}
-      />
-    )
-
-    // Select tool
+    // Select Pipeline Validation tool
     await user.click(screen.getByRole('combobox', { name: /tool/i }))
     await user.click(screen.getByText('Pipeline Validation'))
+
+    // Mode should default to display_graph
+    // Select pipeline
+    await user.click(screen.getByRole('combobox', { name: /pipeline/i }))
+    await user.click(screen.getByText(/Standard RAW Workflow/))
 
     // Click Run Tool
     await user.click(screen.getByRole('button', { name: /run tool/i }))
 
-    // Should show "coming soon" error
     await waitFor(() => {
-      expect(screen.getByText(/Pipeline validation requires selecting a pipeline/i)).toBeInTheDocument()
+      expect(mockOnRunTool).toHaveBeenCalledWith({
+        tool: 'pipeline_validation',
+        mode: 'display_graph',
+        pipeline_id: 1
+      })
     })
+  })
 
-    expect(mockOnRunTool).not.toHaveBeenCalled()
+  it('should pre-select pipeline and mode when preSelectedPipelineId is provided', () => {
+    render(
+      <RunToolDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        collections={mockCollections}
+        pipelines={mockPipelines}
+        onRunTool={mockOnRunTool}
+        preSelectedPipelineId={1}
+        preSelectedMode="display_graph"
+      />
+    )
+
+    // Pipeline Validation should be selected
+    expect(screen.getByText('Pipeline Validation')).toBeInTheDocument()
+    // Mode and pipeline should be pre-selected - the pipeline name should be visible
+    expect(screen.getByText(/Standard RAW Workflow/)).toBeInTheDocument()
   })
 
   it('should display error from onRunTool', async () => {
@@ -259,8 +331,8 @@ describe('RunToolDialog', () => {
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
-        preSelectedCollectionId={1}
       />
     )
 
@@ -268,10 +340,14 @@ describe('RunToolDialog', () => {
     await user.click(screen.getByRole('combobox', { name: /tool/i }))
     await user.click(screen.getByText('PhotoStats'))
 
+    // Select collection
+    await user.click(screen.getByRole('combobox', { name: /collection/i }))
+    await user.click(screen.getByText('Test Collection'))
+
     // Click Run Tool
     await user.click(screen.getByRole('button', { name: /run tool/i }))
 
-    // Should show error from the rejection
+    // Should show error
     await waitFor(() => {
       expect(screen.getByText(/Tool already running on this collection/i)).toBeInTheDocument()
     })
@@ -285,6 +361,7 @@ describe('RunToolDialog', () => {
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
@@ -295,12 +372,12 @@ describe('RunToolDialog', () => {
   })
 
   it('should have run button disabled without selections', () => {
-    // Test that Run Tool button is disabled when nothing is selected
     render(
       <RunToolDialog
         open={true}
         onOpenChange={mockOnOpenChange}
         collections={mockCollections}
+        pipelines={mockPipelines}
         onRunTool={mockOnRunTool}
       />
     )
@@ -308,5 +385,26 @@ describe('RunToolDialog', () => {
     // Without any selections, Run Tool should be disabled
     const runButton = screen.getByRole('button', { name: /run tool/i })
     expect(runButton).toBeDisabled()
+  })
+
+  it('should show warning when no valid pipelines for display_graph mode', async () => {
+    const user = userEvent.setup()
+    const invalidPipelines = [mockPipelines[1]] // Only the draft/invalid one
+
+    render(
+      <RunToolDialog
+        open={true}
+        onOpenChange={mockOnOpenChange}
+        collections={mockCollections}
+        pipelines={invalidPipelines}
+        onRunTool={mockOnRunTool}
+      />
+    )
+
+    // Select Pipeline Validation tool
+    await user.click(screen.getByRole('combobox', { name: /tool/i }))
+    await user.click(screen.getByText('Pipeline Validation'))
+
+    expect(screen.getByText(/No valid and active pipelines available/i)).toBeInTheDocument()
   })
 })

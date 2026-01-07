@@ -6,7 +6,8 @@ with validation status tracking and version control support.
 
 Design Rationale:
 - JSONB for nodes/edges: Flexible graph structure without separate join tables
-- Single active: Only one pipeline can be active at a time (application-enforced)
+- Active status: Multiple pipelines can be active (valid and ready for use)
+- Default status: Only one pipeline can be default at a time (used by tools)
 - Version tracking: Integer version incremented on each update
 - Validation caching: is_valid and validation_errors cached to avoid re-validation
 """
@@ -35,24 +36,29 @@ class Pipeline(Base):
         nodes_json: Node definitions array (JSONB)
         edges_json: Edge connections array (JSONB)
         version: Current version number (incremented on update)
-        is_active: Whether this pipeline is active for validation
+        is_active: Whether this pipeline is active (valid and ready for use)
+        is_default: Whether this is the default pipeline for tool execution
         is_valid: Whether structure validation passed
         validation_errors: Validation error messages (JSONB)
         created_at: Creation timestamp
         updated_at: Last modification timestamp
         history: Related history entries (one-to-many)
         analysis_results: Related analysis results (one-to-many)
+        collections: Related collections with explicit pipeline assignment (one-to-many)
 
     Constraints:
         - name must be unique, 1-255 characters
         - nodes_json must contain at least one node
         - edges_json can be empty (single-node pipeline)
         - version must be >= 1
-        - Only one pipeline can have is_active=true (application-enforced)
+        - Multiple pipelines can be active (is_active=true)
+        - Only one pipeline can be default (is_default=true, application-enforced)
+        - Default pipeline must be active (is_default implies is_active)
 
     Indexes:
         - idx_pipelines_name: name
         - idx_pipelines_active: is_active WHERE is_active = true
+        - idx_pipelines_default: is_default WHERE is_default = true
 
     Node Structure (nodes_json):
         [
@@ -87,6 +93,7 @@ class Pipeline(Base):
 
     # Status
     is_active = Column(Boolean, nullable=False, default=False, index=True)
+    is_default = Column(Boolean, nullable=False, default=False, index=True)
     is_valid = Column(Boolean, nullable=False, default=False)
     validation_errors = Column(JSONB().with_variant(JSON(), "sqlite"), nullable=True)
 
@@ -110,11 +117,16 @@ class Pipeline(Base):
         "AnalysisResult",
         back_populates="pipeline"
     )
+    collections = relationship(
+        "Collection",
+        back_populates="pipeline"
+    )
 
     # Indexes
     __table_args__ = (
         Index("idx_pipelines_name", "name"),
         Index("idx_pipelines_active", "is_active", postgresql_where=(is_active == True)),
+        Index("idx_pipelines_default", "is_default", postgresql_where=(is_default == True)),
     )
 
     def __repr__(self) -> str:
@@ -125,15 +137,22 @@ class Pipeline(Base):
             f"name='{self.name}', "
             f"version={self.version}, "
             f"active={self.is_active}, "
+            f"default={self.is_default}, "
             f"valid={self.is_valid}"
             f")>"
         )
 
     def __str__(self) -> str:
         """Human-readable string representation."""
-        status = "active" if self.is_active else "inactive"
-        validity = "valid" if self.is_valid else "invalid"
-        return f"{self.name} v{self.version} ({status}, {validity})"
+        status_parts = []
+        if self.is_default:
+            status_parts.append("default")
+        elif self.is_active:
+            status_parts.append("active")
+        else:
+            status_parts.append("inactive")
+        status_parts.append("valid" if self.is_valid else "invalid")
+        return f"{self.name} v{self.version} ({', '.join(status_parts)})"
 
     @property
     def node_count(self) -> int:
@@ -193,6 +212,7 @@ class Pipeline(Base):
             "description": self.description,
             "version": self.version,
             "is_active": self.is_active,
+            "is_default": self.is_default,
             "is_valid": self.is_valid,
             "node_count": self.node_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,

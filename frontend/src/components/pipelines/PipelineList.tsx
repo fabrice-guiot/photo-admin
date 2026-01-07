@@ -22,8 +22,11 @@ interface PipelineListProps {
   onDelete: (pipeline: PipelineSummary) => void
   onActivate: (pipeline: PipelineSummary) => void
   onDeactivate: (pipeline: PipelineSummary) => void
+  onSetDefault: (pipeline: PipelineSummary) => void
+  onUnsetDefault: (pipeline: PipelineSummary) => void
   onExport: (pipeline: PipelineSummary) => void
   onView: (pipeline: PipelineSummary) => void
+  onValidateGraph?: (pipeline: PipelineSummary) => void
 }
 
 export const PipelineList: React.FC<PipelineListProps> = ({
@@ -36,11 +39,14 @@ export const PipelineList: React.FC<PipelineListProps> = ({
   onDelete,
   onActivate,
   onDeactivate,
+  onSetDefault,
+  onUnsetDefault,
   onExport,
   onView,
+  onValidateGraph,
 }) => {
   const [searchTerm, setSearchTerm] = React.useState('')
-  const [filterStatus, setFilterStatus] = React.useState<'all' | 'valid' | 'invalid' | 'active'>(
+  const [filterStatus, setFilterStatus] = React.useState<'all' | 'valid' | 'invalid' | 'active' | 'default'>(
     'all'
   )
 
@@ -62,6 +68,8 @@ export const PipelineList: React.FC<PipelineListProps> = ({
         matchesStatus = !pipeline.is_valid
       } else if (filterStatus === 'active') {
         matchesStatus = pipeline.is_active
+      } else if (filterStatus === 'default') {
+        matchesStatus = pipeline.is_default
       }
 
       return matchesSearch && matchesStatus
@@ -107,6 +115,17 @@ export const PipelineList: React.FC<PipelineListProps> = ({
               )}
             >
               All
+            </button>
+            <button
+              onClick={() => setFilterStatus('default')}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded-md transition-colors',
+                filterStatus === 'default'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Default
             </button>
             <button
               onClick={() => setFilterStatus('active')}
@@ -208,8 +227,11 @@ export const PipelineList: React.FC<PipelineListProps> = ({
               onDelete={onDelete}
               onActivate={onActivate}
               onDeactivate={onDeactivate}
+              onSetDefault={onSetDefault}
+              onUnsetDefault={onUnsetDefault}
               onExport={onExport}
               onView={onView}
+              onValidateGraph={onValidateGraph}
             />
           ))}
         </div>

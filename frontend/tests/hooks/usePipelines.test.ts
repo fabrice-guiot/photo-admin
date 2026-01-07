@@ -389,7 +389,8 @@ describe('usePipelineStats', () => {
     expect(result.current.stats).toBeDefined()
     expect(result.current.stats?.total_pipelines).toBe(3)
     expect(result.current.stats?.valid_pipelines).toBe(2)
-    expect(result.current.stats?.active_pipeline_id).toBe(1)
+    expect(result.current.stats?.default_pipeline_id).toBe(1)
+    expect(result.current.stats?.active_pipeline_count).toBe(1)
     expect(result.current.error).toBe(null)
   })
 
@@ -400,14 +401,14 @@ describe('usePipelineStats', () => {
     expect(result.current.loading).toBe(false)
   })
 
-  it('should include active pipeline name', async () => {
+  it('should include default pipeline name', async () => {
     const { result } = renderHook(() => usePipelineStats(true))
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false)
     })
 
-    expect(result.current.stats?.active_pipeline_name).toBe('Standard RAW Workflow')
+    expect(result.current.stats?.default_pipeline_name).toBe('Standard RAW Workflow')
   })
 
   it('should refetch stats', async () => {

@@ -32,7 +32,7 @@ describe('Tool Execution Integration', () => {
           tool: 'photostats'
         })
         jobId = job.id
-        expect(job.status).toBe('QUEUED')
+        expect(job.status).toBe('queued')
       })
 
       // Step 3: Verify job is in the jobs list
@@ -95,11 +95,11 @@ describe('Tool Execution Integration', () => {
       // Cancel the job
       await act(async () => {
         const cancelledJob = await toolsResult.current.cancelJob(jobId!)
-        expect(cancelledJob.status).toBe('CANCELLED')
+        expect(cancelledJob.status).toBe('cancelled')
       })
 
       // Verify the job status was updated
-      expect(toolsResult.current.jobs[0].status).toBe('CANCELLED')
+      expect(toolsResult.current.jobs[0].status).toBe('cancelled')
     })
   })
 
@@ -118,8 +118,8 @@ describe('Tool Execution Integration', () => {
         expect(result.current.loading).toBe(false)
       })
 
-      expect(result.current.results.length).toBe(3) // Mock has 3 results
-      expect(result.current.total).toBe(3)
+      expect(result.current.results.length).toBe(4) // Mock has 4 results
+      expect(result.current.total).toBe(4)
 
       // Filter by tool
       await act(async () => {
@@ -145,7 +145,9 @@ describe('Tool Execution Integration', () => {
       expect(result.current.result?.id).toBe(1)
       expect(result.current.result?.tool).toBe('photostats')
       expect(result.current.result?.results).toBeDefined()
-      expect(result.current.result?.results?.total_files).toBe(1000)
+      // Type narrow to PhotoStatsResults to access its properties
+      const photoStatsResults = result.current.result?.results as { total_files: number }
+      expect(photoStatsResults?.total_files).toBe(1000)
     })
 
     it('should delete a result', async () => {
@@ -178,11 +180,12 @@ describe('Tool Execution Integration', () => {
       })
 
       expect(result.current.stats).toBeDefined()
-      expect(result.current.stats?.total_results).toBe(3)
-      expect(result.current.stats?.completed_count).toBe(2)
+      expect(result.current.stats?.total_results).toBe(4)
+      expect(result.current.stats?.completed_count).toBe(3)
       expect(result.current.stats?.failed_count).toBe(1)
       expect(result.current.stats?.by_tool.photostats).toBe(2)
       expect(result.current.stats?.by_tool.photo_pairing).toBe(1)
+      expect(result.current.stats?.by_tool.pipeline_validation).toBe(1)
     })
   })
 
@@ -255,7 +258,7 @@ describe('Tool Execution Integration', () => {
       })
 
       expect(result.current.results.length).toBe(2) // Only 2 results per page
-      expect(result.current.total).toBe(3) // Total is still 3
+      expect(result.current.total).toBe(4) // Total is 4
 
       // Set page to 2 and refetch
       act(() => {

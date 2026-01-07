@@ -33,6 +33,7 @@ class TestResultServiceList:
         result.collection_id = 1
         result.tool = "photostats"
         result.pipeline_id = None
+        result.pipeline_version = None  # PhotoStats runs without pipeline
         result.status = ResultStatus.COMPLETED
         result.started_at = datetime.utcnow()
         result.completed_at = datetime.utcnow()
@@ -121,6 +122,7 @@ class TestResultServiceGet:
         result.collection_id = 1
         result.tool = "photostats"
         result.pipeline_id = None
+        result.pipeline_version = None  # PhotoStats runs without pipeline
         result.status = ResultStatus.COMPLETED
         result.started_at = datetime.utcnow()
         result.completed_at = datetime.utcnow()

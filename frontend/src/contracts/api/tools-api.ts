@@ -11,15 +11,17 @@
 
 export type ToolType = 'photostats' | 'photo_pairing' | 'pipeline_validation'
 
+export type ToolMode = 'collection' | 'display_graph'
+
 export type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 export interface ProgressData {
   /** Current stage of execution */
-  stage: 'scanning' | 'analyzing' | 'generating_report'
-  /** Number of files scanned so far */
-  files_scanned: number
-  /** Total files to scan (if known) */
-  total_files: number
+  stage: string
+  /** Number of files scanned so far (null for display_graph mode) */
+  files_scanned: number | null
+  /** Total files to scan (null for display_graph mode) */
+  total_files: number | null
   /** Number of issues found so far */
   issues_found: number
   /** Percentage complete (0-100) */
@@ -29,10 +31,12 @@ export interface ProgressData {
 export interface Job {
   /** Unique job identifier (UUID) */
   id: string
-  /** Collection being analyzed */
-  collection_id: number
+  /** Collection being analyzed (null for display_graph mode) */
+  collection_id: number | null
   /** Tool being executed */
   tool: ToolType
+  /** Execution mode for pipeline_validation */
+  mode: ToolMode | null
   /** Pipeline ID (for pipeline_validation only) */
   pipeline_id: number | null
   /** Current job status */
@@ -58,12 +62,14 @@ export interface Job {
 // ============================================================================
 
 export interface ToolRunRequest {
-  /** ID of the collection to analyze */
-  collection_id: number
   /** Tool to execute */
   tool: ToolType
-  /** Pipeline ID (required for pipeline_validation) */
+  /** ID of the collection to analyze (required for collection mode) */
+  collection_id?: number
+  /** Pipeline ID (required for display_graph mode) */
   pipeline_id?: number
+  /** Execution mode for pipeline_validation */
+  mode?: ToolMode
 }
 
 // ============================================================================

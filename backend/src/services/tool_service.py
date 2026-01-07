@@ -25,7 +25,7 @@ from backend.src.models import (
     Collection, AnalysisResult, Pipeline, ResultStatus
 )
 from backend.src.schemas.tools import (
-    ToolType, JobStatus, ProgressData, JobResponse
+    ToolType, ToolMode, JobStatus, ProgressData, JobResponse
 )
 from backend.src.utils.logging_config import get_logger
 from backend.src.utils.websocket import ConnectionManager
@@ -71,10 +71,14 @@ class JobAdapter:
                 percentage=job.progress.get("percentage", 0)
             )
 
+        # Convert mode string to ToolMode enum if present
+        mode = ToolMode(job.mode) if job.mode else None
+
         return JobResponse(
             id=UUID(job.id),
             collection_id=job.collection_id,
             tool=ToolType(job.tool),
+            mode=mode,
             pipeline_id=job.pipeline_id,
             status=_convert_status(job.status),
             position=position,
@@ -131,9 +135,10 @@ class ToolService:
 
     def run_tool(
         self,
-        collection_id: int,
         tool: ToolType,
-        pipeline_id: Optional[int] = None
+        collection_id: Optional[int] = None,
+        pipeline_id: Optional[int] = None,
+        mode: Optional[ToolMode] = None
     ) -> JobResponse:
         """
         Queue a tool execution job.
@@ -142,9 +147,10 @@ class ToolService:
         If no job is currently running, starts execution immediately.
 
         Args:
-            collection_id: ID of the collection to analyze
             tool: Tool to run
-            pipeline_id: Pipeline ID (required for pipeline_validation)
+            collection_id: ID of the collection to analyze (required for collection mode)
+            pipeline_id: Pipeline ID (required for display_graph mode)
+            mode: Execution mode for pipeline_validation (defaults to collection)
 
         Returns:
             Created job response
@@ -153,6 +159,14 @@ class ToolService:
             ValueError: If collection doesn't exist or pipeline required but missing
             ConflictError: If same tool already running on collection
         """
+        # Handle display_graph mode (pipeline-only validation)
+        if tool == ToolType.PIPELINE_VALIDATION and mode == ToolMode.DISPLAY_GRAPH:
+            return self._run_display_graph_tool(pipeline_id)
+
+        # All other cases require collection_id
+        if collection_id is None:
+            raise ValueError("collection_id is required for this tool/mode")
+
         # Validate collection exists
         collection = self.db.query(Collection).filter(
             Collection.id == collection_id
@@ -165,15 +179,14 @@ class ToolService:
             from backend.src.services.exceptions import CollectionNotAccessibleError
             raise CollectionNotAccessibleError(collection.id, collection.name)
 
-        # Validate pipeline for pipeline_validation
+        # Resolve pipeline for all tools (for traceability)
+        # Pipeline Validation requires a valid pipeline, others just capture it if available
         if tool == ToolType.PIPELINE_VALIDATION:
-            if not pipeline_id:
-                raise ValueError("pipeline_id required for pipeline_validation")
-            pipeline = self.db.query(Pipeline).filter(
-                Pipeline.id == pipeline_id
-            ).first()
-            if not pipeline:
-                raise ValueError(f"Pipeline {pipeline_id} not found")
+            # Pipeline is required - this will raise ValueError if not available
+            resolved_pipeline_id, pipeline_version = self._resolve_pipeline_for_collection(collection, pipeline_id)
+        else:
+            # For PhotoStats and PhotoPairing, capture pipeline info but don't require it
+            resolved_pipeline_id, pipeline_version = self._get_pipeline_for_collection(collection)
 
         # Check for existing job on same collection/tool
         existing = self._queue.find_active_job(collection_id, tool.value)
@@ -185,18 +198,79 @@ class ToolService:
                 position=self._queue.get_position(existing.id)
             )
 
+        # Determine mode string for job
+        mode_str = mode.value if mode else None
+
         # Create new job
         job = AnalysisJob(
             id=create_job_id(),
             collection_id=collection_id,
             tool=tool.value,
-            pipeline_id=pipeline_id,
-            status=QueueJobStatus.QUEUED,
-            created_at=datetime.utcnow(),
+            pipeline_id=resolved_pipeline_id,
+            pipeline_version=pipeline_version,
+            mode=mode_str,
         )
         position = self._queue.enqueue(job)
 
         logger.info(f"Job {job.id} queued for {tool.value} on collection {collection_id}")
+        return JobAdapter.to_response(job, position)
+
+    def _run_display_graph_tool(self, pipeline_id: Optional[int]) -> JobResponse:
+        """
+        Queue a display-graph mode pipeline validation job.
+
+        This mode validates the pipeline definition without a collection.
+
+        Args:
+            pipeline_id: Pipeline ID to validate
+
+        Returns:
+            Created job response
+
+        Raises:
+            ValueError: If pipeline_id not provided or pipeline is invalid
+        """
+        if not pipeline_id:
+            raise ValueError("pipeline_id is required for display_graph mode")
+
+        # Validate pipeline exists and is valid
+        pipeline = self.db.query(Pipeline).filter(
+            Pipeline.id == pipeline_id
+        ).first()
+        if not pipeline:
+            raise ValueError(f"Pipeline {pipeline_id} not found")
+        if not pipeline.is_active:
+            raise ValueError(f"Pipeline '{pipeline.name}' is not active")
+        if not pipeline.is_valid:
+            raise ValueError(f"Pipeline '{pipeline.name}' is not valid")
+
+        # Check for existing display_graph job on same pipeline
+        # Use a special key format for pipeline-only jobs
+        with self._queue._lock:
+            for job in self._queue._jobs.values():
+                if (job.tool == ToolType.PIPELINE_VALIDATION.value and
+                    job.mode == ToolMode.DISPLAY_GRAPH.value and
+                    job.pipeline_id == pipeline_id and
+                    job.status in (QueueJobStatus.QUEUED, QueueJobStatus.RUNNING)):
+                    from backend.src.services.exceptions import ConflictError
+                    raise ConflictError(
+                        message=f"Pipeline validation (display_graph) is already running for pipeline {pipeline_id}",
+                        existing_job_id=UUID(job.id),
+                        position=self._queue.get_position(job.id)
+                    )
+
+        # Create job without collection_id
+        job = AnalysisJob(
+            id=create_job_id(),
+            collection_id=None,  # No collection for display_graph mode
+            tool=ToolType.PIPELINE_VALIDATION.value,
+            pipeline_id=pipeline.id,
+            pipeline_version=pipeline.version,
+            mode=ToolMode.DISPLAY_GRAPH.value,
+        )
+        position = self._queue.enqueue(job)
+
+        logger.info(f"Job {job.id} queued for pipeline_validation (display_graph) on pipeline {pipeline_id}")
         return JobAdapter.to_response(job, position)
 
     def get_job(self, job_id: UUID) -> Optional[JobResponse]:
@@ -328,6 +402,9 @@ class ToolService:
         Note: Creates its own database session for background task execution,
         since the request-scoped session may be invalid by the time this runs.
 
+        The actual tool execution runs in a thread pool to avoid blocking the
+        event loop, allowing other API requests to be processed concurrently.
+
         Args:
             job: Job to execute
         """
@@ -343,16 +420,28 @@ class ToolService:
             job.status = QueueJobStatus.RUNNING
             job.started_at = datetime.utcnow()
 
-            logger.info(f"Starting job {job.id}: {job.tool} on collection {job.collection_id}")
+            if job.collection_id:
+                logger.info(f"Starting job {job.id}: {job.tool} on collection {job.collection_id}")
+            else:
+                logger.info(f"Starting job {job.id}: {job.tool} (display_graph) on pipeline {job.pipeline_id}")
+
+            # Broadcast initial running status
+            await self._broadcast_progress(job)
 
             try:
-                # Execute the appropriate tool
+                # Execute the appropriate tool in a thread pool to avoid blocking
+                # the event loop. This allows other API requests to be processed
+                # while the tool runs.
                 if job.tool == "photostats":
-                    results = await self._run_photostats(job, db)
+                    results = await self._run_photostats_threaded(job, db)
                 elif job.tool == "photo_pairing":
-                    results = await self._run_photo_pairing(job, db)
+                    results = await self._run_photo_pairing_threaded(job, db)
                 elif job.tool == "pipeline_validation":
-                    results = await self._run_pipeline_validation(job, db)
+                    # Check if this is display_graph mode
+                    if job.mode == ToolMode.DISPLAY_GRAPH.value:
+                        results = await self._run_display_graph_threaded(job, db)
+                    else:
+                        results = await self._run_pipeline_validation_threaded(job, db)
                 else:
                     raise ValueError(f"Unknown tool: {job.tool}")
 
@@ -365,10 +454,12 @@ class ToolService:
                 job.result_id = result.id
 
                 # Update collection statistics (best effort, don't fail job if this fails)
-                try:
-                    self._update_collection_stats(job.collection_id, results, db)
-                except Exception as stats_error:
-                    logger.warning(f"Failed to update collection stats for job {job.id}: {stats_error}")
+                # Skip for display_graph mode (no collection)
+                if job.collection_id:
+                    try:
+                        self._update_collection_stats(job.collection_id, results, db)
+                    except Exception as stats_error:
+                        logger.warning(f"Failed to update collection stats for job {job.id}: {stats_error}")
 
                 logger.info(f"Job {job.id} completed successfully")
 
@@ -378,9 +469,11 @@ class ToolService:
                 job.completed_at = datetime.utcnow()
                 job.error_message = str(e)
 
-                # Store failed result (best effort)
+                # Store failed result - always create a record for tracking
                 try:
-                    self._store_failed_result(job, str(e), db)
+                    failed_result = self._store_failed_result(job, str(e), db)
+                    job.result_id = failed_result.id
+                    logger.info(f"Stored failed result {failed_result.id} for job {job.id}")
                 except Exception as store_error:
                     logger.error(f"Failed to store error result for job {job.id}: {store_error}")
 
@@ -401,12 +494,589 @@ class ToolService:
             # be swallowed or cause issues with the response
             logger.error(f"Unhandled exception in job {job.id}: {outer_error}")
 
+            # Still try to store a failed result for tracking
+            job.status = QueueJobStatus.FAILED
+            job.completed_at = datetime.utcnow()
+            job.error_message = f"Unhandled error: {outer_error}"
+            try:
+                failed_result = self._store_failed_result(job, str(outer_error), db)
+                job.result_id = failed_result.id
+                logger.info(f"Stored failed result {failed_result.id} for job {job.id} (outer exception)")
+            except Exception as store_error:
+                logger.error(f"Failed to store error result for job {job.id}: {store_error}")
+
         finally:
             # Always close the session
             try:
                 db.close()
             except Exception:
                 pass
+
+    # =========================================================================
+    # Threaded Tool Wrappers
+    # =========================================================================
+    # These methods wrap the tool execution in asyncio.to_thread() to run
+    # blocking I/O and CPU-intensive operations in a thread pool, preventing
+    # them from blocking the event loop and allowing concurrent API requests.
+
+    async def _run_photostats_threaded(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
+        """Run photostats in a thread pool to avoid blocking the event loop."""
+        # Capture the event loop before entering the thread
+        loop = asyncio.get_running_loop()
+        return await asyncio.to_thread(self._run_photostats_sync, job, db, loop)
+
+    async def _run_photo_pairing_threaded(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
+        """Run photo pairing in a thread pool to avoid blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        return await asyncio.to_thread(self._run_photo_pairing_sync, job, db, loop)
+
+    async def _run_pipeline_validation_threaded(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
+        """Run pipeline validation in a thread pool to avoid blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        return await asyncio.to_thread(self._run_pipeline_validation_sync, job, db, loop)
+
+    async def _run_display_graph_threaded(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
+        """Run display graph in a thread pool to avoid blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        return await asyncio.to_thread(self._run_display_graph_sync, job, db, loop)
+
+    def _broadcast_progress_sync(self, job: AnalysisJob, loop: asyncio.AbstractEventLoop) -> None:
+        """
+        Synchronous wrapper for broadcasting progress from within a thread.
+        Schedules the async broadcast on the event loop.
+
+        Args:
+            job: Job with progress to broadcast
+            loop: The main event loop (captured before entering the thread)
+        """
+        if self.websocket_manager and loop:
+            asyncio.run_coroutine_threadsafe(self._broadcast_progress(job), loop)
+
+    # =========================================================================
+    # Synchronous Tool Implementations
+    # =========================================================================
+    # These are the actual tool implementations that run in threads.
+    # They use _broadcast_progress_sync for progress updates.
+
+    def _run_photostats_sync(self, job: AnalysisJob, db: Session, loop: asyncio.AbstractEventLoop) -> Dict[str, Any]:
+        """
+        Synchronous PhotoStats execution for thread pool.
+        """
+        import tempfile
+        import os
+        from collections import defaultdict
+
+        collection = db.query(Collection).filter(
+            Collection.id == job.collection_id
+        ).first()
+
+        # Initialize progress
+        job.progress = {"stage": "initializing", "percentage": 0}
+        self._broadcast_progress_sync(job, loop)
+
+        # Check if this is a local or remote collection
+        is_local = collection.type.value.lower() == "local"
+
+        if is_local:
+            # Use native PhotoStats tool for local collections
+            from photo_stats import PhotoStats
+            stats_tool = PhotoStats(collection.location)
+
+            job.progress = {"stage": "scanning", "percentage": 10}
+            self._broadcast_progress_sync(job, loop)
+
+            job.progress = {"stage": "analyzing", "percentage": 30}
+            self._broadcast_progress_sync(job, loop)
+
+            results = stats_tool.scan_folder()
+
+            job.progress = {"stage": "generating_report", "percentage": 80}
+            self._broadcast_progress_sync(job, loop)
+
+            # Generate HTML report
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+                temp_path = f.name
+
+            try:
+                report_path = stats_tool.generate_html_report(temp_path)
+                if report_path and report_path.exists():
+                    report_html = report_path.read_text()
+                else:
+                    report_html = None
+            finally:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+
+        else:
+            # Use FileListingAdapter for remote collections
+            import time
+            from backend.src.utils.file_listing import FileListingFactory, VirtualPath
+            from utils.config_manager import PhotoAdminConfig
+
+            config = PhotoAdminConfig()
+
+            # Get encryptor from app state if available
+            encryptor = getattr(self, '_encryptor', None)
+
+            # Start timing for scan duration
+            scan_start = time.time()
+
+            job.progress = {"stage": "scanning", "percentage": 10}
+            self._broadcast_progress_sync(job, loop)
+
+            # Create adapter and list files
+            adapter = FileListingFactory.create_adapter(collection, db, encryptor)
+
+            # Get all photo and metadata files
+            all_extensions = config.photo_extensions | config.metadata_extensions
+            file_infos = adapter.list_files(extensions=all_extensions)
+
+            job.progress = {"stage": "analyzing", "percentage": 30}
+            self._broadcast_progress_sync(job, loop)
+
+            # Process files similar to PhotoStats.scan_folder()
+            results = self._process_photostats_files(file_infos, config)
+
+            # Record scan duration
+            results['scan_time'] = time.time() - scan_start
+
+            job.progress = {"stage": "generating_report", "percentage": 80}
+            self._broadcast_progress_sync(job, loop)
+
+            # Generate HTML report using template
+            report_html = self._generate_photostats_report(results, collection.location)
+
+        job.progress = {
+            "stage": "completed",
+            "percentage": 100,
+            "files_scanned": results.get('total_files', 0),
+            "issues_found": len(results.get('orphaned_images', [])) + len(results.get('orphaned_xmp', []))
+        }
+        self._broadcast_progress_sync(job, loop)
+
+        return {
+            "results": {
+                "total_size": results.get("total_size", 0),
+                "total_files": results.get("total_files", 0),
+                "file_counts": results.get("file_counts", {}),
+                "orphaned_images": results.get("orphaned_images", []),
+                "orphaned_xmp": results.get("orphaned_xmp", [])
+            },
+            "report_html": report_html,
+            "files_scanned": results.get('total_files', 0),
+            "issues_found": len(results.get('orphaned_images', [])) + len(results.get('orphaned_xmp', []))
+        }
+
+    def _run_photo_pairing_sync(self, job: AnalysisJob, db: Session, loop: asyncio.AbstractEventLoop) -> Dict[str, Any]:
+        """
+        Synchronous Photo Pairing execution for thread pool.
+        """
+        import tempfile
+        import os
+        import time
+        from pathlib import Path
+
+        collection = db.query(Collection).filter(
+            Collection.id == job.collection_id
+        ).first()
+
+        job.progress = {"stage": "initializing", "percentage": 0}
+        self._broadcast_progress_sync(job, loop)
+
+        # Import photo_pairing functions and config
+        from photo_pairing import (
+            build_imagegroups, calculate_analytics, generate_html_report
+        )
+        from utils.config_manager import PhotoAdminConfig
+
+        config = PhotoAdminConfig()
+        scan_start = time.time()
+
+        # Check if this is a local or remote collection
+        is_local = collection.type.value.lower() == "local"
+
+        job.progress = {"stage": "scanning", "percentage": 10}
+        self._broadcast_progress_sync(job, loop)
+
+        if is_local:
+            # Use native scan_folder for local collections
+            from photo_pairing import scan_folder
+            folder_path = Path(collection.location)
+            photo_files = list(scan_folder(folder_path, config.photo_extensions))
+        else:
+            # Use FileListingAdapter for remote collections
+            from backend.src.utils.file_listing import FileListingFactory, VirtualPath
+
+            # Get encryptor from app state if available
+            encryptor = getattr(self, '_encryptor', None)
+
+            adapter = FileListingFactory.create_adapter(collection, db, encryptor)
+            file_infos = adapter.list_files(extensions=config.photo_extensions)
+
+            # Convert FileInfo to VirtualPath for use with build_imagegroups
+            photo_files = [fi.to_virtual_path("") for fi in file_infos]
+            folder_path = VirtualPath("", 0, "")
+
+        job.progress = {"stage": "analyzing", "percentage": 30}
+        self._broadcast_progress_sync(job, loop)
+
+        # Build image groups
+        result = build_imagegroups(photo_files, folder_path)
+        imagegroups = result.get('imagegroups', [])
+        invalid_files = result.get('invalid_files', [])
+
+        job.progress = {"stage": "calculating_analytics", "percentage": 50}
+        self._broadcast_progress_sync(job, loop)
+
+        # Calculate analytics (skip interactive prompts - use existing mappings)
+        analytics = calculate_analytics(
+            imagegroups,
+            config.camera_mappings,
+            config.processing_methods
+        )
+
+        scan_duration = time.time() - scan_start
+
+        job.progress = {"stage": "generating_report", "percentage": 80}
+        self._broadcast_progress_sync(job, loop)
+
+        # Generate HTML report
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+            temp_path = f.name
+
+        try:
+            # For remote collections, use collection.location as display path
+            display_path = folder_path if is_local else Path(collection.location)
+            generate_html_report(analytics, invalid_files, temp_path, display_path, scan_duration)
+            if os.path.exists(temp_path):
+                with open(temp_path, 'r') as f:
+                    report_html = f.read()
+            else:
+                report_html = None
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+        stats = analytics.get('statistics', {})
+        total_files = stats.get('total_files_scanned', len(photo_files))
+        total_images = stats.get('total_images', 0)
+
+        job.progress = {
+            "stage": "completed",
+            "files_scanned": total_files,
+            "total_files": total_files,
+            "issues_found": len(invalid_files),
+            "percentage": 100
+        }
+        self._broadcast_progress_sync(job, loop)
+
+        return {
+            "results": {
+                "group_count": len(imagegroups),
+                "image_count": total_images,
+                "camera_usage": analytics.get('camera_usage', {}),
+                "invalid_files_count": len(invalid_files),
+                "method_usage": analytics.get('method_usage', {})
+            },
+            "report_html": report_html,
+            "files_scanned": total_files,
+            "issues_found": len(invalid_files)
+        }
+
+    def _run_pipeline_validation_sync(self, job: AnalysisJob, db: Session, loop: asyncio.AbstractEventLoop) -> Dict[str, Any]:
+        """
+        Synchronous Pipeline Validation execution for thread pool.
+        Mirrors the async version's logic but uses sync broadcast.
+        """
+        import time
+        from pathlib import Path
+
+        # Get collection and pipeline
+        collection = db.query(Collection).filter(
+            Collection.id == job.collection_id
+        ).first()
+
+        if not collection:
+            raise ValueError(f"Collection {job.collection_id} not found")
+
+        pipeline = db.query(Pipeline).filter(
+            Pipeline.id == job.pipeline_id
+        ).first()
+
+        if not pipeline:
+            raise ValueError(f"Pipeline {job.pipeline_id} not found")
+
+        job.progress = {"stage": "initializing", "percentage": 0}
+        self._broadcast_progress_sync(job, loop)
+
+        # Import pipeline processor and adapter
+        from backend.src.utils.pipeline_adapter import convert_db_pipeline_to_config
+        from utils.pipeline_processor import (
+            validate_all_images,
+            ValidationStatus,
+        )
+        from utils.config_manager import PhotoAdminConfig
+
+        config = PhotoAdminConfig()
+        scan_start = time.time()
+
+        # Convert database pipeline to PipelineConfig
+        job.progress = {"stage": "loading_pipeline", "percentage": 2}
+        self._broadcast_progress_sync(job, loop)
+
+        pipeline_config = convert_db_pipeline_to_config(
+            pipeline.nodes_json,
+            pipeline.edges_json
+        )
+
+        # Check if local or remote collection
+        is_local = collection.type.value.lower() == "local"
+
+        job.progress = {"stage": "scanning", "percentage": 4}
+        self._broadcast_progress_sync(job, loop)
+
+        if is_local:
+            # Use Photo Pairing for local collections
+            folder_path = Path(collection.location)
+
+            # Import photo_pairing
+            import photo_pairing
+            from photo_pairing import scan_folder, build_imagegroups
+
+            # Scan for photo files
+            photo_files = list(scan_folder(folder_path, config.photo_extensions))
+
+            job.progress = {"stage": "building_imagegroups", "percentage": 6}
+            self._broadcast_progress_sync(job, loop)
+
+            # Build image groups
+            result = build_imagegroups(photo_files, folder_path)
+            imagegroups = result.get('imagegroups', [])
+            invalid_files = result.get('invalid_files', [])
+        else:
+            # Use FileListingAdapter for remote collections
+            from backend.src.utils.file_listing import FileListingFactory, VirtualPath
+            import photo_pairing
+
+            encryptor = getattr(self, '_encryptor', None)
+            adapter = FileListingFactory.create_adapter(collection, db, encryptor)
+
+            # Get all photo files
+            file_infos = adapter.list_files(extensions=config.photo_extensions)
+
+            job.progress = {"stage": "building_imagegroups", "percentage": 6}
+            self._broadcast_progress_sync(job, loop)
+
+            # Convert to VirtualPath for photo_pairing
+            photo_files = [fi.to_virtual_path("") for fi in file_infos]
+            folder_path = VirtualPath("", 0, "")
+
+            # Build image groups
+            result = photo_pairing.build_imagegroups(photo_files, folder_path)
+            imagegroups = result.get('imagegroups', [])
+            invalid_files = result.get('invalid_files', [])
+
+        job.progress = {"stage": "validating", "percentage": 8}
+        self._broadcast_progress_sync(job, loop)
+
+        # Flatten imagegroups to specific images
+        from pipeline_validation import (
+            flatten_imagegroups_to_specific_images,
+            add_metadata_files_to_specific_images
+        )
+        from utils.pipeline_processor import validate_specific_image
+
+        specific_images = flatten_imagegroups_to_specific_images(imagegroups)
+
+        # Add metadata files (XMP, etc.) for local collections
+        if is_local:
+            add_metadata_files_to_specific_images(specific_images, folder_path, config)
+
+        # Validate all images against pipeline with progress updates
+        # Progress range: 10% to 90% (80% range for validation - the heavy lifting)
+        total_images = len(specific_images)
+        validation_results = []
+
+        # Classify overall results (worst status per image)
+        overall_status_counts = {
+            ValidationStatus.CONSISTENT: 0,
+            ValidationStatus.CONSISTENT_WITH_WARNING: 0,
+            ValidationStatus.PARTIAL: 0,
+            ValidationStatus.INCONSISTENT: 0,
+        }
+
+        # Collect per-termination statistics
+        termination_stats: Dict[str, Dict[str, int]] = {}
+
+        # Validate each image with progress updates
+        last_broadcast_pct = 0
+        for idx, specific_image in enumerate(specific_images):
+            result = validate_specific_image(specific_image, pipeline_config, show_progress=False)
+            validation_results.append(result)
+
+            # Update statistics as we go
+            overall_status_counts[result.overall_status] = overall_status_counts.get(result.overall_status, 0) + 1
+
+            for term_match in result.termination_matches:
+                term_type = term_match.termination_type
+                match_status = term_match.status
+
+                if term_type not in termination_stats:
+                    termination_stats[term_type] = {
+                        "CONSISTENT": 0,
+                        "CONSISTENT_WITH_WARNING": 0,
+                        "PARTIAL": 0,
+                        "INCONSISTENT": 0,
+                    }
+
+                if match_status == ValidationStatus.CONSISTENT:
+                    termination_stats[term_type]["CONSISTENT"] += 1
+                elif match_status == ValidationStatus.CONSISTENT_WITH_WARNING:
+                    termination_stats[term_type]["CONSISTENT_WITH_WARNING"] += 1
+                elif match_status == ValidationStatus.PARTIAL:
+                    termination_stats[term_type]["PARTIAL"] += 1
+                elif match_status == ValidationStatus.INCONSISTENT:
+                    termination_stats[term_type]["INCONSISTENT"] += 1
+
+            # Broadcast progress every 2% or at least every 50 images
+            current_pct = int((idx + 1) / total_images * 80) + 10  # 10% to 90%
+            if current_pct >= last_broadcast_pct + 2 or (idx + 1) % 50 == 0 or idx == total_images - 1:
+                issues_so_far = (
+                    overall_status_counts[ValidationStatus.PARTIAL] +
+                    overall_status_counts[ValidationStatus.INCONSISTENT]
+                )
+                job.progress = {
+                    "stage": "analyzing",
+                    "percentage": current_pct,
+                    "files_scanned": idx + 1,
+                    "total_files": total_images,
+                    "issues_found": issues_so_far
+                }
+                self._broadcast_progress_sync(job, loop)
+                last_broadcast_pct = current_pct
+
+        job.progress = {"stage": "generating_report", "percentage": 92}
+        self._broadcast_progress_sync(job, loop)
+
+        scan_duration = time.time() - scan_start
+
+        # Generate HTML report
+        report_html = self._generate_pipeline_validation_report(
+            validation_results,
+            pipeline.name,
+            collection.location,
+            scan_duration,
+            len(imagegroups),
+            len(specific_images),
+            overall_status_counts,
+            termination_stats
+        )
+
+        # Calculate issues (PARTIAL + INCONSISTENT based on overall status)
+        issues_found = (
+            overall_status_counts[ValidationStatus.PARTIAL] +
+            overall_status_counts[ValidationStatus.INCONSISTENT]
+        )
+
+        job.progress = {
+            "stage": "completed",
+            "percentage": 100,
+            "files_scanned": len(specific_images),
+            "total_files": len(specific_images),
+            "issues_found": issues_found
+        }
+        self._broadcast_progress_sync(job, loop)
+
+        # Build per-termination consistency counts for frontend
+        by_termination = {}
+        for term_type, counts in termination_stats.items():
+            by_termination[term_type] = {
+                "CONSISTENT": counts.get("CONSISTENT", 0) + counts.get("CONSISTENT_WITH_WARNING", 0),
+                "PARTIAL": counts.get("PARTIAL", 0),
+                "INCONSISTENT": counts.get("INCONSISTENT", 0)
+            }
+
+        return {
+            "results": {
+                "pipeline_name": pipeline.name,
+                "pipeline_id": pipeline.id,
+                "total_images": len(specific_images),
+                "group_count": len(imagegroups),
+                # Overall consistency (worst status per image)
+                "overall_consistency": {
+                    "CONSISTENT": overall_status_counts[ValidationStatus.CONSISTENT] + overall_status_counts[ValidationStatus.CONSISTENT_WITH_WARNING],
+                    "PARTIAL": overall_status_counts[ValidationStatus.PARTIAL],
+                    "INCONSISTENT": overall_status_counts[ValidationStatus.INCONSISTENT]
+                },
+                # Per-termination type breakdown
+                "by_termination": by_termination,
+                "invalid_files_count": len(invalid_files),
+                "scan_duration": scan_duration
+            },
+            "report_html": report_html,
+            "files_scanned": len(specific_images),
+            "issues_found": issues_found
+        }
+
+    def _run_display_graph_sync(self, job: AnalysisJob, db: Session, loop: asyncio.AbstractEventLoop) -> Dict[str, Any]:
+        """
+        Synchronous Display Graph execution for thread pool.
+        """
+        job.progress = {"stage": "initializing", "percentage": 0}
+        self._broadcast_progress_sync(job, loop)
+
+        # Get pipeline
+        pipeline = db.query(Pipeline).filter(Pipeline.id == job.pipeline_id).first()
+        if not pipeline:
+            raise ValueError(f"Pipeline {job.pipeline_id} not found")
+
+        job.progress = {"stage": "building_graph", "percentage": 20}
+        self._broadcast_progress_sync(job, loop)
+
+        # Convert pipeline to PipelineConfig
+        from backend.src.utils.pipeline_adapter import convert_db_pipeline_to_config
+        pipeline_config = convert_db_pipeline_to_config(
+            pipeline.nodes_json,
+            pipeline.edges_json
+        )
+
+        job.progress = {"stage": "enumerating_paths", "percentage": 40}
+        self._broadcast_progress_sync(job, loop)
+
+        # Build pipeline graph and enumerate paths
+        from utils.pipeline_processor import PipelineGraph
+        pipeline_graph = PipelineGraph(pipeline_config)
+        paths = pipeline_graph.enumerate_paths_with_pairing()
+
+        job.progress = {"stage": "generating_report", "percentage": 70}
+        self._broadcast_progress_sync(job, loop)
+
+        # Generate HTML report
+        report_html = self._generate_display_graph_report(pipeline, paths, pipeline_config)
+
+        job.progress = {
+            "stage": "completed",
+            "percentage": 100
+        }
+        self._broadcast_progress_sync(job, loop)
+
+        return {
+            "results": {
+                "pipeline_name": pipeline.name,
+                "pipeline_version": pipeline.version,
+                "total_paths": len(paths),
+                "path_details": [
+                    {
+                        "termination": path.termination_type,
+                        "expected_files": path.expected_files
+                    }
+                    for path in paths
+                ]
+            },
+            "report_html": report_html,
+            "pipeline_id": pipeline.id,
+            "pipeline_version": pipeline.version
+        }
 
     async def _run_photostats(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
         """
@@ -1083,16 +1753,41 @@ class ToolService:
 
         validation_results = validate_all_images(specific_images, pipeline_config)
 
-        # Classify results
-        status_counts = {
+        # Classify overall results (worst status per image)
+        overall_status_counts = {
             ValidationStatus.CONSISTENT: 0,
             ValidationStatus.CONSISTENT_WITH_WARNING: 0,
             ValidationStatus.PARTIAL: 0,
             ValidationStatus.INCONSISTENT: 0,
         }
 
+        # Collect per-termination statistics
+        termination_stats: Dict[str, Dict[str, int]] = {}
+
         for result in validation_results:
-            status_counts[result.status] = status_counts.get(result.status, 0) + 1
+            overall_status_counts[result.overall_status] = overall_status_counts.get(result.overall_status, 0) + 1
+
+            # Process each termination match
+            for term_match in result.termination_matches:
+                term_type = term_match.termination_type
+                match_status = term_match.status
+
+                if term_type not in termination_stats:
+                    termination_stats[term_type] = {
+                        "CONSISTENT": 0,
+                        "CONSISTENT_WITH_WARNING": 0,
+                        "PARTIAL": 0,
+                        "INCONSISTENT": 0,
+                    }
+
+                if match_status == ValidationStatus.CONSISTENT:
+                    termination_stats[term_type]["CONSISTENT"] += 1
+                elif match_status == ValidationStatus.CONSISTENT_WITH_WARNING:
+                    termination_stats[term_type]["CONSISTENT_WITH_WARNING"] += 1
+                elif match_status == ValidationStatus.PARTIAL:
+                    termination_stats[term_type]["PARTIAL"] += 1
+                elif match_status == ValidationStatus.INCONSISTENT:
+                    termination_stats[term_type]["INCONSISTENT"] += 1
 
         scan_duration = time.time() - scan_start
 
@@ -1107,13 +1802,14 @@ class ToolService:
             scan_duration,
             len(imagegroups),
             len(specific_images),
-            status_counts
+            overall_status_counts,
+            termination_stats
         )
 
-        # Calculate issues (PARTIAL + INCONSISTENT)
+        # Calculate issues (PARTIAL + INCONSISTENT based on overall status)
         issues_found = (
-            status_counts[ValidationStatus.PARTIAL] +
-            status_counts[ValidationStatus.INCONSISTENT]
+            overall_status_counts[ValidationStatus.PARTIAL] +
+            overall_status_counts[ValidationStatus.INCONSISTENT]
         )
 
         job.progress = {
@@ -1125,16 +1821,29 @@ class ToolService:
         }
         await self._broadcast_progress(job)
 
+        # Build per-termination consistency counts for frontend
+        by_termination = {}
+        for term_type, stats in termination_stats.items():
+            by_termination[term_type] = {
+                "CONSISTENT": stats["CONSISTENT"] + stats["CONSISTENT_WITH_WARNING"],
+                "PARTIAL": stats["PARTIAL"],
+                "INCONSISTENT": stats["INCONSISTENT"],
+            }
+
         return {
             "results": {
                 "pipeline_name": pipeline.name,
                 "pipeline_id": pipeline.id,
                 "total_images": len(specific_images),
                 "group_count": len(imagegroups),
-                "consistent_count": status_counts[ValidationStatus.CONSISTENT],
-                "consistent_with_warning_count": status_counts[ValidationStatus.CONSISTENT_WITH_WARNING],
-                "partial_count": status_counts[ValidationStatus.PARTIAL],
-                "inconsistent_count": status_counts[ValidationStatus.INCONSISTENT],
+                # Overall consistency (worst status per image)
+                "overall_consistency": {
+                    "CONSISTENT": overall_status_counts[ValidationStatus.CONSISTENT] + overall_status_counts[ValidationStatus.CONSISTENT_WITH_WARNING],
+                    "PARTIAL": overall_status_counts[ValidationStatus.PARTIAL],
+                    "INCONSISTENT": overall_status_counts[ValidationStatus.INCONSISTENT],
+                },
+                # Per-termination type breakdown
+                "by_termination": by_termination,
                 "invalid_files_count": len(invalid_files),
                 "scan_duration": scan_duration
             },
@@ -1151,7 +1860,8 @@ class ToolService:
         scan_duration: float,
         group_count: int,
         image_count: int,
-        status_counts: dict
+        status_counts: dict,
+        termination_stats: Optional[Dict[str, Dict[str, int]]] = None
     ) -> str:
         """
         Generate HTML report for Pipeline Validation results.
@@ -1163,7 +1873,8 @@ class ToolService:
             scan_duration: Time taken to scan
             group_count: Number of image groups
             image_count: Number of specific images validated
-            status_counts: Dict mapping ValidationStatus to count
+            status_counts: Dict mapping ValidationStatus to count (overall)
+            termination_stats: Dict mapping termination type to status counts
 
         Returns:
             HTML report string
@@ -1233,7 +1944,7 @@ class ToolService:
             # Build chart sections
             sections = [
                 ReportSection(
-                    title="📊 Validation Status Distribution",
+                    title="📊 Overall Status Distribution",
                     type="chart_pie",
                     data={
                         "labels": ["Consistent", "With Warning", "Partial", "Inconsistent"],
@@ -1244,24 +1955,71 @@ class ToolService:
                             status_counts[ValidationStatus.INCONSISTENT]
                         ]
                     },
-                    description="Distribution of validation statuses across all images"
+                    description="Overall validation status (worst status per image across all termination types)"
                 )
             ]
+
+            # Add per-termination charts
+            if termination_stats:
+                for term_type in sorted(termination_stats.keys()):
+                    stats = termination_stats[term_type]
+                    sections.append(
+                        ReportSection(
+                            title=f"📊 {term_type}",
+                            type="chart_pie",
+                            data={
+                                "labels": ["Consistent", "With Warning", "Partial", "Inconsistent"],
+                                "values": [
+                                    stats.get("CONSISTENT", 0),
+                                    stats.get("CONSISTENT_WITH_WARNING", 0),
+                                    stats.get("PARTIAL", 0),
+                                    stats.get("INCONSISTENT", 0)
+                                ]
+                            },
+                            description=f"Validation status for {term_type} termination type"
+                        )
+                    )
 
             # Add issues table if there are any
             partial_and_inconsistent = [
                 r for r in validation_results
-                if r.status in [ValidationStatus.PARTIAL, ValidationStatus.INCONSISTENT]
+                if r.overall_status in [ValidationStatus.PARTIAL, ValidationStatus.INCONSISTENT]
             ]
 
             if partial_and_inconsistent:
                 rows = []
                 for result in partial_and_inconsistent[:100]:  # Limit to 100
+                    # Find a termination match that shows the problem (PARTIAL or INCONSISTENT)
+                    # This helps debugging by showing what's actually missing
+                    problem_match = None
+
+                    # First, prefer PARTIAL matches (they show what's missing)
+                    for match in result.termination_matches:
+                        if match.status == ValidationStatus.PARTIAL:
+                            problem_match = match
+                            break
+
+                    # If no PARTIAL, try INCONSISTENT
+                    if not problem_match:
+                        for match in result.termination_matches:
+                            if match.status == ValidationStatus.INCONSISTENT:
+                                problem_match = match
+                                break
+
+                    # Fallback to first match if somehow all are CONSISTENT
+                    if not problem_match and result.termination_matches:
+                        problem_match = result.termination_matches[0]
+
+                    # Show full file lists for debugging - actual files and missing files
+                    actual_files_str = ", ".join(result.actual_files) if result.actual_files else "(none)"
+                    missing_files_str = ", ".join(problem_match.missing_files) if problem_match and problem_match.missing_files else "(none)"
+
                     rows.append([
-                        result.specific_image.base_filename,
-                        result.status.value,
-                        result.matched_termination.node_id if result.matched_termination else "None",
-                        ", ".join(result.specific_image.files[:3]) + ("..." if len(result.specific_image.files) > 3 else "")
+                        result.base_filename,
+                        result.overall_status.value,
+                        problem_match.termination_type if problem_match else "None",
+                        actual_files_str,
+                        missing_files_str
                     ])
 
                 sections.append(
@@ -1269,7 +2027,7 @@ class ToolService:
                         title="⚠️ Images Requiring Attention",
                         type="table",
                         data={
-                            "headers": ["Image", "Status", "Termination", "Files"],
+                            "headers": ["Image", "Status", "Termination", "Actual Files", "Missing Files"],
                             "rows": rows
                         },
                         description=f"Found {len(partial_and_inconsistent)} images that are partial or inconsistent"
@@ -1351,6 +2109,292 @@ class ToolService:
         </html>
         """
 
+    async def _run_display_graph(self, job: AnalysisJob, db: Session) -> Dict[str, Any]:
+        """
+        Execute Pipeline Validation in display-graph mode.
+
+        This mode validates the pipeline definition only (no collection needed).
+        It enumerates all possible paths through the pipeline graph and generates
+        expected filename patterns for each path.
+
+        Args:
+            job: Job being executed (with pipeline_id, no collection_id)
+            db: Database session for this job execution
+
+        Returns:
+            Display-graph results dictionary with paths and report
+        """
+        import time
+        from pathlib import Path
+        from jinja2 import Environment, FileSystemLoader
+        from datetime import datetime
+        from dataclasses import dataclass
+
+        pipeline = db.query(Pipeline).filter(
+            Pipeline.id == job.pipeline_id
+        ).first()
+
+        if not pipeline:
+            raise ValueError(f"Pipeline {job.pipeline_id} not found")
+
+        # Initialize progress
+        job.progress = {"stage": "initializing", "percentage": 0}
+        await self._broadcast_progress(job)
+
+        scan_start = time.time()
+
+        # Import pipeline processor
+        from backend.src.utils.pipeline_adapter import convert_db_pipeline_to_config
+        from utils.pipeline_processor import enumerate_paths_with_pairing, generate_expected_files
+
+        job.progress = {"stage": "loading_pipeline", "percentage": 10}
+        await self._broadcast_progress(job)
+
+        # Convert database pipeline to PipelineConfig
+        pipeline_config = convert_db_pipeline_to_config(
+            pipeline.nodes_json,
+            pipeline.edges_json
+        )
+
+        # Extract sample_filename from Capture node for expected file generation
+        capture_node = next(
+            (n for n in pipeline.nodes_json if n.get('type') == 'capture'),
+            None
+        )
+        base_filename = capture_node.get('properties', {}).get('sample_filename', 'XXXX0001') if capture_node else 'XXXX0001'
+
+        job.progress = {"stage": "analyzing_paths", "percentage": 30}
+        await self._broadcast_progress(job)
+
+        # Enumerate all paths through the pipeline
+        paths = enumerate_paths_with_pairing(pipeline_config)
+
+        job.progress = {"stage": "generating_patterns", "percentage": 60}
+        await self._broadcast_progress(job)
+
+        # Build path details for report
+        # Each path is a list of node info dicts: {'id': ..., 'type': ..., ...}
+        path_details = []
+        for i, path in enumerate(paths):
+            # Extract node IDs from path (each step is a dict with 'id' key)
+            node_sequence = [step.get('id') for step in path if step.get('id')]
+
+            # Get termination info from last node
+            last_node = path[-1] if path else {}
+            if last_node.get('type') == 'Termination':
+                termination_type = last_node.get('term_type', 'Unknown')
+                is_truncated = last_node.get('truncated', False)
+            else:
+                termination_type = 'None'
+                is_truncated = False
+
+            # Check if path contains a Pairing node
+            has_pairing = any(step.get('type') == 'Pairing' for step in path)
+
+            # Generate expected filename pattern using sample_filename from Capture node
+            expected_files = generate_expected_files(path, base_filename, "")
+
+            path_details.append({
+                "path_number": i + 1,
+                "nodes": node_sequence,
+                "termination": termination_type,
+                "is_pairing_path": has_pairing,
+                "is_truncated": is_truncated,
+                "expected_files": expected_files
+            })
+
+        scan_duration = time.time() - scan_start
+
+        job.progress = {"stage": "generating_report", "percentage": 80}
+        await self._broadcast_progress(job)
+
+        # Generate HTML report
+        report_html = self._generate_display_graph_report(
+            pipeline.name,
+            pipeline.version,
+            path_details,
+            scan_duration
+        )
+
+        job.progress = {
+            "stage": "completed",
+            "files_scanned": None,  # No files scanned in display-graph mode
+            "total_files": None,
+            "issues_found": 0,
+            "percentage": 100
+        }
+        await self._broadcast_progress(job)
+
+        return {
+            "results": {
+                "pipeline_name": pipeline.name,
+                "pipeline_id": pipeline.id,
+                "pipeline_version": pipeline.version,
+                "total_paths": len(paths),
+                "pairing_paths": sum(1 for p in path_details if p.get("is_pairing_path")),
+                "paths": path_details,
+                "scan_duration": scan_duration
+            },
+            "report_html": report_html,
+            "files_scanned": None,
+            "issues_found": 0
+        }
+
+    def _generate_display_graph_report(
+        self,
+        pipeline_name: str,
+        pipeline_version: int,
+        path_details: List[Dict[str, Any]],
+        scan_duration: float
+    ) -> str:
+        """
+        Generate HTML report for display-graph mode.
+
+        Args:
+            pipeline_name: Name of the pipeline
+            pipeline_version: Version number
+            path_details: List of path detail dictionaries
+            scan_duration: Time taken to analyze
+
+        Returns:
+            HTML report string
+        """
+        from jinja2 import Environment, FileSystemLoader
+        from pathlib import Path
+        from datetime import datetime
+        from dataclasses import dataclass
+
+        @dataclass
+        class KPICard:
+            title: str
+            value: str
+            status: str
+            unit: Optional[str] = None
+
+        @dataclass
+        class ReportSection:
+            title: str
+            type: str
+            data: Optional[Dict[str, Any]] = None
+            html_content: Optional[str] = None
+            description: Optional[str] = None
+
+        try:
+            total_paths = len(path_details)
+            pairing_paths = sum(1 for p in path_details if p.get("is_pairing_path"))
+
+            # Build KPI cards
+            kpis = [
+                KPICard(
+                    title="Pipeline Version",
+                    value=str(pipeline_version),
+                    status="info"
+                ),
+                KPICard(
+                    title="Total Paths",
+                    value=str(total_paths),
+                    status="info",
+                    unit="paths"
+                ),
+                KPICard(
+                    title="Pairing Paths",
+                    value=str(pairing_paths),
+                    status="info" if pairing_paths > 0 else "warning",
+                    unit="paths"
+                ),
+                KPICard(
+                    title="Analysis Time",
+                    value=f"{scan_duration:.2f}",
+                    status="success",
+                    unit="seconds"
+                )
+            ]
+
+            # Build path table
+            rows = []
+            for path in path_details:
+                nodes_str = " → ".join(path["nodes"])
+                # Show all expected files in the full HTML report
+                files_str = ", ".join(path["expected_files"])
+
+                rows.append([
+                    str(path["path_number"]),
+                    nodes_str,
+                    path["termination"],
+                    "Yes" if path.get("is_pairing_path") else "No",
+                    files_str
+                ])
+
+            sections = [
+                ReportSection(
+                    title="📊 Pipeline Graph Analysis",
+                    type="html",
+                    html_content=f'''
+                    <div class="message-box" style="background: #d4edda; border-left: 4px solid #28a745; padding: 20px; border-radius: 8px;">
+                        <strong>✓ Pipeline definition validated successfully!</strong>
+                        <p style="margin-top: 10px;">Found {total_paths} valid paths through the pipeline graph.</p>
+                    </div>
+                    '''
+                ),
+                ReportSection(
+                    title="🔀 Enumerated Paths",
+                    type="table",
+                    data={
+                        "headers": ["#", "Node Sequence", "Termination", "Pairing", "Expected Files"],
+                        "rows": rows
+                    },
+                    description=f"All {total_paths} paths through the pipeline"
+                )
+            ]
+
+            # Load and render template
+            template_dir = Path(__file__).parent.parent.parent.parent / "templates"
+            if template_dir.exists():
+                env = Environment(
+                    loader=FileSystemLoader(str(template_dir)),
+                    autoescape=True,
+                    trim_blocks=True,
+                    lstrip_blocks=True
+                )
+
+                # Try to use pipeline_validation template, fall back to photo_stats
+                try:
+                    template = env.get_template("pipeline_validation.html.j2")
+                except Exception:
+                    template = env.get_template("photo_stats.html.j2")
+
+                return template.render(
+                    tool_name=f"Pipeline Graph Analysis ({pipeline_name})",
+                    tool_version=TOOL_VERSION,
+                    scan_path=f"Pipeline: {pipeline_name} v{pipeline_version}",
+                    scan_timestamp=datetime.now(),
+                    scan_duration=scan_duration,
+                    kpis=kpis,
+                    sections=sections,
+                    warnings=[],
+                    errors=[],
+                    footer_note=f"Analyzed pipeline: {pipeline_name} (version {pipeline_version})"
+                )
+
+        except Exception as e:
+            logger.warning(f"Failed to render display-graph template: {e}")
+
+        # Fallback: simple HTML report
+        return f"""
+        <html>
+        <head><title>Pipeline Graph Analysis</title></head>
+        <body>
+            <h1>Pipeline Graph Analysis</h1>
+            <p>Pipeline: {pipeline_name} (version {pipeline_version})</p>
+            <p>Total Paths: {len(path_details)}</p>
+            <h2>Paths</h2>
+            <ul>
+                {"".join(f"<li>Path {p['path_number']}: {' → '.join(p['nodes'])} → {p['termination']}</li>" for p in path_details)}
+            </ul>
+        </body>
+        </html>
+        """
+
     def _store_result(self, job: AnalysisJob, tool_results: Dict[str, Any], db: Session) -> AnalysisResult:
         """
         Store successful tool execution result.
@@ -1367,6 +2411,7 @@ class ToolService:
             collection_id=job.collection_id,
             tool=job.tool,  # AnalysisJob.tool is already a string
             pipeline_id=job.pipeline_id,
+            pipeline_version=job.pipeline_version,
             status=ResultStatus.COMPLETED,
             started_at=job.started_at,
             completed_at=datetime.utcnow(),
@@ -1397,6 +2442,7 @@ class ToolService:
             collection_id=job.collection_id,
             tool=job.tool,  # AnalysisJob.tool is already a string
             pipeline_id=job.pipeline_id,
+            pipeline_version=job.pipeline_version,
             status=ResultStatus.FAILED,
             started_at=job.started_at,
             completed_at=datetime.utcnow(),
@@ -1460,22 +2506,166 @@ class ToolService:
             db.commit()
             logger.info(f"Updated collection {collection_id} statistics from tool results")
 
+    def _get_pipeline_for_collection(
+        self,
+        collection: Collection
+    ) -> tuple[Optional[int], Optional[int]]:
+        """
+        Get the pipeline and version for a collection without requiring it.
+
+        This is used by PhotoStats and Photo Pairing to capture pipeline context
+        for traceability, without failing if no pipeline is available.
+
+        Resolution order:
+        1. If collection has explicit pipeline assignment, use that
+        2. Fall back to default pipeline
+        3. If neither exists, return (None, None)
+
+        Args:
+            collection: Collection to get pipeline for
+
+        Returns:
+            Tuple of (pipeline_id, pipeline_version) or (None, None)
+        """
+        # 1. Check for collection's explicit pipeline assignment
+        if collection.pipeline_id:
+            pipeline = self.db.query(Pipeline).filter(
+                Pipeline.id == collection.pipeline_id
+            ).first()
+            if pipeline:
+                # Use the pinned version from collection if set, otherwise current version
+                version = collection.pipeline_version or pipeline.version
+                return pipeline.id, version
+
+        # 2. Fall back to default pipeline
+        default_pipeline = self.db.query(Pipeline).filter(
+            Pipeline.is_default == True
+        ).first()
+        if default_pipeline:
+            return default_pipeline.id, default_pipeline.version
+
+        # 3. No pipeline available - that's OK for PhotoStats/PhotoPairing
+        return None, None
+
+    def _resolve_pipeline_for_collection(
+        self,
+        collection: Collection,
+        override_pipeline_id: Optional[int] = None
+    ) -> tuple[int, int]:
+        """
+        Resolve the pipeline and version to use for a collection.
+
+        Resolution order:
+        1. If override_pipeline_id provided, use that pipeline's current version
+        2. If collection has explicit pipeline assignment, use that
+        3. Fall back to default pipeline
+
+        Args:
+            collection: Collection to resolve pipeline for
+            override_pipeline_id: Optional override pipeline ID (from API request)
+
+        Returns:
+            Tuple of (pipeline_id, pipeline_version)
+
+        Raises:
+            ValueError: If no pipeline available or pipeline is invalid
+        """
+        from backend.src.models import PipelineHistory
+
+        # 1. Check for override pipeline_id (from API request)
+        if override_pipeline_id:
+            pipeline = self.db.query(Pipeline).filter(
+                Pipeline.id == override_pipeline_id
+            ).first()
+            if not pipeline:
+                raise ValueError(f"Pipeline {override_pipeline_id} not found")
+            if not pipeline.is_active:
+                raise ValueError(f"Pipeline '{pipeline.name}' is not active")
+            if not pipeline.is_valid:
+                raise ValueError(f"Pipeline '{pipeline.name}' is not valid")
+            return pipeline.id, pipeline.version
+
+        # 2. Check for collection's explicit pipeline assignment
+        if collection.pipeline_id:
+            pipeline = self.db.query(Pipeline).filter(
+                Pipeline.id == collection.pipeline_id
+            ).first()
+            if not pipeline:
+                raise ValueError(
+                    f"Assigned pipeline {collection.pipeline_id} not found. "
+                    "Please reassign a pipeline to this collection."
+                )
+            if not pipeline.is_active:
+                raise ValueError(
+                    f"Assigned pipeline '{pipeline.name}' is not active. "
+                    "Please activate it or reassign a different pipeline."
+                )
+            if not pipeline.is_valid:
+                raise ValueError(
+                    f"Assigned pipeline '{pipeline.name}' is not valid. "
+                    "Please fix the pipeline or reassign a different one."
+                )
+
+            # Use the pinned version from collection, verify it exists
+            if collection.pipeline_version:
+                # Check if version exists (either current or in history)
+                if collection.pipeline_version != pipeline.version:
+                    history = self.db.query(PipelineHistory).filter(
+                        PipelineHistory.pipeline_id == collection.pipeline_id,
+                        PipelineHistory.version == collection.pipeline_version
+                    ).first()
+                    if not history:
+                        raise ValueError(
+                            f"Pipeline version {collection.pipeline_version} not found. "
+                            "Please reassign the pipeline to update to the current version."
+                        )
+                return pipeline.id, collection.pipeline_version
+            else:
+                return pipeline.id, pipeline.version
+
+        # 3. Fall back to default pipeline
+        default_pipeline = self.db.query(Pipeline).filter(
+            Pipeline.is_default == True
+        ).first()
+        if not default_pipeline:
+            raise ValueError(
+                "No pipeline available. Either assign a pipeline to this collection "
+                "or configure a default pipeline."
+            )
+        if not default_pipeline.is_valid:
+            raise ValueError(
+                f"Default pipeline '{default_pipeline.name}' is not valid. "
+                "Please fix it or set a different default pipeline."
+            )
+        return default_pipeline.id, default_pipeline.version
+
     async def _broadcast_progress(self, job: AnalysisJob) -> None:
         """
         Broadcast job progress via WebSocket.
+
+        Broadcasts to both:
+        1. Job-specific channel (for clients monitoring a specific job)
+        2. Global jobs channel (for clients monitoring the jobs list)
 
         Args:
             job: Job with updated progress
         """
         if self.websocket_manager:
-            await self.websocket_manager.broadcast(
-                str(job.id),
-                {
-                    "job_id": str(job.id),
-                    "status": job.status.value,
-                    "progress": job.progress,  # Already a dict
-                    "error_message": job.error_message,
-                    "result_id": job.result_id,
-                }
+            job_update = {
+                "job_id": str(job.id),
+                "status": job.status.value,
+                "progress": job.progress,  # Already a dict
+                "error_message": job.error_message,
+                "result_id": job.result_id,
+            }
+
+            # Broadcast to job-specific channel
+            await self.websocket_manager.broadcast(str(job.id), job_update)
+
+            # Broadcast to global jobs channel for Tools page
+            # Convert to full JobResponse format for the global channel
+            job_response = JobAdapter.to_response(job)
+            await self.websocket_manager.broadcast_global_job_update(
+                job_response.model_dump(mode="json")
             )
 

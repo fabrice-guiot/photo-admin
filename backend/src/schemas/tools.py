@@ -28,6 +28,12 @@ class ToolType(str, Enum):
     PIPELINE_VALIDATION = "pipeline_validation"
 
 
+class ToolMode(str, Enum):
+    """Execution mode for pipeline validation tool."""
+    COLLECTION = "collection"      # Validate files in a collection against pipeline
+    DISPLAY_GRAPH = "display_graph"  # Validate pipeline definition only (no collection)
+
+
 class JobStatus(str, Enum):
     """Job execution status."""
     QUEUED = "queued"
@@ -45,33 +51,56 @@ class ToolRunRequest(BaseModel):
     """
     Request to start a tool execution.
 
-    Required:
-        collection_id: ID of the collection to analyze
-        tool: Tool to run (photostats, photo_pairing, pipeline_validation)
+    Fields:
+        tool: Tool to run (required)
+        collection_id: ID of the collection to analyze (required for collection mode)
+        pipeline_id: Pipeline ID (required for display_graph mode)
+        mode: Execution mode for pipeline_validation (optional, defaults to collection)
 
-    Optional:
-        pipeline_id: Pipeline ID (required for pipeline_validation)
+    Mode-specific requirements:
+        - PhotoStats/Photo Pairing: collection_id required, mode ignored
+        - Pipeline Validation (collection): collection_id required, pipeline resolved from collection
+        - Pipeline Validation (display_graph): pipeline_id required, no collection needed
 
-    Example:
+    Example (PhotoStats):
+        >>> request = ToolRunRequest(collection_id=1, tool=ToolType.PHOTOSTATS)
+
+    Example (Pipeline Validation - display_graph):
         >>> request = ToolRunRequest(
-        ...     collection_id=1,
-        ...     tool=ToolType.PHOTOSTATS
+        ...     tool=ToolType.PIPELINE_VALIDATION,
+        ...     mode=ToolMode.DISPLAY_GRAPH,
+        ...     pipeline_id=1
         ... )
     """
-    collection_id: int = Field(..., gt=0, description="ID of the collection to analyze")
     tool: ToolType = Field(..., description="Tool to run")
+    collection_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="ID of the collection to analyze (required for collection mode)"
+    )
     pipeline_id: Optional[int] = Field(
         None,
         gt=0,
-        description="Pipeline ID (required for pipeline_validation)"
+        description="Pipeline ID (required for display_graph mode)"
+    )
+    mode: Optional[ToolMode] = Field(
+        None,
+        description="Execution mode for pipeline_validation (defaults to collection)"
     )
 
     model_config = {
         "json_schema_extra": {
-            "example": {
-                "collection_id": 1,
-                "tool": "photostats"
-            }
+            "examples": [
+                {
+                    "tool": "photostats",
+                    "collection_id": 1
+                },
+                {
+                    "tool": "pipeline_validation",
+                    "mode": "display_graph",
+                    "pipeline_id": 1
+                }
+            ]
         }
     }
 
@@ -86,14 +115,14 @@ class ProgressData(BaseModel):
 
     Fields:
         stage: Current processing stage
-        files_scanned: Number of files processed so far
-        total_files: Total files to process
+        files_scanned: Number of files processed so far (None for display_graph mode)
+        total_files: Total files to process (None for display_graph mode)
         issues_found: Issues detected so far
         percentage: Completion percentage (0-100)
     """
     stage: str = Field("initializing", description="Current stage")
-    files_scanned: int = Field(0, ge=0, description="Files processed")
-    total_files: int = Field(0, ge=0, description="Total files")
+    files_scanned: Optional[int] = Field(None, ge=0, description="Files processed (null for display_graph)")
+    total_files: Optional[int] = Field(None, ge=0, description="Total files (null for display_graph)")
     issues_found: int = Field(0, ge=0, description="Issues found")
     percentage: float = Field(0.0, ge=0, le=100, description="Completion percentage")
 
@@ -106,8 +135,9 @@ class JobResponse(BaseModel):
     and result_id for completed jobs.
     """
     id: UUID = Field(..., description="Unique job identifier")
-    collection_id: int = Field(..., description="Collection being analyzed")
+    collection_id: Optional[int] = Field(None, description="Collection being analyzed (null for display_graph)")
     tool: ToolType = Field(..., description="Tool being run")
+    mode: Optional[ToolMode] = Field(None, description="Execution mode (for pipeline_validation)")
     pipeline_id: Optional[int] = Field(None, description="Pipeline ID if applicable")
     status: JobStatus = Field(..., description="Current job status")
     position: Optional[int] = Field(None, ge=1, description="Queue position if queued")

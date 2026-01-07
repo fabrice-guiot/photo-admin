@@ -29,7 +29,8 @@ import type {
   ResultStatus,
   PhotoStatsResults,
   PhotoPairingResults,
-  PipelineValidationResults
+  PipelineValidationResults,
+  DisplayGraphResults
 } from '@/contracts/api/results-api'
 import { cn } from '@/lib/utils'
 
@@ -88,6 +89,11 @@ function PhotoStatsResultsView({ results }: { results: PhotoStatsResults }) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
   }
 
+  // Defensive defaults for arrays that might be undefined
+  const orphanedImages = results.orphaned_images ?? []
+  const orphanedXmp = results.orphaned_xmp ?? []
+  const fileCounts = results.file_counts ?? {}
+
   return (
     <div className="space-y-4">
       {/* Summary stats */}
@@ -116,10 +122,10 @@ function PhotoStatsResultsView({ results }: { results: PhotoStatsResults }) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {results.orphaned_images.length + results.orphaned_xmp.length}
+              {orphanedImages.length + orphanedXmp.length}
             </div>
             <div className="text-sm text-muted-foreground">
-              {results.orphaned_images.length} images, {results.orphaned_xmp.length} XMP
+              {orphanedImages.length} images, {orphanedXmp.length} XMP
             </div>
           </CardContent>
         </Card>
@@ -132,7 +138,7 @@ function PhotoStatsResultsView({ results }: { results: PhotoStatsResults }) {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {Object.entries(results.file_counts).map(([ext, count]) => (
+            {Object.entries(fileCounts).map(([ext, count]) => (
               <Badge key={ext} variant="secondary">
                 {ext}: {count}
               </Badge>
@@ -142,7 +148,7 @@ function PhotoStatsResultsView({ results }: { results: PhotoStatsResults }) {
       </Card>
 
       {/* Orphaned files (if any) */}
-      {(results.orphaned_images.length > 0 || results.orphaned_xmp.length > 0) && (
+      {(orphanedImages.length > 0 || orphanedXmp.length > 0) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium text-yellow-600">
@@ -150,35 +156,35 @@ function PhotoStatsResultsView({ results }: { results: PhotoStatsResults }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {results.orphaned_images.length > 0 && (
+            {orphanedImages.length > 0 && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Orphaned Images ({results.orphaned_images.length})
+                  Orphaned Images ({orphanedImages.length})
                 </div>
                 <div className="max-h-32 overflow-y-auto text-xs font-mono bg-muted p-2 rounded">
-                  {results.orphaned_images.slice(0, 10).map((file, i) => (
+                  {orphanedImages.slice(0, 10).map((file, i) => (
                     <div key={i} className="truncate">{file}</div>
                   ))}
-                  {results.orphaned_images.length > 10 && (
+                  {orphanedImages.length > 10 && (
                     <div className="text-muted-foreground">
-                      ...and {results.orphaned_images.length - 10} more
+                      ...and {orphanedImages.length - 10} more
                     </div>
                   )}
                 </div>
               </div>
             )}
-            {results.orphaned_xmp.length > 0 && (
+            {orphanedXmp.length > 0 && (
               <div>
                 <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Orphaned XMP Files ({results.orphaned_xmp.length})
+                  Orphaned XMP Files ({orphanedXmp.length})
                 </div>
                 <div className="max-h-32 overflow-y-auto text-xs font-mono bg-muted p-2 rounded">
-                  {results.orphaned_xmp.slice(0, 10).map((file, i) => (
+                  {orphanedXmp.slice(0, 10).map((file, i) => (
                     <div key={i} className="truncate">{file}</div>
                   ))}
-                  {results.orphaned_xmp.length > 10 && (
+                  {orphanedXmp.length > 10 && (
                     <div className="text-muted-foreground">
-                      ...and {results.orphaned_xmp.length - 10} more
+                      ...and {orphanedXmp.length - 10} more
                     </div>
                   )}
                 </div>
@@ -281,63 +287,247 @@ function PhotoPairingResultsView({ results }: { results: PhotoPairingResults }) 
   )
 }
 
+// Extended interface for backward compatibility with old and new result formats
+interface ExtendedPipelineValidationResults {
+  // New format (v2) - with per-termination breakdown
+  overall_consistency?: {
+    CONSISTENT: number
+    PARTIAL: number
+    INCONSISTENT: number
+  }
+  by_termination?: Record<string, {
+    CONSISTENT: number
+    PARTIAL: number
+    INCONSISTENT: number
+  }>
+  // Old format (v1) - single consistency_counts
+  consistency_counts?: {
+    CONSISTENT: number
+    PARTIAL: number
+    INCONSISTENT: number
+  }
+  // Legacy format fields
+  consistent_count?: number
+  consistent_with_warning_count?: number
+  partial_count?: number
+  inconsistent_count?: number
+}
+
+// Helper component to render a status card
+function StatusCard({
+  title,
+  value,
+  total,
+  colorClass,
+}: {
+  title: string
+  value: number
+  total: number
+  colorClass: string
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className={`text-sm font-medium ${colorClass}`}>{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-sm text-muted-foreground">
+          {total > 0 ? ((value / total) * 100).toFixed(1) : 0}%
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function PipelineValidationResultsView({ results }: { results: PipelineValidationResults }) {
-  const total =
-    results.consistency_counts.CONSISTENT +
-    results.consistency_counts.PARTIAL +
-    results.consistency_counts.INCONSISTENT
+  // Handle all format variations
+  const extResults = results as unknown as ExtendedPipelineValidationResults
+
+  // Extract overall consistency - try new format first, then old formats
+  const overallConsistent = extResults.overall_consistency?.CONSISTENT
+    ?? extResults.consistency_counts?.CONSISTENT
+    ?? ((extResults.consistent_count ?? 0) + (extResults.consistent_with_warning_count ?? 0))
+  const overallPartial = extResults.overall_consistency?.PARTIAL
+    ?? extResults.consistency_counts?.PARTIAL
+    ?? (extResults.partial_count ?? 0)
+  const overallInconsistent = extResults.overall_consistency?.INCONSISTENT
+    ?? extResults.consistency_counts?.INCONSISTENT
+    ?? (extResults.inconsistent_count ?? 0)
+
+  const overallTotal = overallConsistent + overallPartial + overallInconsistent
+
+  // Get per-termination breakdown if available
+  const byTermination = extResults.by_termination
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Status Section */}
+      <div>
+        <h4 className="mb-3 text-sm font-semibold text-muted-foreground">
+          Overall Status (worst per image)
+        </h4>
+        <div className="grid grid-cols-3 gap-4">
+          <StatusCard
+            title="Consistent"
+            value={overallConsistent}
+            total={overallTotal}
+            colorClass="text-green-600"
+          />
+          <StatusCard
+            title="Partial"
+            value={overallPartial}
+            total={overallTotal}
+            colorClass="text-yellow-600"
+          />
+          <StatusCard
+            title="Inconsistent"
+            value={overallInconsistent}
+            total={overallTotal}
+            colorClass="text-red-600"
+          />
+        </div>
+      </div>
+
+      {/* Per-Termination Breakdown */}
+      {byTermination && Object.keys(byTermination).length > 0 && (
+        <div>
+          <h4 className="mb-3 text-sm font-semibold text-muted-foreground">
+            By Termination Type
+          </h4>
+          <div className="space-y-4">
+            {Object.entries(byTermination)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([termType, counts]) => {
+                const termTotal = counts.CONSISTENT + counts.PARTIAL + counts.INCONSISTENT
+                return (
+                  <div key={termType}>
+                    <h5 className="mb-2 text-sm font-medium">{termType}</h5>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-green-600">Consistent</div>
+                        <div className="text-lg font-semibold">{counts.CONSISTENT}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {termTotal > 0 ? ((counts.CONSISTENT / termTotal) * 100).toFixed(1) : 0}%
+                        </div>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-yellow-600">Partial</div>
+                        <div className="text-lg font-semibold">{counts.PARTIAL}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {termTotal > 0 ? ((counts.PARTIAL / termTotal) * 100).toFixed(1) : 0}%
+                        </div>
+                      </div>
+                      <div className="rounded-md border p-3">
+                        <div className="text-xs text-red-600">Inconsistent</div>
+                        <div className="text-lg font-semibold">{counts.INCONSISTENT}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {termTotal > 0 ? ((counts.INCONSISTENT / termTotal) * 100).toFixed(1) : 0}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DisplayGraphResultsView({ results }: { results: DisplayGraphResults & { _truncated?: Record<string, number> } }) {
+  const truncatedInfo = results._truncated?.paths
+  const displayedPaths = results.paths?.length ?? 0
 
   return (
     <div className="space-y-4">
+      {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-green-600">
-              Consistent
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Paths</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {results.consistency_counts.CONSISTENT}
-            </div>
+            <div className="text-2xl font-bold">{results.total_paths}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Pairing Paths</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{results.pairing_paths}</div>
             <div className="text-sm text-muted-foreground">
-              {total > 0 ? ((results.consistency_counts.CONSISTENT / total) * 100).toFixed(1) : 0}%
+              {results.total_paths > 0
+                ? ((results.pairing_paths / results.total_paths) * 100).toFixed(1)
+                : 0}%
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-600">
-              Partial
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Pipeline Version</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {results.consistency_counts.PARTIAL}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {total > 0 ? ((results.consistency_counts.PARTIAL / total) * 100).toFixed(1) : 0}%
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-red-600">
-              Inconsistent
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {results.consistency_counts.INCONSISTENT}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              {total > 0 ? ((results.consistency_counts.INCONSISTENT / total) * 100).toFixed(1) : 0}%
-            </div>
+            <div className="text-2xl font-bold">v{results.pipeline_version}</div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Paths preview */}
+      {results.paths && results.paths.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center justify-between">
+              <span>Path Preview</span>
+              {truncatedInfo && (
+                <Badge variant="outline" className="font-normal">
+                  Showing {displayedPaths} of {truncatedInfo}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {results.paths.slice(0, 5).map((path) => (
+                <div
+                  key={path.path_number}
+                  className="text-xs bg-muted p-2 rounded"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant="outline" className="font-mono">
+                      #{path.path_number}
+                    </Badge>
+                    {path.is_pairing_path && (
+                      <Badge variant="secondary" className="text-xs">Pairing</Badge>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground pl-2 font-mono text-xs leading-relaxed">
+                    {path.nodes.map((node, idx) => (
+                      <span key={idx}>
+                        {idx > 0 && <span className="text-muted-foreground/50">{' → '}</span>}
+                        {idx > 0 && <br />}
+                        <span>{node}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {displayedPaths > 5 && (
+                <div className="text-xs text-muted-foreground text-center py-1">
+                  ... and {displayedPaths - 5} more paths in preview
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              Download the HTML report for complete path enumeration and expected file patterns.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
@@ -375,6 +565,16 @@ export function ResultDetailPanel({
       case 'photo_pairing':
         return <PhotoPairingResultsView results={result.results as PhotoPairingResults} />
       case 'pipeline_validation':
+        // Detect display_graph mode by checking for paths array (display_graph)
+        // vs consistency_counts (collection validation mode)
+        const pipelineResults = result.results as unknown as Record<string, unknown>
+        if ('paths' in pipelineResults || 'total_paths' in pipelineResults) {
+          return (
+            <DisplayGraphResultsView
+              results={result.results as DisplayGraphResults & { _truncated?: Record<string, number> }}
+            />
+          )
+        }
         return (
           <PipelineValidationResultsView
             results={result.results as PipelineValidationResults}
@@ -407,7 +607,10 @@ export function ResultDetailPanel({
               {result.collection_name}
             </span>
             {result.pipeline_name && (
-              <Badge variant="outline">Pipeline: {result.pipeline_name}</Badge>
+              <Badge variant="outline">
+                Pipeline: {result.pipeline_name}
+                {result.pipeline_version && ` v${result.pipeline_version}`}
+              </Badge>
             )}
           </div>
 

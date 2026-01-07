@@ -142,6 +142,7 @@ export function CollectionList({
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>State</TableHead>
+              <TableHead>Pipeline</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -163,6 +164,18 @@ export function CollectionList({
                   <Badge variant={COLLECTION_STATE_BADGE_VARIANT[collection.state]}>
                     {COLLECTION_STATE_LABELS[collection.state]}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                  {collection.pipeline_name ? (
+                    <span className="text-sm" title={`v${collection.pipeline_version}`}>
+                      {collection.pipeline_name}
+                      <span className="text-muted-foreground text-xs ml-1">
+                        v{collection.pipeline_version}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Using default</span>
+                  )}
                 </TableCell>
                 <TableCell className="max-w-xs truncate" title={collection.location}>
                   {collection.location}

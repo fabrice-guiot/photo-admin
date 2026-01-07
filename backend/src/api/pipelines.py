@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from backend.src.db.database import get_db
 from backend.src.schemas.pipelines import (
     PipelineCreateRequest, PipelineUpdateRequest, PipelineSummary, PipelineResponse,
-    PipelineListResponse, ValidationResult, FilenamePreviewRequest, FilenamePreviewResponse,
+    PipelineListResponse, ValidationResult, FilenamePreviewResponse,
     PipelineHistoryEntry, PipelineStatsResponse, DeleteResponse
 )
 from backend.src.services.pipeline_service import PipelineService
@@ -60,6 +60,7 @@ def get_pipeline_service(db: Session = Depends(get_db)) -> PipelineService:
 )
 def list_pipelines(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
+    is_default: Optional[bool] = Query(None, description="Filter by default status"),
     is_valid: Optional[bool] = Query(None, description="Filter by validation status"),
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineListResponse:
@@ -68,12 +69,13 @@ def list_pipelines(
 
     Args:
         is_active: Filter by active status
+        is_default: Filter by default status
         is_valid: Filter by validation status
 
     Returns:
         List of pipeline summaries
     """
-    items = service.list(is_active=is_active, is_valid=is_valid)
+    items = service.list(is_active=is_active, is_default=is_default, is_valid=is_valid)
     return PipelineListResponse(items=items)
 
 
@@ -88,10 +90,10 @@ def get_stats(
     """
     Get aggregate statistics for pipelines.
 
-    Returns totals and active pipeline info for dashboard KPIs.
+    Returns totals, active count, and default pipeline info for dashboard KPIs.
 
     Returns:
-        Statistics including total, valid count, and active pipeline
+        Statistics including total, valid count, active count, and default pipeline
     """
     return service.get_stats()
 
@@ -239,7 +241,8 @@ def delete_pipeline(
     """
     Delete a pipeline.
 
-    Cannot delete the active pipeline. Deactivate it first.
+    Cannot delete the default or active pipeline. Remove default status
+    and deactivate it first.
 
     Args:
         pipeline_id: Pipeline ID
@@ -249,7 +252,7 @@ def delete_pipeline(
 
     Raises:
         404: Pipeline not found
-        409: Cannot delete active pipeline
+        409: Cannot delete default or active pipeline
     """
     try:
         deleted_id = service.delete(pipeline_id)
@@ -284,10 +287,11 @@ def activate_pipeline(
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Activate a pipeline for validation runs.
+    Activate a pipeline.
 
-    Only one pipeline can be active at a time. Activating a pipeline
-    deactivates any currently active pipeline.
+    Multiple pipelines can be active at the same time.
+    Active pipelines are valid and ready for use.
+    To use a pipeline for tool execution, set it as default.
 
     Args:
         pipeline_id: Pipeline ID
@@ -325,6 +329,8 @@ def deactivate_pipeline(
     """
     Deactivate a pipeline.
 
+    If the pipeline is the default, it also loses default status.
+
     Args:
         pipeline_id: Pipeline ID
 
@@ -336,6 +342,78 @@ def deactivate_pipeline(
     """
     try:
         return service.deactivate(pipeline_id)
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pipeline {pipeline_id} not found"
+        )
+
+
+@router.post(
+    "/{pipeline_id}/set-default",
+    response_model=PipelineResponse,
+    summary="Set a pipeline as default"
+)
+def set_default_pipeline(
+    pipeline_id: int,
+    service: PipelineService = Depends(get_pipeline_service)
+) -> PipelineResponse:
+    """
+    Set a pipeline as the default for tool execution.
+
+    Only one pipeline can be default at a time. Setting a new default
+    automatically removes default status from the previous default.
+    The pipeline must be active to be set as default.
+
+    Args:
+        pipeline_id: Pipeline ID
+
+    Returns:
+        Pipeline with is_default=True
+
+    Raises:
+        400: Pipeline is not active
+        404: Pipeline not found
+    """
+    try:
+        return service.set_default(pipeline_id)
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pipeline {pipeline_id} not found"
+        )
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+
+@router.post(
+    "/{pipeline_id}/unset-default",
+    response_model=PipelineResponse,
+    summary="Remove default status from a pipeline"
+)
+def unset_default_pipeline(
+    pipeline_id: int,
+    service: PipelineService = Depends(get_pipeline_service)
+) -> PipelineResponse:
+    """
+    Remove default status from a pipeline.
+
+    After this, no pipeline will be the default until another is set.
+
+    Args:
+        pipeline_id: Pipeline ID
+
+    Returns:
+        Pipeline with is_default=False
+
+    Raises:
+        404: Pipeline not found
+    """
+    try:
+        return service.unset_default(pipeline_id)
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -391,17 +469,16 @@ def validate_pipeline(
 )
 def preview_filenames(
     pipeline_id: int,
-    request: FilenamePreviewRequest = FilenamePreviewRequest(),
     service: PipelineService = Depends(get_pipeline_service)
 ) -> FilenamePreviewResponse:
     """
     Preview expected filenames for a pipeline.
 
     Shows what files would be expected based on the pipeline structure.
+    Uses sample_filename from the pipeline's Capture node.
 
     Args:
         pipeline_id: Pipeline ID
-        request: Camera ID and counter for preview
 
     Returns:
         Expected filenames
@@ -411,11 +488,7 @@ def preview_filenames(
         404: Pipeline not found
     """
     try:
-        return service.preview_filenames(
-            pipeline_id=pipeline_id,
-            camera_id=request.camera_id,
-            counter=request.counter
-        )
+        return service.preview_filenames(pipeline_id=pipeline_id)
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

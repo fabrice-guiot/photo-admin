@@ -21,9 +21,9 @@ describe('useResults', () => {
       expect(result.current.loading).toBe(false)
     })
 
-    // Should have 3 mock results
-    expect(result.current.results).toHaveLength(3)
-    expect(result.current.total).toBe(3)
+    // Should have 4 mock results
+    expect(result.current.results).toHaveLength(4)
+    expect(result.current.total).toBe(4)
     expect(result.current.error).toBe(null)
   })
 
@@ -98,7 +98,7 @@ describe('useResults', () => {
     })
 
     expect(result.current.results).toHaveLength(2)
-    expect(result.current.total).toBe(3) // Total is still 3
+    expect(result.current.total).toBe(4) // Total is still 4
 
     // Fetch second page
     await act(async () => {
@@ -109,7 +109,7 @@ describe('useResults', () => {
       expect(result.current.loading).toBe(false)
     })
 
-    expect(result.current.results).toHaveLength(1) // Only 1 result on second page
+    expect(result.current.results).toHaveLength(2) // 2 results on second page
   })
 
   it('should delete a result', async () => {
@@ -255,8 +255,10 @@ describe('useResult', () => {
     })
 
     expect(result.current.result?.results).toBeDefined()
-    expect(result.current.result?.results?.total_files).toBe(1000)
-    expect(result.current.result?.results?.total_size).toBe(5000000000)
+    // Type narrow to PhotoStatsResults to access its properties
+    const photoStatsResults = result.current.result?.results as { total_files: number; total_size: number }
+    expect(photoStatsResults?.total_files).toBe(1000)
+    expect(photoStatsResults?.total_size).toBe(5000000000)
   })
 })
 
@@ -277,8 +279,8 @@ describe('useResultStats', () => {
     })
 
     expect(result.current.stats).toBeDefined()
-    expect(result.current.stats?.total_results).toBe(3)
-    expect(result.current.stats?.completed_count).toBe(2)
+    expect(result.current.stats?.total_results).toBe(4)
+    expect(result.current.stats?.completed_count).toBe(3)
     expect(result.current.stats?.failed_count).toBe(1)
     expect(result.current.error).toBe(null)
   })
@@ -300,6 +302,7 @@ describe('useResultStats', () => {
     expect(result.current.stats?.by_tool).toBeDefined()
     expect(result.current.stats?.by_tool.photostats).toBe(2)
     expect(result.current.stats?.by_tool.photo_pairing).toBe(1)
+    expect(result.current.stats?.by_tool.pipeline_validation).toBe(1)
   })
 
   it('should refetch stats', async () => {

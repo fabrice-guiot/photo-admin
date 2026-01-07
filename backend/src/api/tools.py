@@ -20,13 +20,13 @@ from uuid import UUID
 
 from fastapi import (
     APIRouter, Depends, HTTPException, Query, Request, WebSocket,
-    WebSocketDisconnect, BackgroundTasks, status
+    WebSocketDisconnect, status
 )
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
 from backend.src.schemas.tools import (
-    ToolType, JobStatus, ToolRunRequest, JobResponse,
+    ToolType, ToolMode, JobStatus, ToolRunRequest, JobResponse,
     QueueStatusResponse, ConflictResponse, RunAllToolsResponse
 )
 from backend.src.services.tool_service import ToolService
@@ -83,37 +83,47 @@ def get_tool_service(
 )
 async def run_tool(
     request: ToolRunRequest,
-    background_tasks: BackgroundTasks,
     service: ToolService = Depends(get_tool_service)
 ) -> JobResponse:
     """
-    Start a tool execution on a collection.
+    Start a tool execution.
 
     Creates a new job and adds it to the execution queue.
     Returns immediately with job details; use WebSocket or
     polling to monitor progress.
 
+    For most tools, collection_id is required. For pipeline_validation
+    in display_graph mode, pipeline_id is required instead.
+
     Args:
-        request: Tool run request with collection_id, tool, and optional pipeline_id
+        request: Tool run request with tool, and mode-specific parameters
 
     Returns:
         Created job details
 
     Raises:
         400: Invalid request (missing required fields, invalid tool)
-        409: Tool already running on this collection
+        409: Tool already running on this collection/pipeline
     """
+    import asyncio
+
     try:
         job = service.run_tool(
-            collection_id=request.collection_id,
             tool=request.tool,
-            pipeline_id=request.pipeline_id
+            collection_id=request.collection_id,
+            pipeline_id=request.pipeline_id,
+            mode=request.mode
         )
 
-        # Start processing queue in background
-        background_tasks.add_task(service.process_queue)
+        # Start processing queue in background using asyncio.create_task
+        # This ensures the task runs truly asynchronously without blocking the response
+        asyncio.create_task(service.process_queue())
 
-        logger.info(f"Job {job.id} queued: {request.tool.value} on collection {request.collection_id}")
+        # Log appropriately based on mode
+        if request.mode == ToolMode.DISPLAY_GRAPH:
+            logger.info(f"Job {job.id} queued: {request.tool.value} (display_graph) on pipeline {request.pipeline_id}")
+        else:
+            logger.info(f"Job {job.id} queued: {request.tool.value} on collection {request.collection_id}")
         return job
 
     except CollectionNotAccessibleError as e:
@@ -154,14 +164,13 @@ async def run_tool(
 )
 async def run_all_tools(
     collection_id: int,
-    background_tasks: BackgroundTasks,
     service: ToolService = Depends(get_tool_service)
 ) -> RunAllToolsResponse:
     """
     Run all available analysis tools on a collection.
 
-    Queues photostats and photo_pairing tools for execution.
-    Pipeline validation is excluded as it requires a pipeline_id.
+    Queues photostats, photo_pairing, and pipeline_validation tools for execution.
+    Pipeline validation uses the default pipeline if none is specified.
 
     For inaccessible collections, returns 422 with a warning message.
     Tools already running on the collection are skipped.
@@ -172,8 +181,8 @@ async def run_all_tools(
     Returns:
         List of created jobs and any skipped tools
     """
-    # Tools to run (excluding pipeline_validation which requires pipeline_id)
-    tools_to_run = [ToolType.PHOTOSTATS, ToolType.PHOTO_PAIRING]
+    # Tools to run (pipeline_validation uses default pipeline)
+    tools_to_run = [ToolType.PHOTOSTATS, ToolType.PHOTO_PAIRING, ToolType.PIPELINE_VALIDATION]
 
     created_jobs = []
     skipped_tools = []
@@ -181,8 +190,8 @@ async def run_all_tools(
     for tool in tools_to_run:
         try:
             job = service.run_tool(
-                collection_id=collection_id,
-                tool=tool
+                tool=tool,
+                collection_id=collection_id
             )
             created_jobs.append(job)
             logger.info(f"Job {job.id} queued: {tool.value} on collection {collection_id}")
@@ -201,15 +210,25 @@ async def run_all_tools(
             skipped_tools.append(tool.value)
             logger.info(f"Skipped {tool.value} on collection {collection_id}: already running")
         except ValueError as e:
-            # Collection not found - fail immediately
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
+            error_msg = str(e)
+            # For pipeline_validation, skip if no default pipeline is configured
+            if tool == ToolType.PIPELINE_VALIDATION and "default pipeline" in error_msg.lower():
+                skipped_tools.append(tool.value)
+                logger.info(f"Skipped {tool.value} on collection {collection_id}: no default pipeline configured")
+            elif "not found" in error_msg.lower() and "collection" in error_msg.lower():
+                # Collection not found - fail immediately
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=error_msg
+                )
+            else:
+                # Other ValueError - skip this tool but continue
+                skipped_tools.append(tool.value)
+                logger.warning(f"Skipped {tool.value} on collection {collection_id}: {error_msg}")
 
     # Start processing queue in background (only if we created jobs)
     if created_jobs:
-        background_tasks.add_task(service.process_queue)
+        asyncio.create_task(service.process_queue())
 
     # Build summary message
     queued_count = len(created_jobs)
@@ -360,6 +379,48 @@ def get_queue_status(
 # ============================================================================
 # WebSocket Endpoint
 # ============================================================================
+
+@router.websocket("/ws/jobs/all")
+async def global_jobs_websocket(
+    websocket: WebSocket
+):
+    """
+    WebSocket endpoint for real-time job list updates.
+
+    Connect to receive updates for all jobs. This eliminates the need
+    for polling the jobs list endpoint.
+
+    Messages are JSON objects with job updates:
+    {
+        "type": "job_update",
+        "job": { ...full job object... }
+    }
+    """
+    manager = get_connection_manager()
+    channel_id = manager.GLOBAL_JOBS_CHANNEL
+
+    await manager.connect(channel_id, websocket)
+    logger.info("WebSocket connected for global jobs channel")
+
+    try:
+        while True:
+            try:
+                data = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=30.0
+                )
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                try:
+                    await websocket.send_text('{"type": "heartbeat"}')
+                except Exception:
+                    break
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected from global jobs channel")
+    finally:
+        manager.disconnect(channel_id, websocket)
+
 
 @router.websocket("/ws/jobs/{job_id}")
 async def job_progress_websocket(

@@ -16,7 +16,7 @@ from backend.src.services.exceptions import NotFoundError, ConflictError, Valida
 def sample_nodes():
     """Sample pipeline nodes for testing."""
     return [
-        {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z0-9]{4}"}},
+        {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
         {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
         {"id": "xmp", "type": "file", "properties": {"extension": ".xmp"}},
         {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}}
@@ -229,9 +229,9 @@ class TestPipelineServiceValidation:
             {"from": "process", "to": "done"},
         ]
         cyclic_nodes = [
-            {"id": "capture", "type": "capture", "properties": {}},
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
             {"id": "file", "type": "file", "properties": {"extension": ".dng"}},
-            {"id": "process", "type": "process", "properties": {"suffix": "-HDR"}},
+            {"id": "process", "type": "process", "properties": {"method_ids": ["HDR"]}},
             {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}},
         ]
         pipeline = sample_pipeline(
@@ -250,7 +250,7 @@ class TestPipelineServiceValidation:
     def test_validate_pipeline_orphaned_node(self, pipeline_service, sample_pipeline):
         """Test validation detects orphaned nodes."""
         nodes_with_orphan = [
-            {"id": "capture", "type": "capture", "properties": {}},
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
             {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
             {"id": "orphan", "type": "file", "properties": {"extension": ".xmp"}},  # Not connected
             {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}},
@@ -277,6 +277,112 @@ class TestPipelineServiceValidation:
         with pytest.raises(NotFoundError):
             pipeline_service.validate(99999)
 
+    def test_validate_capture_missing_sample_filename(self, pipeline_service, sample_pipeline):
+        """Test validation fails when Capture node missing sample_filename."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"filename_regex": "([A-Z]{4})([0-9]{4})", "camera_id_group": "1"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Missing Sample", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("missing sample_filename" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_missing_filename_regex(self, pipeline_service, sample_pipeline):
+        """Test validation fails when Capture node missing filename_regex."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "camera_id_group": "1"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Missing Regex", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("missing filename_regex" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_invalid_camera_id_group(self, pipeline_service, sample_pipeline):
+        """Test validation fails when camera_id_group is not '1' or '2'."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z]{4})([0-9]{4})", "camera_id_group": "3"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Invalid Group", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("camera_id_group must be '1' or '2'" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_wrong_group_count(self, pipeline_service, sample_pipeline):
+        """Test validation fails when regex doesn't have exactly 2 capture groups."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]+)", "camera_id_group": "1"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Wrong Groups", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("must have exactly 2 capture groups" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_sample_no_match(self, pipeline_service, sample_pipeline):
+        """Test validation fails when sample_filename doesn't match filename_regex."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "INVALID", "filename_regex": "([A-Z]{4})([0-9]{4})", "camera_id_group": "1"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="No Match", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("does not match filename_regex" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_counter_not_numeric(self, pipeline_service, sample_pipeline):
+        """Test validation fails when counter group is not all numeric."""
+        # Here camera_id_group is "2", so group 1 should be counter - but group 1 captures "AB3D" which is not numeric
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "2"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Non-numeric Counter", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("must be all numeric" in str(e.message) for e in result.errors)
+
+    def test_validate_capture_invalid_regex(self, pipeline_service, sample_pipeline):
+        """Test validation fails when filename_regex is invalid."""
+        nodes = [
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z", "camera_id_group": "1"}},
+            {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+            {"id": "done", "type": "termination", "properties": {"termination_type": "Archive"}},
+        ]
+        edges = [{"from": "capture", "to": "raw"}, {"from": "raw", "to": "done"}]
+        pipeline = sample_pipeline(name="Invalid Regex", nodes=nodes, edges=edges, is_valid=True)
+
+        result = pipeline_service.validate(pipeline.id)
+
+        assert result.is_valid is False
+        assert any("invalid filename_regex" in str(e.message) for e in result.errors)
+
 
 class TestPipelineServiceActivation:
     """Tests for pipeline activation."""
@@ -289,8 +395,8 @@ class TestPipelineServiceActivation:
 
         assert result.is_active is True
 
-    def test_activate_deactivates_other(self, pipeline_service, sample_pipeline, test_db_session):
-        """Test activating a pipeline deactivates the currently active one."""
+    def test_activate_multiple_allowed(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test that multiple pipelines can be active simultaneously."""
         pipeline1 = sample_pipeline(name="First", is_active=True, is_valid=True)
         pipeline2 = sample_pipeline(name="Second", is_active=False, is_valid=True)
 
@@ -298,9 +404,9 @@ class TestPipelineServiceActivation:
 
         assert result.is_active is True
 
-        # Refresh pipeline1 to see updated state
+        # Refresh pipeline1 to verify it's still active
         test_db_session.refresh(pipeline1)
-        assert pipeline1.is_active is False
+        assert pipeline1.is_active is True  # Multiple can be active now
 
     def test_activate_invalid_pipeline(self, pipeline_service, sample_pipeline):
         """Test error when activating invalid pipeline."""
@@ -328,30 +434,99 @@ class TestPipelineServiceActivation:
         with pytest.raises(NotFoundError):
             pipeline_service.deactivate(99999)
 
+    def test_deactivate_clears_default(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test deactivating a default pipeline also clears default status."""
+        pipeline = sample_pipeline(name="Default Test", is_active=True, is_valid=True)
+        pipeline.is_default = True
+        test_db_session.commit()
+
+        result = pipeline_service.deactivate(pipeline.id)
+
+        assert result.is_active is False
+        assert result.is_default is False
+
+    def test_set_default_success(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test setting a pipeline as default."""
+        pipeline = sample_pipeline(name="Set Default Test", is_active=True, is_valid=True)
+
+        result = pipeline_service.set_default(pipeline.id)
+
+        assert result.is_default is True
+
+    def test_set_default_requires_active(self, pipeline_service, sample_pipeline):
+        """Test error when setting inactive pipeline as default."""
+        pipeline = sample_pipeline(name="Inactive Default Test", is_active=False, is_valid=True)
+
+        with pytest.raises(ServiceValidationError) as exc_info:
+            pipeline_service.set_default(pipeline.id)
+        assert "inactive" in str(exc_info.value).lower()
+
+    def test_set_default_replaces_previous(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test setting a new default replaces the previous one."""
+        pipeline1 = sample_pipeline(name="First Default", is_active=True, is_valid=True)
+        pipeline1.is_default = True
+        test_db_session.commit()
+
+        pipeline2 = sample_pipeline(name="Second Default", is_active=True, is_valid=True)
+
+        result = pipeline_service.set_default(pipeline2.id)
+
+        assert result.is_default is True
+        test_db_session.refresh(pipeline1)
+        assert pipeline1.is_default is False
+
+    def test_unset_default_success(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test removing default status from a pipeline."""
+        pipeline = sample_pipeline(name="Unset Default Test", is_active=True, is_valid=True)
+        pipeline.is_default = True
+        test_db_session.commit()
+
+        result = pipeline_service.unset_default(pipeline.id)
+
+        assert result.is_default is False
+
+    def test_update_invalid_auto_deactivates(self, pipeline_service, sample_pipeline, test_db_session):
+        """Test that editing an active pipeline to become invalid auto-deactivates it."""
+        pipeline = sample_pipeline(name="Auto Deactivate Test", is_active=True, is_valid=True)
+        pipeline.is_default = True
+        test_db_session.commit()
+
+        # Update with invalid nodes (missing capture node)
+        result = pipeline_service.update(
+            pipeline_id=pipeline.id,
+            nodes=[{"id": "orphan", "type": "file", "properties": {"extension": ".dng"}}],
+            edges=[]
+        )
+
+        # Should auto-deactivate because it's now invalid
+        assert result.is_valid is False
+        assert result.is_active is False
+        assert result.is_default is False
+
 
 class TestPipelineServicePreview:
     """Tests for filename preview."""
 
     def test_preview_filenames(self, pipeline_service, sample_pipeline):
-        """Test generating filename preview."""
+        """Test generating filename preview uses sample_filename from Capture node."""
         pipeline = sample_pipeline(name="Preview Test", is_valid=True)
-
-        result = pipeline_service.preview_filenames(
-            pipeline_id=pipeline.id,
-            camera_id="AB3D",
-            counter="0001"
-        )
-
-        assert result.base_filename == "AB3D0001"
-        assert len(result.expected_files) > 0
-
-    def test_preview_default_values(self, pipeline_service, sample_pipeline):
-        """Test preview with default camera_id and counter."""
-        pipeline = sample_pipeline(name="Default Preview Test", is_valid=True)
 
         result = pipeline_service.preview_filenames(pipeline_id=pipeline.id)
 
-        assert result.base_filename is not None
+        # sample_filename from fixture is "AB3D0001"
+        assert result.base_filename == "AB3D0001"
+        assert len(result.expected_files) > 0
+
+    def test_preview_filenames_with_extensions(self, pipeline_service, sample_pipeline):
+        """Test preview generates correct filenames with extensions."""
+        pipeline = sample_pipeline(name="Extension Preview Test", is_valid=True)
+
+        result = pipeline_service.preview_filenames(pipeline_id=pipeline.id)
+
+        # Check that expected files have correct base filename and extensions
+        filenames = [f.filename for f in result.expected_files]
+        assert any(f.endswith(".dng") for f in filenames)
+        assert any(f.endswith(".xmp") for f in filenames)
 
     def test_preview_invalid_pipeline(self, pipeline_service, sample_pipeline):
         """Test error when previewing invalid pipeline."""
@@ -429,20 +604,28 @@ nodes:
   - id: capture
     type: capture
     properties:
-      camera_id_pattern: "[A-Z0-9]{4}"
+      sample_filename: "AB3D0001"
+      filename_regex: "([A-Z0-9]{4})([0-9]{4})"
+      camera_id_group: "1"
   - id: raw
     type: file
     properties:
       extension: ".dng"
+  - id: done
+    type: termination
+    properties:
+      termination_type: "Black Box Archive"
 edges:
   - from: capture
     to: raw
+  - from: raw
+    to: done
 """
         result = pipeline_service.import_from_yaml(yaml_content)
 
         assert result.name == "Imported Pipeline"
         assert result.description == "Imported from YAML"
-        assert len(result.nodes) == 2
+        assert len(result.nodes) == 3
 
     def test_import_from_yaml_invalid(self, pipeline_service):
         """Test error when importing invalid YAML."""
@@ -476,18 +659,25 @@ class TestPipelineServiceStats:
 
         assert result.total_pipelines == 0
         assert result.valid_pipelines == 0
-        assert result.active_pipeline_id is None
-        assert result.active_pipeline_name is None
+        assert result.active_pipeline_count == 0
+        assert result.default_pipeline_id is None
+        assert result.default_pipeline_name is None
 
-    def test_get_stats_with_data(self, pipeline_service, sample_pipeline):
+    def test_get_stats_with_data(self, pipeline_service, sample_pipeline, test_db_session):
         """Test stats with pipelines."""
+        p1 = sample_pipeline(name="Valid Active Default", is_valid=True, is_active=True)
+        # Set as default manually
+        p1.is_default = True
+        test_db_session.commit()
+
         sample_pipeline(name="Valid Active", is_valid=True, is_active=True)
         sample_pipeline(name="Valid Inactive", is_valid=True, is_active=False)
         sample_pipeline(name="Invalid", is_valid=False, is_active=False)
 
         result = pipeline_service.get_stats()
 
-        assert result.total_pipelines >= 3
-        assert result.valid_pipelines >= 2
-        assert result.active_pipeline_id is not None
-        assert result.active_pipeline_name == "Valid Active"
+        assert result.total_pipelines >= 4
+        assert result.valid_pipelines >= 3
+        assert result.active_pipeline_count >= 2
+        assert result.default_pipeline_id is not None
+        assert result.default_pipeline_name == "Valid Active Default"

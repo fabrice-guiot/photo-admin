@@ -77,6 +77,22 @@ export const deactivatePipeline = async (pipelineId: number): Promise<Pipeline> 
 }
 
 /**
+ * Set a pipeline as the default for tool execution
+ */
+export const setDefaultPipeline = async (pipelineId: number): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/set-default`)
+  return response.data
+}
+
+/**
+ * Remove default status from a pipeline
+ */
+export const unsetDefaultPipeline = async (pipelineId: number): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/unset-default`)
+  return response.data
+}
+
+/**
  * Validate pipeline structure
  */
 export const validatePipeline = async (pipelineId: number): Promise<ValidationResult> => {

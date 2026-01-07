@@ -127,7 +127,7 @@ class PipelineCreateRequest(BaseModel):
                 "name": "Standard RAW Workflow",
                 "description": "RAW capture to processed TIFF export",
                 "nodes": [
-                    {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z0-9]{4}"}},
+                    {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
                     {"id": "raw", "type": "file", "properties": {"extension": ".dng"}}
                 ],
                 "edges": [
@@ -153,9 +153,9 @@ class PipelineUpdateRequest(BaseModel):
             "example": {
                 "description": "Updated workflow with HDR processing",
                 "nodes": [
-                    {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z0-9]{4}"}},
+                    {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
                     {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
-                    {"id": "hdr", "type": "process", "properties": {"suffix": "-HDR"}}
+                    {"id": "hdr", "type": "process", "properties": {"method_ids": ["HDR"]}}
                 ],
                 "edges": [
                     {"from": "capture", "to": "raw"},
@@ -170,18 +170,11 @@ class PipelineUpdateRequest(BaseModel):
 class FilenamePreviewRequest(BaseModel):
     """
     Request to preview expected filenames.
-    """
-    camera_id: str = Field("AB3D", description="Camera ID to use in preview")
-    counter: str = Field("0001", description="Counter to use in preview")
 
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "camera_id": "AB3D",
-                "counter": "0001"
-            }
-        }
-    }
+    No parameters needed - the preview uses sample_filename from the
+    pipeline's Capture node configuration.
+    """
+    pass
 
 
 # ============================================================================
@@ -198,7 +191,8 @@ class PipelineSummary(BaseModel):
     name: str = Field(..., description="Pipeline name")
     description: Optional[str] = Field(None, description="Pipeline description")
     version: int = Field(..., description="Current version")
-    is_active: bool = Field(..., description="Whether pipeline is active")
+    is_active: bool = Field(..., description="Whether pipeline is active (valid and ready for use)")
+    is_default: bool = Field(..., description="Whether this is the default pipeline for tool execution")
     is_valid: bool = Field(..., description="Whether structure is valid")
     node_count: int = Field(..., description="Number of nodes")
     created_at: datetime = Field(..., description="Creation timestamp")
@@ -213,6 +207,7 @@ class PipelineSummary(BaseModel):
                 "description": "RAW capture to processed TIFF export",
                 "version": 3,
                 "is_active": True,
+                "is_default": True,
                 "is_valid": True,
                 "node_count": 6,
                 "created_at": "2024-01-15T10:30:00Z",
@@ -234,7 +229,8 @@ class PipelineResponse(BaseModel):
     nodes: List[PipelineNode] = Field(..., description="Node definitions")
     edges: List[PipelineEdge] = Field(..., description="Edge connections")
     version: int = Field(..., description="Current version")
-    is_active: bool = Field(..., description="Whether pipeline is active")
+    is_active: bool = Field(..., description="Whether pipeline is active (valid and ready for use)")
+    is_default: bool = Field(..., description="Whether this is the default pipeline for tool execution")
     is_valid: bool = Field(..., description="Whether structure is valid")
     validation_errors: Optional[List[str]] = Field(None, description="Validation errors if invalid")
     created_at: datetime = Field(..., description="Creation timestamp")
@@ -248,7 +244,7 @@ class PipelineResponse(BaseModel):
                 "name": "Standard RAW Workflow",
                 "description": "RAW capture to processed TIFF export",
                 "nodes": [
-                    {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z0-9]{4}"}},
+                    {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
                     {"id": "raw", "type": "file", "properties": {"extension": ".dng"}}
                 ],
                 "edges": [
@@ -256,6 +252,7 @@ class PipelineResponse(BaseModel):
                 ],
                 "version": 1,
                 "is_active": False,
+                "is_default": False,
                 "is_valid": True,
                 "validation_errors": None,
                 "created_at": "2024-01-15T10:30:00Z",
@@ -356,16 +353,18 @@ class PipelineStatsResponse(BaseModel):
     """
     total_pipelines: int = Field(0, ge=0, description="Total pipeline count")
     valid_pipelines: int = Field(0, ge=0, description="Valid pipeline count")
-    active_pipeline_id: Optional[int] = Field(None, description="ID of active pipeline")
-    active_pipeline_name: Optional[str] = Field(None, description="Name of active pipeline")
+    active_pipeline_count: int = Field(0, ge=0, description="Number of active pipelines")
+    default_pipeline_id: Optional[int] = Field(None, description="ID of default pipeline")
+    default_pipeline_name: Optional[str] = Field(None, description="Name of default pipeline")
 
     model_config = {
         "json_schema_extra": {
             "example": {
                 "total_pipelines": 5,
                 "valid_pipelines": 4,
-                "active_pipeline_id": 1,
-                "active_pipeline_name": "Standard RAW Workflow"
+                "active_pipeline_count": 3,
+                "default_pipeline_id": 1,
+                "default_pipeline_name": "Standard RAW Workflow"
             }
         }
     }
@@ -397,6 +396,7 @@ class PipelineListQueryParams(BaseModel):
     Query parameters for listing pipelines.
     """
     is_active: Optional[bool] = Field(None, description="Filter by active status")
+    is_default: Optional[bool] = Field(None, description="Filter by default status")
     is_valid: Optional[bool] = Field(None, description="Filter by validation status")
 
 

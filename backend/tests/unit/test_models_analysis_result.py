@@ -60,7 +60,7 @@ class TestAnalysisResultModel:
         """Create a sample pipeline for testing."""
         pipeline = Pipeline(
             name="Test Pipeline",
-            nodes_json=[{"id": "node1", "type": "capture"}],
+            nodes_json=[{"id": "node1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}}],
             edges_json=[],
             is_valid=True
         )

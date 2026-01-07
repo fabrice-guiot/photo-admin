@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useTools, useQueueStatus } from '@/hooks/useTools'
 import { useCollections } from '@/hooks/useCollections'
+import { usePipelines } from '@/hooks/usePipelines'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { RunToolDialog } from '@/components/tools/RunToolDialog'
 import { JobProgressCard } from '@/components/tools/JobProgressCard'
@@ -20,18 +21,22 @@ import { useNavigate } from 'react-router-dom'
 export default function ToolsPage() {
   const navigate = useNavigate()
 
-  // Fetch tools/jobs data
+  // Fetch tools/jobs data with WebSocket for real-time updates
   const {
     jobs,
     loading,
     error,
+    wsConnected,
     fetchJobs,
     runTool,
     cancelJob
-  } = useTools({ pollInterval: 5000 }) // Poll every 5 seconds
+  } = useTools({ useWebSocket: true }) // Use WebSocket, no polling
 
   // Fetch collections for the run tool dialog
   const { collections, loading: collectionsLoading } = useCollections()
+
+  // Fetch pipelines for the run tool dialog
+  const { pipelines } = usePipelines({ autoFetch: true })
 
   // Queue status for header KPIs
   const { queueStatus, refetch: refetchQueueStatus } = useQueueStatus()
@@ -172,6 +177,7 @@ export default function ToolsPage() {
         open={runDialogOpen}
         onOpenChange={setRunDialogOpen}
         collections={collections}
+        pipelines={pipelines}
         onRunTool={handleRunTool}
       />
     </div>

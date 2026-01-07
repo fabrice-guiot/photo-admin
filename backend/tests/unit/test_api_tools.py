@@ -8,6 +8,47 @@ import pytest
 import tempfile
 from uuid import uuid4
 from datetime import datetime
+from backend.src.models.pipeline import Pipeline
+
+
+@pytest.fixture
+def sample_pipeline(test_db_session):
+    """Factory for creating sample Pipeline models in the database."""
+    def _create(
+        name="Test Pipeline",
+        description="Test pipeline description",
+        nodes=None,
+        edges=None,
+        is_active=False,
+        is_default=False,
+        is_valid=True
+    ):
+        if nodes is None:
+            nodes = [
+                {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
+                {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+                {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}}
+            ]
+        if edges is None:
+            edges = [
+                {"from": "capture", "to": "raw"},
+                {"from": "raw", "to": "done"}
+            ]
+        pipeline = Pipeline(
+            name=name,
+            description=description,
+            nodes_json=nodes,
+            edges_json=edges,
+            version=1,
+            is_active=is_active,
+            is_default=is_default,
+            is_valid=is_valid
+        )
+        test_db_session.add(pipeline)
+        test_db_session.commit()
+        test_db_session.refresh(pipeline)
+        return pipeline
+    return _create
 
 
 class TestRunToolEndpoint:
@@ -53,8 +94,8 @@ class TestRunToolEndpoint:
 
         assert response.status_code == 422
 
-    def test_run_tool_pipeline_validation_requires_pipeline(self, test_client, sample_collection):
-        """Test that pipeline_validation requires pipeline_id."""
+    def test_run_tool_pipeline_validation_no_default(self, test_client, sample_collection):
+        """Test that pipeline_validation requires a default pipeline when no pipeline_id is provided."""
         with tempfile.TemporaryDirectory() as temp_dir:
             collection = sample_collection(
                 name="Test Collection",
@@ -68,7 +109,7 @@ class TestRunToolEndpoint:
             )
 
             assert response.status_code == 400
-            assert "pipeline_id required" in response.json()["detail"]
+            assert "No pipeline available" in response.json()["detail"]
 
 
 class TestListJobsEndpoint:
@@ -133,7 +174,7 @@ class TestRunAllToolsEndpoint:
     """Tests for POST /api/tools/run-all/{collection_id} endpoint."""
 
     def test_run_all_tools_success(self, test_client, sample_collection):
-        """Test successful run-all tools request queues both tools."""
+        """Test successful run-all tools request queues available tools."""
         with tempfile.TemporaryDirectory() as temp_dir:
             collection = sample_collection(
                 name="Test Collection",
@@ -146,10 +187,11 @@ class TestRunAllToolsEndpoint:
             assert response.status_code == 202
             data = response.json()
             assert len(data["jobs"]) == 2
-            assert data["skipped"] == []
-            assert "2 analysis jobs queued" in data["message"]
+            # pipeline_validation is skipped when no default pipeline is configured
+            assert data["skipped"] == ["pipeline_validation"]
+            assert "2 jobs queued, 1 skipped" in data["message"]
 
-            # Verify both tools are queued
+            # Verify photostats and photo_pairing are queued
             tools = [job["tool"] for job in data["jobs"]]
             assert "photostats" in tools
             assert "photo_pairing" in tools
@@ -179,3 +221,34 @@ class TestRunAllToolsEndpoint:
 
         assert response.status_code == 400
         assert "not found" in response.json()["detail"].lower()
+
+    def test_run_all_tools_with_default_pipeline(self, test_client, sample_collection, sample_pipeline):
+        """Test run-all tools includes pipeline_validation when default pipeline exists."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            collection = sample_collection(
+                name="Test Collection",
+                type="local",
+                location=temp_dir
+            )
+
+            # Create a default pipeline
+            sample_pipeline(
+                name="Default Pipeline",
+                is_active=True,
+                is_default=True,
+                is_valid=True
+            )
+
+            response = test_client.post(f"/api/tools/run-all/{collection.id}")
+
+            assert response.status_code == 202
+            data = response.json()
+            assert len(data["jobs"]) == 3  # photostats, photo_pairing, pipeline_validation
+            assert data["skipped"] == []
+            assert "3 analysis jobs queued" in data["message"]
+
+            # Verify all tools are queued
+            tools = [job["tool"] for job in data["jobs"]]
+            assert "photostats" in tools
+            assert "photo_pairing" in tools
+            assert "pipeline_validation" in tools

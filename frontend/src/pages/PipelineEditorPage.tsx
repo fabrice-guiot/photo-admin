@@ -53,6 +53,90 @@ import { NODE_TYPE_DEFINITIONS } from '@/contracts/api/pipelines-api'
 import { cn } from '@/lib/utils'
 
 // ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Result of extracting regex groups from a sample filename.
+ */
+interface RegexExtractionResult {
+  isValid: boolean
+  group1: string | null
+  group2: string | null
+  groupCount: number
+  error: string | null
+}
+
+/**
+ * Extracts capture groups from a sample filename using a regex pattern.
+ * Used to dynamically populate the Camera ID Group dropdown.
+ *
+ * @param sample - The sample filename (e.g., "AB3D0001")
+ * @param pattern - The regex pattern with capture groups (e.g., "([A-Z0-9]{4})([0-9]{4})")
+ * @returns Extraction result with group values or error information
+ */
+function extractRegexGroups(sample: string, pattern: string): RegexExtractionResult {
+  // Handle empty inputs
+  if (!sample || !pattern) {
+    return {
+      isValid: false,
+      group1: null,
+      group2: null,
+      groupCount: 0,
+      error: !sample ? 'Sample filename is required' : 'Filename pattern is required',
+    }
+  }
+
+  try {
+    const regex = new RegExp(pattern)
+
+    // Count capture groups by checking the regex source
+    // This counts opening parentheses that are not non-capturing (?:) or lookbehind/lookahead
+    const groupMatches = pattern.match(/\((?!\?)/g)
+    const groupCount = groupMatches ? groupMatches.length : 0
+
+    if (groupCount !== 2) {
+      return {
+        isValid: false,
+        group1: null,
+        group2: null,
+        groupCount,
+        error: `Pattern must have exactly 2 capture groups (found ${groupCount})`,
+      }
+    }
+
+    // Try to match the sample
+    const match = regex.exec(sample)
+    if (!match) {
+      return {
+        isValid: false,
+        group1: null,
+        group2: null,
+        groupCount,
+        error: 'Sample filename does not match the pattern',
+      }
+    }
+
+    // Extract groups (match[0] is full match, match[1] and match[2] are groups)
+    return {
+      isValid: true,
+      group1: match[1] || null,
+      group2: match[2] || null,
+      groupCount,
+      error: null,
+    }
+  } catch (e) {
+    return {
+      isValid: false,
+      group1: null,
+      group2: null,
+      groupCount: 0,
+      error: `Invalid regex pattern: ${e instanceof Error ? e.message : 'Unknown error'}`,
+    }
+  }
+}
+
+// ============================================================================
 // Node Viewer Component (Read-only)
 // ============================================================================
 
@@ -87,16 +171,36 @@ const NodeViewer: React.FC<NodeViewerProps> = ({ node, index }) => {
             if (value === undefined || value === '' || (Array.isArray(value) && value.length === 0)) {
               return null
             }
+
+            // Special display for camera_id_group in Capture nodes
+            let displayValue: React.ReactNode
+            if (node.type === 'capture' && prop.key === 'camera_id_group') {
+              const sample = String(node.properties.sample_filename || '')
+              const pattern = String(node.properties.filename_regex || '')
+              const extraction = extractRegexGroups(sample, pattern)
+              const groupNum = String(value)
+              const extractedValue = groupNum === '1' ? extraction.group1 : extraction.group2
+
+              displayValue = extraction.isValid && extractedValue ? (
+                <span>
+                  <span className="font-mono">{extractedValue}</span>
+                  <span className="text-muted-foreground ml-1">(Group {groupNum})</span>
+                </span>
+              ) : (
+                <span>Group {groupNum}</span>
+              )
+            } else if (prop.type === 'boolean') {
+              displayValue = value ? 'Yes' : 'No'
+            } else if (Array.isArray(value)) {
+              displayValue = value.join(', ')
+            } else {
+              displayValue = String(value)
+            }
+
             return (
               <React.Fragment key={prop.key}>
                 <div className="text-muted-foreground">{prop.label}:</div>
-                <div className="font-medium">
-                  {prop.type === 'boolean'
-                    ? (value ? 'Yes' : 'No')
-                    : Array.isArray(value)
-                    ? value.join(', ')
-                    : String(value)}
-                </div>
+                <div className="font-medium">{displayValue}</div>
               </React.Fragment>
             )
           })}
@@ -326,21 +430,75 @@ const NodeEditor: React.FC<NodeEditorProps> = ({
                     )}
                   </div>
                   {prop.type === 'select' ? (
-                    <Select
-                      value={String(node.properties[prop.key] || '')}
-                      onValueChange={(v) => handlePropertyChange(prop.key, v)}
-                    >
-                      <SelectTrigger className="h-8 text-sm">
-                        <SelectValue placeholder="Select..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {prop.options?.map((opt) => (
-                          <SelectItem key={opt} value={opt}>
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    (() => {
+                      // Special handling for camera_id_group in Capture nodes
+                      if (node.type === 'capture' && prop.key === 'camera_id_group') {
+                        const sample = String(node.properties.sample_filename || '')
+                        const pattern = String(node.properties.filename_regex || '')
+                        const extraction = extractRegexGroups(sample, pattern)
+
+                        return (
+                          <div className="space-y-2">
+                            {extraction.error && (
+                              <p className="text-[11px] text-destructive flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                {extraction.error}
+                              </p>
+                            )}
+                            <Select
+                              value={String(node.properties[prop.key] || '')}
+                              onValueChange={(v) => handlePropertyChange(prop.key, v)}
+                              disabled={!extraction.isValid}
+                            >
+                              <SelectTrigger className={cn(
+                                "h-8 text-sm",
+                                !extraction.isValid && "opacity-50"
+                              )}>
+                                <SelectValue placeholder={extraction.isValid ? "Select Camera ID group..." : "Fix pattern first..."} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {extraction.isValid ? (
+                                  <>
+                                    <SelectItem value="1">
+                                      <span className="font-mono">{extraction.group1}</span>
+                                      <span className="text-muted-foreground ml-2">(Group 1)</span>
+                                    </SelectItem>
+                                    <SelectItem value="2">
+                                      <span className="font-mono">{extraction.group2}</span>
+                                      <span className="text-muted-foreground ml-2">(Group 2)</span>
+                                    </SelectItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SelectItem value="1" disabled>1</SelectItem>
+                                    <SelectItem value="2" disabled>2</SelectItem>
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )
+                      }
+
+                      // Default select rendering for other properties
+                      return (
+                        <Select
+                          value={String(node.properties[prop.key] || '')}
+                          onValueChange={(v) => handlePropertyChange(prop.key, v)}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {prop.options?.map((opt) => (
+                              <SelectItem key={opt} value={opt}>
+                                {opt}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )
+                    })()
                   ) : prop.type === 'array' ? (
                     <Input
                       value={Array.isArray(node.properties[prop.key])

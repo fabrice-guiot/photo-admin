@@ -45,7 +45,7 @@ describe('useTools', () => {
       expect(job.id).toBeDefined()
       expect(job.collection_id).toBe(1)
       expect(job.tool).toBe('photostats')
-      expect(job.status).toBe('QUEUED')
+      expect(job.status).toBe('queued')
     })
 
     expect(result.current.jobs).toHaveLength(1)
@@ -128,10 +128,10 @@ describe('useTools', () => {
     // Cancel the job
     await act(async () => {
       const cancelledJob = await result.current.cancelJob(jobId!)
-      expect(cancelledJob.status).toBe('CANCELLED')
+      expect(cancelledJob.status).toBe('cancelled')
     })
 
-    expect(result.current.jobs[0].status).toBe('CANCELLED')
+    expect(result.current.jobs[0].status).toBe('cancelled')
   })
 
   it('should fail to cancel non-existent job', async () => {
@@ -181,7 +181,7 @@ describe('useTools', () => {
 
     // Fetch jobs with status filter
     await act(async () => {
-      const jobs = await result.current.fetchJobs({ status: 'QUEUED' })
+      const jobs = await result.current.fetchJobs({ status: 'queued' })
       expect(jobs).toHaveLength(1)
     })
   })

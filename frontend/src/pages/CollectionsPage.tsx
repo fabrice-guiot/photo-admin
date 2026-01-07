@@ -10,6 +10,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useCollections, useCollectionStats } from '../hooks/useCollections'
 import { useConnectors } from '../hooks/useConnectors'
+import { usePipelines } from '../hooks/usePipelines'
 import { useTools } from '../hooks/useTools'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
@@ -50,6 +51,7 @@ export default function CollectionsPage() {
   }, [selectedState, selectedType, accessibleOnly, setFilters])
 
   const { connectors } = useConnectors()
+  const { pipelines } = usePipelines()
 
   // KPI Stats for header (Issue #37)
   const { stats, refetch: refetchStats } = useCollectionStats()
@@ -181,6 +183,7 @@ export default function CollectionsPage() {
             <CollectionForm
               collection={editingCollection}
               connectors={connectors}
+              pipelines={pipelines}
               onSubmit={handleSubmit}
               onCancel={handleClose}
             />

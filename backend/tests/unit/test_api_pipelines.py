@@ -21,7 +21,7 @@ def sample_pipeline_data():
     ):
         if nodes is None:
             nodes = [
-                {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z0-9]{4}"}},
+                {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
                 {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
                 {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}}
             ]
@@ -43,7 +43,12 @@ def sample_pipeline_data():
 def sample_pipeline(test_db_session, sample_pipeline_data):
     """Factory for creating sample Pipeline models in the database."""
     def _create(**kwargs):
-        data = sample_pipeline_data(**kwargs)
+        # Extract data-related kwargs for sample_pipeline_data
+        data_kwargs = {
+            k: v for k, v in kwargs.items()
+            if k in ("name", "description", "nodes", "edges")
+        }
+        data = sample_pipeline_data(**data_kwargs)
         # Convert edge format from 'from'/'to' to stored format
         edges_json = [{"from": e["from"], "to": e["to"]} for e in data["edges"]]
 
@@ -54,6 +59,7 @@ def sample_pipeline(test_db_session, sample_pipeline_data):
             edges_json=edges_json,
             version=1,
             is_active=kwargs.get("is_active", False),
+            is_default=kwargs.get("is_default", False),
             is_valid=kwargs.get("is_valid", True),
             validation_errors=kwargs.get("validation_errors", None)
         )
@@ -226,7 +232,7 @@ class TestUpdatePipelineEndpoint:
 
         update_data = {
             "nodes": [
-                {"id": "capture", "type": "capture", "properties": {"camera_id_pattern": "[A-Z]{4}"}},
+                {"id": "capture", "type": "capture", "properties": {"sample_filename": "ABCD0001", "filename_regex": "([A-Z]{4})([0-9]{4})", "camera_id_group": "1"}},
                 {"id": "raw", "type": "file", "properties": {"extension": ".cr3"}},
                 {"id": "xmp", "type": "file", "properties": {"extension": ".xmp"}},
                 {"id": "done", "type": "termination", "properties": {"termination_type": "Black Box Archive"}}
@@ -297,8 +303,8 @@ class TestActivatePipelineEndpoint:
         data = response.json()
         assert data["is_active"] is True
 
-    def test_activate_pipeline_deactivates_other(self, test_client, sample_pipeline):
-        """Test activating a pipeline deactivates the currently active one."""
+    def test_activate_multiple_allowed(self, test_client, sample_pipeline):
+        """Test that multiple pipelines can be active simultaneously."""
         pipeline1 = sample_pipeline(name="First Active", is_active=True, is_valid=True)
         pipeline2 = sample_pipeline(name="Second Active", is_active=False, is_valid=True)
 
@@ -308,9 +314,9 @@ class TestActivatePipelineEndpoint:
         data = response.json()
         assert data["is_active"] is True
 
-        # Check that first pipeline is now inactive
+        # Check that first pipeline is STILL active (multiple can be active)
         get_response = test_client.get(f"/api/pipelines/{pipeline1.id}")
-        assert get_response.json()["is_active"] is False
+        assert get_response.json()["is_active"] is True
 
     def test_activate_invalid_pipeline(self, test_client, sample_pipeline):
         """Test 400 when activating invalid pipeline."""
@@ -372,36 +378,39 @@ class TestPreviewPipelineEndpoint:
     """Tests for POST /api/pipelines/{pipeline_id}/preview endpoint."""
 
     def test_preview_pipeline_success(self, test_client, sample_pipeline):
-        """Test previewing filenames for a pipeline."""
+        """Test previewing filenames for a pipeline uses sample_filename from Capture node."""
         pipeline = sample_pipeline(name="Preview Test", is_valid=True)
 
-        request_data = {"camera_id": "AB3D", "counter": "0001"}
-        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview", json=request_data)
+        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview")
 
         assert response.status_code == 200
         data = response.json()
         assert "base_filename" in data
         assert "expected_files" in data
+        # sample_filename from fixture is "AB3D0001"
+        assert data["base_filename"] == "AB3D0001"
 
-    def test_preview_pipeline_default_values(self, test_client, sample_pipeline):
-        """Test preview with default camera_id and counter."""
-        pipeline = sample_pipeline(name="Preview Default Test", is_valid=True)
+    def test_preview_pipeline_returns_expected_files(self, test_client, sample_pipeline):
+        """Test preview returns expected file list with extensions."""
+        pipeline = sample_pipeline(name="Preview Files Test", is_valid=True)
 
-        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview", json={})
+        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview")
 
         assert response.status_code == 200
+        data = response.json()
+        assert len(data["expected_files"]) > 0
 
     def test_preview_invalid_pipeline(self, test_client, sample_pipeline):
         """Test 400 when previewing invalid pipeline."""
         pipeline = sample_pipeline(name="Invalid Preview Test", is_valid=False)
 
-        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview", json={})
+        response = test_client.post(f"/api/pipelines/{pipeline.id}/preview")
 
         assert response.status_code == 400
 
     def test_preview_pipeline_not_found(self, test_client):
         """Test 404 when previewing non-existent pipeline."""
-        response = test_client.post("/api/pipelines/99999/preview", json={})
+        response = test_client.post("/api/pipelines/99999/preview")
 
         assert response.status_code == 404
 
@@ -460,14 +469,22 @@ nodes:
   - id: capture
     type: capture
     properties:
-      camera_id_pattern: "[A-Z0-9]{4}"
+      sample_filename: "AB3D0001"
+      filename_regex: "([A-Z0-9]{4})([0-9]{4})"
+      camera_id_group: "1"
   - id: raw
     type: file
     properties:
       extension: ".dng"
+  - id: done
+    type: termination
+    properties:
+      termination_type: "Black Box Archive"
 edges:
   - from: capture
     to: raw
+  - from: raw
+    to: done
 """
         files = {"file": ("pipeline.yaml", yaml_content, "application/x-yaml")}
         response = test_client.post("/api/pipelines/import", files=files)
@@ -516,13 +533,15 @@ class TestPipelineStatsEndpoint:
         data = response.json()
         assert data["total_pipelines"] == 0
         assert data["valid_pipelines"] == 0
-        assert data["active_pipeline_id"] is None
+        assert data["active_pipeline_count"] == 0
+        assert data["default_pipeline_id"] is None
+        assert data["default_pipeline_name"] is None
 
     def test_get_stats_with_data(self, test_client, sample_pipeline):
         """Test stats with pipelines."""
-        sample_pipeline(name="Valid Active", is_valid=True, is_active=True)
-        sample_pipeline(name="Valid Inactive", is_valid=True, is_active=False)
-        sample_pipeline(name="Invalid", is_valid=False, is_active=False)
+        sample_pipeline(name="Valid Default", is_valid=True, is_active=True, is_default=True)
+        sample_pipeline(name="Valid Active", is_valid=True, is_active=True, is_default=False)
+        sample_pipeline(name="Invalid", is_valid=False, is_active=False, is_default=False)
 
         response = test_client.get("/api/pipelines/stats")
 
@@ -530,4 +549,5 @@ class TestPipelineStatsEndpoint:
         data = response.json()
         assert data["total_pipelines"] >= 3
         assert data["valid_pipelines"] >= 2
-        assert data["active_pipeline_name"] == "Valid Active"
+        assert data["active_pipeline_count"] >= 2
+        assert data["default_pipeline_name"] == "Valid Default"

@@ -113,9 +113,13 @@ def convert_db_pipeline_to_config(
             all_nodes.append(node)
 
         elif node_type == "process":
-            # Convert suffix to method_ids
-            suffix = properties.get("suffix", "")
-            method_ids = [suffix] if suffix else []
+            # Get method_ids from properties (array of processing method identifiers)
+            method_ids = properties.get("method_ids", [])
+            # Ensure it's a list (handle legacy single string format)
+            if isinstance(method_ids, str):
+                method_ids = [method_ids] if method_ids else []
+            elif not isinstance(method_ids, list):
+                method_ids = []
             node = ProcessNode(
                 id=node_id,
                 name=name,

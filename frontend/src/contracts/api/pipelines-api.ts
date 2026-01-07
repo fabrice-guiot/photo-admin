@@ -56,6 +56,7 @@ export interface PipelineSummary {
   description: string | null
   version: number
   is_active: boolean
+  is_default: boolean
   is_valid: boolean
   node_count: number
   created_at: string // ISO 8601 timestamp
@@ -70,6 +71,7 @@ export interface Pipeline {
   edges: PipelineEdge[]
   version: number
   is_active: boolean
+  is_default: boolean
   is_valid: boolean
   validation_errors: string[] | null
   created_at: string // ISO 8601 timestamp
@@ -96,8 +98,7 @@ export interface PipelineUpdateRequest {
 }
 
 export interface FilenamePreviewRequest {
-  camera_id?: string
-  counter?: string
+  // No parameters needed - uses sample_filename from Capture node
 }
 
 // ============================================================================
@@ -105,7 +106,7 @@ export interface FilenamePreviewRequest {
 // ============================================================================
 
 export interface PipelineListResponse {
-  pipelines: PipelineSummary[]
+  items: PipelineSummary[]
 }
 
 export interface PipelineResponse {
@@ -139,10 +140,12 @@ export interface PipelineStatsResponse {
   total_pipelines: number
   /** Number of valid pipelines */
   valid_pipelines: number
-  /** ID of the active pipeline (null if none) */
-  active_pipeline_id: number | null
-  /** Name of the active pipeline (null if none) */
-  active_pipeline_name: string | null
+  /** Number of active pipelines */
+  active_pipeline_count: number
+  /** ID of the default pipeline (null if none) */
+  default_pipeline_id: number | null
+  /** Name of the default pipeline (null if none) */
+  default_pipeline_name: string | null
 }
 
 export interface PipelineDeleteResponse {
@@ -157,6 +160,8 @@ export interface PipelineDeleteResponse {
 export interface PipelineListQueryParams {
   /** Filter by active status */
   is_active?: boolean
+  /** Filter by default status */
+  is_default?: boolean
   /** Filter by valid status */
   is_valid?: boolean
 }
@@ -201,21 +206,29 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
   {
     type: 'capture',
     label: 'Capture',
-    description: 'Defines camera ID and counter patterns',
+    description: 'Defines the base filename structure for camera captures',
     properties: [
       {
-        key: 'camera_id_pattern',
-        label: 'Camera ID Pattern',
+        key: 'sample_filename',
+        label: 'Sample Filename',
         type: 'string',
         required: true,
-        hint: 'Regex pattern for camera ID. Example: [A-Z0-9]{4} matches "AB3D"',
+        hint: 'A real example base filename (without extension). Example: AB3D0001',
       },
       {
-        key: 'counter_pattern',
-        label: 'Counter Pattern',
+        key: 'filename_regex',
+        label: 'Filename Pattern',
         type: 'string',
         required: true,
-        hint: 'Regex pattern for counter. Example: [0-9]{4} matches "0001"',
+        hint: 'Regex with exactly 2 capture groups for Camera ID and Counter. Example: ([A-Z0-9]{4})([0-9]{4})',
+      },
+      {
+        key: 'camera_id_group',
+        label: 'Camera ID Group',
+        type: 'select',
+        required: true,
+        options: ['1', '2'],
+        hint: 'Select which extracted value is the Camera ID (the other will be the Counter, which must be numeric)',
       },
     ],
   },
@@ -376,7 +389,38 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
 /**
  * POST /api/pipelines/{pipeline_id}/deactivate
  *
- * Deactivate pipeline
+ * Deactivate pipeline. If the pipeline is the default, it also loses default status.
+ *
+ * Path Parameters:
+ *   - pipeline_id: number
+ *
+ * Response: 200 Pipeline
+ * Errors:
+ *   - 404: Pipeline not found
+ *   - 500: Internal server error
+ */
+
+/**
+ * POST /api/pipelines/{pipeline_id}/set-default
+ *
+ * Set a pipeline as the default for tool execution.
+ * Only one pipeline can be default at a time.
+ * The pipeline must be active to be set as default.
+ *
+ * Path Parameters:
+ *   - pipeline_id: number
+ *
+ * Response: 200 Pipeline
+ * Errors:
+ *   - 400: Pipeline is not active
+ *   - 404: Pipeline not found
+ *   - 500: Internal server error
+ */
+
+/**
+ * POST /api/pipelines/{pipeline_id}/unset-default
+ *
+ * Remove default status from a pipeline.
  *
  * Path Parameters:
  *   - pipeline_id: number

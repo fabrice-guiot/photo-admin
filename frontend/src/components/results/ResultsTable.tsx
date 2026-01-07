@@ -219,6 +219,7 @@ export function ResultsTable({
               <TableRow>
                 <TableHead>Collection</TableHead>
                 <TableHead>Tool</TableHead>
+                <TableHead>Pipeline</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Files</TableHead>
                 <TableHead>Issues</TableHead>
@@ -231,12 +232,26 @@ export function ResultsTable({
               {results.map((result) => (
                 <TableRow key={result.id}>
                   <TableCell className="font-medium">
-                    {result.collection_name}
+                    {result.collection_name ?? (
+                      <span className="text-muted-foreground italic">Pipeline only</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant="secondary">
                       {TOOL_LABELS[result.tool]}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {result.pipeline_name ? (
+                      <span className="text-sm" title={`v${result.pipeline_version}`}>
+                        {result.pipeline_name}
+                        <span className="text-muted-foreground text-xs ml-1">
+                          v{result.pipeline_version}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_CONFIG[result.status].variant}>
@@ -360,8 +375,11 @@ export function ResultsTable({
           <DialogHeader>
             <DialogTitle>Delete Result</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this analysis result for "
-              {deleteDialog.result?.collection_name}"? This action cannot be undone.
+              Are you sure you want to delete this analysis result
+              {deleteDialog.result?.collection_name
+                ? ` for "${deleteDialog.result.collection_name}"`
+                : ' (Pipeline only)'}
+              ? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

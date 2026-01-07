@@ -25,13 +25,17 @@ import type {
 
 interface UseToolsOptions {
   autoFetch?: boolean
+  /** @deprecated Use WebSocket updates instead. Polling is only used as fallback. */
   pollInterval?: number  // Poll interval in ms (0 to disable)
+  /** Enable WebSocket for real-time job updates (default: true) */
+  useWebSocket?: boolean
 }
 
 interface UseToolsReturn {
   jobs: Job[]
   loading: boolean
   error: string | null
+  wsConnected: boolean
   fetchJobs: (params?: JobListQueryParams) => Promise<Job[]>
   runTool: (request: ToolRunRequest) => Promise<Job>
   runAllTools: (collectionId: number) => Promise<RunAllToolsResponse>
@@ -40,13 +44,18 @@ interface UseToolsReturn {
 }
 
 export const useTools = (options: UseToolsOptions = {}): UseToolsReturn => {
-  const { autoFetch = true, pollInterval = 0 } = options
+  const { autoFetch = true, pollInterval = 0, useWebSocket = true } = options
 
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [wsConnected, setWsConnected] = useState(false)
 
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const reconnectAttempts = useRef(0)
+  const maxReconnectAttempts = 5
 
   /**
    * Fetch jobs with optional filters
@@ -178,9 +187,88 @@ export const useTools = (options: UseToolsOptions = {}): UseToolsReturn => {
     }
   }, [autoFetch, fetchJobs])
 
-  // Polling for job updates
+  // WebSocket connection for real-time job updates
+  const connectWebSocket = useCallback(() => {
+    if (!useWebSocket || wsRef.current?.readyState === WebSocket.OPEN) {
+      return
+    }
+
+    const wsUrl = toolsService.getGlobalJobsWebSocketUrl()
+    const ws = new WebSocket(wsUrl)
+
+    ws.onopen = () => {
+      setWsConnected(true)
+      reconnectAttempts.current = 0
+      console.log('[useTools] WebSocket connected to global jobs channel')
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data)
+
+        if (message.type === 'job_update' && message.job) {
+          const updatedJob = message.job as Job
+          setJobs(prev => {
+            const existingIndex = prev.findIndex(j => j.id === updatedJob.id)
+            if (existingIndex >= 0) {
+              // Update existing job
+              const newJobs = [...prev]
+              newJobs[existingIndex] = updatedJob
+              return newJobs
+            } else {
+              // New job - add to front
+              return [updatedJob, ...prev]
+            }
+          })
+        }
+        // Ignore heartbeat messages
+      } catch (err) {
+        console.error('[useTools] Failed to parse WebSocket message:', err)
+      }
+    }
+
+    ws.onerror = (event) => {
+      console.error('[useTools] WebSocket error:', event)
+    }
+
+    ws.onclose = () => {
+      setWsConnected(false)
+      wsRef.current = null
+
+      // Attempt reconnection with exponential backoff
+      if (reconnectAttempts.current < maxReconnectAttempts) {
+        reconnectAttempts.current++
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000)
+        console.log(`[useTools] WebSocket closed, reconnecting in ${delay}ms (attempt ${reconnectAttempts.current})`)
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay)
+      }
+    }
+
+    wsRef.current = ws
+  }, [useWebSocket])
+
+  // Initialize WebSocket connection
   useEffect(() => {
-    if (pollInterval > 0) {
+    if (useWebSocket) {
+      connectWebSocket()
+    }
+
+    return () => {
+      // Cleanup WebSocket
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+    }
+  }, [useWebSocket, connectWebSocket])
+
+  // Fallback polling (only if WebSocket is disabled or as backup)
+  useEffect(() => {
+    // Only poll if WebSocket is disabled AND pollInterval is set
+    if (!useWebSocket && pollInterval > 0) {
       pollTimerRef.current = setInterval(() => {
         fetchJobs()
       }, pollInterval)
@@ -191,12 +279,13 @@ export const useTools = (options: UseToolsOptions = {}): UseToolsReturn => {
         clearInterval(pollTimerRef.current)
       }
     }
-  }, [pollInterval, fetchJobs])
+  }, [pollInterval, fetchJobs, useWebSocket])
 
   return {
     jobs,
     loading,
     error,
+    wsConnected,
     fetchJobs,
     runTool,
     runAllTools,
@@ -340,7 +429,7 @@ interface UseQueueStatusReturn {
 }
 
 export const useQueueStatus = (options: UseQueueStatusOptions = {}): UseQueueStatusReturn => {
-  const { autoFetch = true, pollInterval = 5000 } = options
+  const { autoFetch = true, pollInterval = 0 } = options  // No polling by default
 
   const [queueStatus, setQueueStatus] = useState<QueueStatusResponse | null>(null)
   const [loading, setLoading] = useState(false)

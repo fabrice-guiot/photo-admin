@@ -36,7 +36,13 @@ class ConnectionManager:
 
     Maintains a mapping of job IDs to sets of connected WebSocket clients,
     enabling multiple clients to monitor the same job simultaneously.
+
+    Also supports a global "jobs" channel for broadcasting all job updates
+    to clients monitoring the jobs list (e.g., Tools page).
     """
+
+    # Special channel ID for global job updates
+    GLOBAL_JOBS_CHANNEL = "__global_jobs__"
 
     def __init__(self):
         """Initialize the connection manager with empty connection registry."""
@@ -115,6 +121,21 @@ class ConnectionManager:
         # Clean up disconnected clients
         for conn in disconnected:
             self.disconnect(job_id, conn)
+
+    async def broadcast_global_job_update(self, job_data: Dict[str, Any]) -> None:
+        """
+        Broadcast a job update to all clients monitoring the global jobs channel.
+
+        This is used to push job status changes to clients watching the Tools page
+        without requiring polling.
+
+        Args:
+            job_data: Job data to broadcast (typically the full job object)
+        """
+        await self.broadcast(self.GLOBAL_JOBS_CHANNEL, {
+            "type": "job_update",
+            "job": job_data
+        })
 
     async def send_personal(
         self, job_id: str, websocket: WebSocket, data: Dict[str, Any]

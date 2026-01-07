@@ -63,7 +63,39 @@ export interface PipelineValidationResults {
   }
 }
 
-export type ToolResults = PhotoStatsResults | PhotoPairingResults | PipelineValidationResults
+export interface DisplayGraphResults {
+  /** Pipeline name */
+  pipeline_name: string
+  /** Pipeline ID */
+  pipeline_id: number
+  /** Pipeline version */
+  pipeline_version: number
+  /** Total number of paths in pipeline */
+  total_paths: number
+  /** Number of paths with pairing nodes */
+  pairing_paths: number
+  /** Array of path details (truncated in API response) */
+  paths: Array<{
+    path_number: number
+    nodes: string[]
+    termination: string
+    is_pairing_path: boolean
+    is_truncated: boolean
+    expected_files: string[]
+  }>
+  /** Scan duration in seconds */
+  scan_duration: number
+}
+
+/**
+ * Truncation metadata added when large arrays are truncated in API responses.
+ * Maps field names to their original total count.
+ */
+export interface TruncationMetadata {
+  _truncated?: Record<string, number>
+}
+
+export type ToolResults = (PhotoStatsResults | PhotoPairingResults | PipelineValidationResults | DisplayGraphResults) & TruncationMetadata
 
 // ============================================================================
 // API Response Types
@@ -71,9 +103,14 @@ export type ToolResults = PhotoStatsResults | PhotoPairingResults | PipelineVali
 
 export interface AnalysisResultSummary {
   id: number
-  collection_id: number
-  collection_name: string
+  /** Collection ID (null for display_graph mode) */
+  collection_id: number | null
+  /** Collection name (null for display_graph mode) */
+  collection_name: string | null
   tool: ToolType
+  pipeline_id: number | null  // null for PhotoStats/PhotoPairing
+  pipeline_version: number | null  // version used at execution time
+  pipeline_name: string | null  // name of pipeline used
   status: ResultStatus
   started_at: string // ISO 8601 timestamp
   completed_at: string // ISO 8601 timestamp
@@ -85,11 +122,14 @@ export interface AnalysisResultSummary {
 
 export interface AnalysisResult {
   id: number
-  collection_id: number
-  collection_name: string
+  /** Collection ID (null for display_graph mode) */
+  collection_id: number | null
+  /** Collection name (null for display_graph mode) */
+  collection_name: string | null
   tool: ToolType
-  pipeline_id: number | null
-  pipeline_name: string | null
+  pipeline_id: number | null  // null for PhotoStats/PhotoPairing
+  pipeline_version: number | null  // version used at execution time
+  pipeline_name: string | null  // name of pipeline used
   status: ResultStatus
   started_at: string // ISO 8601 timestamp
   completed_at: string // ISO 8601 timestamp

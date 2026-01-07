@@ -65,6 +65,17 @@ export const getJobWebSocketUrl = (jobId: string): string => {
 }
 
 /**
+ * Get WebSocket URL for global job updates
+ * Returns the WebSocket URL for the global jobs channel
+ */
+export const getGlobalJobsWebSocketUrl = (): string => {
+  const baseUrl = api.defaults.baseURL || 'http://localhost:8000/api'
+  // Convert HTTP URL to WebSocket URL
+  const wsUrl = baseUrl.replace(/^http/, 'ws')
+  return `${wsUrl}/tools/ws/jobs/all`
+}
+
+/**
  * Run all analysis tools on a collection
  * Queues photostats and photo_pairing tools for execution
  */

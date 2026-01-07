@@ -27,7 +27,7 @@ class TestPipelineModel:
         """Test creating a basic pipeline with minimal fields."""
         pipeline = Pipeline(
             name="Basic Pipeline",
-            nodes_json=[{"id": "node1", "type": "capture"}],
+            nodes_json=[{"id": "node1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}}],
             edges_json=[]
         )
         test_db_session.add(pipeline)
@@ -44,7 +44,7 @@ class TestPipelineModel:
     def test_create_full_pipeline(self, test_db_session):
         """Test creating a pipeline with all fields."""
         nodes = [
-            {"id": "capture", "type": "capture", "properties": {"camera_id": "AB3D"}},
+            {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
             {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
             {"id": "xmp", "type": "file", "properties": {"extension": ".xmp"}},
             {"id": "pair", "type": "pairing", "properties": {"inputs": ["raw", "xmp"]}},
@@ -105,9 +105,9 @@ class TestPipelineModel:
         pipeline = Pipeline(
             name="Node Count Test",
             nodes_json=[
-                {"id": "n1", "type": "capture"},
-                {"id": "n2", "type": "file"},
-                {"id": "n3", "type": "termination"}
+                {"id": "n1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
+                {"id": "n2", "type": "file", "properties": {"extension": ".dng"}},
+                {"id": "n3", "type": "termination", "properties": {"termination_type": "Archive"}}
             ],
             edges_json=[]
         )
@@ -136,7 +136,7 @@ class TestPipelineModel:
         pipeline = Pipeline(
             name="Get Node Test",
             nodes_json=[
-                {"id": "capture", "type": "capture", "properties": {}},
+                {"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
                 {"id": "file", "type": "file", "properties": {"extension": ".dng"}}
             ],
             edges_json=[]
@@ -159,10 +159,10 @@ class TestPipelineModel:
         pipeline = Pipeline(
             name="Get Nodes By Type Test",
             nodes_json=[
-                {"id": "c1", "type": "capture"},
-                {"id": "f1", "type": "file"},
-                {"id": "f2", "type": "file"},
-                {"id": "t1", "type": "termination"}
+                {"id": "c1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}},
+                {"id": "f1", "type": "file", "properties": {"extension": ".dng"}},
+                {"id": "f2", "type": "file", "properties": {"extension": ".xmp"}},
+                {"id": "t1", "type": "termination", "properties": {"termination_type": "Archive"}}
             ],
             edges_json=[]
         )
@@ -260,7 +260,7 @@ class TestPipelineHistoryModel:
         """Create a sample pipeline for testing."""
         pipeline = Pipeline(
             name="History Test Pipeline",
-            nodes_json=[{"id": "n1", "type": "capture"}],
+            nodes_json=[{"id": "n1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}}],
             edges_json=[]
         )
         test_db_session.add(pipeline)
@@ -272,7 +272,7 @@ class TestPipelineHistoryModel:
         history = PipelineHistory(
             pipeline_id=sample_pipeline.id,
             version=1,
-            nodes_json=[{"id": "n1", "type": "capture"}],
+            nodes_json=[{"id": "n1", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}}],
             edges_json=[],
             change_summary="Initial version",
             changed_by="test_user"

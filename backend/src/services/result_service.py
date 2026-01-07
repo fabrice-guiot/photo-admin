@@ -32,6 +32,52 @@ from backend.src.utils.logging_config import get_logger
 
 logger = get_logger("services")
 
+# Maximum items to include in API responses for large arrays
+RESULT_ITEMS_LIMIT = 20
+
+
+def truncate_results(results: Dict[str, Any], limit: int = RESULT_ITEMS_LIMIT) -> Dict[str, Any]:
+    """
+    Truncate large arrays in results to prevent API response bloat.
+
+    For tool results containing large arrays (e.g., paths in pipeline_validation),
+    this function limits the array size and adds truncation metadata.
+
+    Args:
+        results: Tool-specific results dictionary
+        limit: Maximum items to return for large arrays
+
+    Returns:
+        Results with truncated arrays and added metadata:
+        - _truncated: Dict mapping array field names to their total counts
+        - Arrays are limited to `limit` items
+
+    Example:
+        Input: {"paths": [1,2,3,...,1000], "total_paths": 1000}
+        Output: {"paths": [1,2,...,20], "total_paths": 1000, "_truncated": {"paths": 1000}}
+    """
+    if not results:
+        return results
+
+    truncated = {}
+    result_copy = dict(results)
+
+    # Fields that can contain large arrays
+    large_array_fields = ['paths', 'files', 'issues', 'orphans', 'groups', 'patterns']
+
+    for field in large_array_fields:
+        if field in result_copy and isinstance(result_copy[field], list):
+            total = len(result_copy[field])
+            if total > limit:
+                result_copy[field] = result_copy[field][:limit]
+                truncated[field] = total
+                logger.debug(f"Truncated {field} from {total} to {limit} items")
+
+    if truncated:
+        result_copy['_truncated'] = truncated
+
+    return result_copy
+
 
 class ResultService:
     """
@@ -85,8 +131,8 @@ class ResultService:
         Returns:
             Tuple of (result summaries, total count)
         """
-        # Build base query with collection join
-        query = self.db.query(AnalysisResult).join(
+        # Build base query with optional collection join (LEFT JOIN for display_graph results)
+        query = self.db.query(AnalysisResult).outerjoin(
             Collection, AnalysisResult.collection_id == Collection.id
         )
 
@@ -120,17 +166,29 @@ class ResultService:
         # Apply pagination
         results = query.offset(offset).limit(limit).all()
 
-        # Convert to summaries with collection names
+        # Convert to summaries with collection and pipeline names
         summaries = []
         for result in results:
             collection = self.db.query(Collection).filter(
                 Collection.id == result.collection_id
             ).first()
+
+            # Get pipeline name if applicable
+            pipeline_name = None
+            if result.pipeline_id:
+                pipeline = self.db.query(Pipeline).filter(
+                    Pipeline.id == result.pipeline_id
+                ).first()
+                pipeline_name = pipeline.name if pipeline else None
+
             summaries.append(AnalysisResultSummary(
                 id=result.id,
                 collection_id=result.collection_id,
-                collection_name=collection.name if collection else "Unknown",
+                collection_name=collection.name if collection else None,
                 tool=result.tool,
+                pipeline_id=result.pipeline_id,
+                pipeline_version=result.pipeline_version,
+                pipeline_name=pipeline_name,
                 status=result.status.value if result.status else "UNKNOWN",
                 started_at=result.started_at,
                 completed_at=result.completed_at,
@@ -174,12 +232,16 @@ class ResultService:
                 Pipeline.id == result.pipeline_id
             ).first()
 
+        # Truncate large arrays in results to prevent API response bloat
+        truncated_results = truncate_results(result.results_json or {})
+
         return AnalysisResultResponse(
             id=result.id,
             collection_id=result.collection_id,
-            collection_name=collection.name if collection else "Unknown",
+            collection_name=collection.name if collection else None,
             tool=result.tool,
             pipeline_id=result.pipeline_id,
+            pipeline_version=result.pipeline_version,
             pipeline_name=pipeline.name if pipeline else None,
             status=result.status.value if result.status else "UNKNOWN",
             started_at=result.started_at,
@@ -189,7 +251,7 @@ class ResultService:
             issues_found=result.issues_found,
             error_message=result.error_message,
             has_report=result.has_report,
-            results=result.results_json or {},
+            results=truncated_results,
             created_at=result.created_at,
         )
 

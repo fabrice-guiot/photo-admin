@@ -40,6 +40,9 @@ class TestToolServiceJobManagement:
         collection.location = "/path/to/photos"
         collection.type = CollectionType.LOCAL
         collection.state = CollectionState.LIVE
+        collection.is_accessible = True
+        collection.pipeline_id = None  # No explicit pipeline assignment
+        collection.pipeline_version = None
         return collection
 
     @pytest.fixture
@@ -48,13 +51,25 @@ class TestToolServiceJobManagement:
         pipeline = Mock(spec=Pipeline)
         pipeline.id = 1
         pipeline.name = "Test Pipeline"
-        pipeline.nodes_json = [{"id": "capture", "type": "capture"}]
+        pipeline.nodes_json = [{"id": "capture", "type": "capture", "properties": {"sample_filename": "AB3D0001", "filename_regex": "([A-Z0-9]{4})([0-9]{4})", "camera_id_group": "1"}}]
         pipeline.edges_json = []
         return pipeline
 
     def test_run_tool_creates_job(self, mock_db, mock_collection, job_queue):
         """Test that run_tool creates a new job."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        # Set up mock to return collection first, then None for default pipeline query
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                # Pipeline query returns None (no default pipeline, which is OK for PhotoStats)
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
         job = service.run_tool(
@@ -75,12 +90,24 @@ class TestToolServiceJobManagement:
         with pytest.raises(ValueError, match="Collection 999 not found"):
             service.run_tool(collection_id=999, tool=ToolType.PHOTOSTATS)
 
-    def test_run_tool_validates_pipeline_for_validation(self, mock_db, mock_collection, job_queue):
-        """Test that pipeline is required for pipeline_validation."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+    def test_run_tool_validates_default_pipeline_for_validation(self, mock_db, mock_collection, job_queue):
+        """Test that a default pipeline is required for pipeline_validation when no pipeline_id is provided."""
+        # Set up mock to return collection first, then None for pipeline query
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                # Pipeline query returns None (no default pipeline)
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
-        with pytest.raises(ValueError, match="pipeline_id required"):
+        with pytest.raises(ValueError, match="No pipeline available"):
             service.run_tool(
                 collection_id=1,
                 tool=ToolType.PIPELINE_VALIDATION
@@ -88,7 +115,18 @@ class TestToolServiceJobManagement:
 
     def test_run_tool_prevents_duplicate(self, mock_db, mock_collection, job_queue):
         """Test that duplicate tool execution is prevented."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        # Set up mock to return collection first, then None for default pipeline query
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
 
@@ -102,7 +140,17 @@ class TestToolServiceJobManagement:
 
     def test_get_job_returns_job(self, mock_db, mock_collection, job_queue):
         """Test getting job by ID."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
         job = service.run_tool(collection_id=1, tool=ToolType.PHOTOSTATS)
@@ -119,7 +167,17 @@ class TestToolServiceJobManagement:
 
     def test_list_jobs_returns_all(self, mock_db, mock_collection, job_queue):
         """Test listing all jobs."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
         service.run_tool(collection_id=1, tool=ToolType.PHOTOSTATS)
@@ -129,7 +187,17 @@ class TestToolServiceJobManagement:
 
     def test_list_jobs_filters_by_status(self, mock_db, mock_collection, job_queue):
         """Test filtering jobs by status."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
         service.run_tool(collection_id=1, tool=ToolType.PHOTOSTATS)
@@ -142,7 +210,17 @@ class TestToolServiceJobManagement:
 
     def test_cancel_job_cancels_queued(self, mock_db, mock_collection, job_queue):
         """Test cancelling a queued job."""
-        mock_db.query.return_value.filter.return_value.first.return_value = mock_collection
+        def side_effect(model):
+            query_mock = Mock()
+            filter_mock = Mock()
+            if model == Collection:
+                filter_mock.first.return_value = mock_collection
+            else:
+                filter_mock.first.return_value = None
+            query_mock.filter.return_value = filter_mock
+            return query_mock
+
+        mock_db.query.side_effect = side_effect
 
         service = ToolService(db=mock_db, job_queue=job_queue)
         job = service.run_tool(collection_id=1, tool=ToolType.PHOTOSTATS)

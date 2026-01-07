@@ -63,11 +63,15 @@ class AnalysisResultSummary(BaseModel):
     Summary of an analysis result for list views.
 
     Contains essential information without full result details.
+    For pipeline-only results (display_graph mode), collection fields are null.
     """
     id: int = Field(..., description="Result ID")
-    collection_id: int = Field(..., description="Collection ID")
-    collection_name: str = Field(..., description="Collection name")
+    collection_id: Optional[int] = Field(None, description="Collection ID (null for display_graph)")
+    collection_name: Optional[str] = Field(None, description="Collection name (null for display_graph)")
     tool: str = Field(..., description="Tool that produced this result")
+    pipeline_id: Optional[int] = Field(None, description="Pipeline ID if applicable")
+    pipeline_version: Optional[int] = Field(None, description="Pipeline version used")
+    pipeline_name: Optional[str] = Field(None, description="Pipeline name if applicable")
     status: str = Field(..., description="Result status")
     started_at: datetime = Field(..., description="Execution start time")
     completed_at: datetime = Field(..., description="Execution end time")
@@ -79,19 +83,40 @@ class AnalysisResultSummary(BaseModel):
     model_config = {
         "from_attributes": True,
         "json_schema_extra": {
-            "example": {
-                "id": 1,
-                "collection_id": 1,
-                "collection_name": "Vacation 2024",
-                "tool": "photostats",
-                "status": "COMPLETED",
-                "started_at": "2024-01-15T10:30:00Z",
-                "completed_at": "2024-01-15T10:32:15Z",
-                "duration_seconds": 135.5,
-                "files_scanned": 1250,
-                "issues_found": 15,
-                "has_report": True
-            }
+            "examples": [
+                {
+                    "id": 1,
+                    "collection_id": 1,
+                    "collection_name": "Vacation 2024",
+                    "tool": "pipeline_validation",
+                    "pipeline_id": 1,
+                    "pipeline_version": 3,
+                    "pipeline_name": "Standard RAW Workflow",
+                    "status": "COMPLETED",
+                    "started_at": "2024-01-15T10:30:00Z",
+                    "completed_at": "2024-01-15T10:32:15Z",
+                    "duration_seconds": 135.5,
+                    "files_scanned": 1250,
+                    "issues_found": 15,
+                    "has_report": True
+                },
+                {
+                    "id": 2,
+                    "collection_id": None,
+                    "collection_name": None,
+                    "tool": "pipeline_validation",
+                    "pipeline_id": 1,
+                    "pipeline_version": 3,
+                    "pipeline_name": "Standard RAW Workflow",
+                    "status": "COMPLETED",
+                    "started_at": "2024-01-15T11:00:00Z",
+                    "completed_at": "2024-01-15T11:00:05Z",
+                    "duration_seconds": 5.2,
+                    "files_scanned": None,
+                    "issues_found": 0,
+                    "has_report": True
+                }
+            ]
         }
     }
 
@@ -146,12 +171,14 @@ class AnalysisResultResponse(BaseModel):
     Full analysis result details.
 
     Contains all result information including tool-specific results.
+    For pipeline-only results (display_graph mode), collection fields are null.
     """
     id: int = Field(..., description="Result ID")
-    collection_id: int = Field(..., description="Collection ID")
-    collection_name: str = Field(..., description="Collection name")
+    collection_id: Optional[int] = Field(None, description="Collection ID (null for display_graph)")
+    collection_name: Optional[str] = Field(None, description="Collection name (null for display_graph)")
     tool: str = Field(..., description="Tool that produced this result")
     pipeline_id: Optional[int] = Field(None, description="Pipeline ID if applicable")
+    pipeline_version: Optional[int] = Field(None, description="Pipeline version used at execution time")
     pipeline_name: Optional[str] = Field(None, description="Pipeline name if applicable")
     status: str = Field(..., description="Result status")
     started_at: datetime = Field(..., description="Execution start time")
@@ -171,7 +198,10 @@ class AnalysisResultResponse(BaseModel):
                 "id": 1,
                 "collection_id": 1,
                 "collection_name": "Vacation 2024",
-                "tool": "photostats",
+                "tool": "pipeline_validation",
+                "pipeline_id": 1,
+                "pipeline_version": 3,
+                "pipeline_name": "Standard RAW Workflow",
                 "status": "COMPLETED",
                 "started_at": "2024-01-15T10:30:00Z",
                 "completed_at": "2024-01-15T10:32:15Z",
@@ -180,11 +210,7 @@ class AnalysisResultResponse(BaseModel):
                 "issues_found": 15,
                 "has_report": True,
                 "results": {
-                    "total_size": 52428800,
-                    "total_files": 1250,
-                    "file_counts": {".dng": 500, ".cr3": 500, ".xmp": 250},
-                    "orphaned_images": ["IMG_0001.cr3"],
-                    "orphaned_xmp": ["IMG_0002.xmp"]
+                    "consistency_counts": {"CONSISTENT": 1200, "PARTIAL": 35, "INCONSISTENT": 15}
                 },
                 "created_at": "2024-01-15T10:32:15Z"
             }

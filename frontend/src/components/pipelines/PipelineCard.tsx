@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle,
   Zap,
+  Star,
   MoreVertical,
   Pencil,
   Trash2,
@@ -17,6 +18,7 @@ import {
   PowerOff,
   Download,
   Eye,
+  Play,
 } from 'lucide-react'
 import type { PipelineSummary } from '@/contracts/api/pipelines-api'
 import { Card, CardContent } from '@/components/ui/card'
@@ -37,8 +39,11 @@ interface PipelineCardProps {
   onDelete: (pipeline: PipelineSummary) => void
   onActivate: (pipeline: PipelineSummary) => void
   onDeactivate: (pipeline: PipelineSummary) => void
+  onSetDefault: (pipeline: PipelineSummary) => void
+  onUnsetDefault: (pipeline: PipelineSummary) => void
   onExport: (pipeline: PipelineSummary) => void
   onView: (pipeline: PipelineSummary) => void
+  onValidateGraph?: (pipeline: PipelineSummary) => void
   isLoading?: boolean
 }
 
@@ -48,8 +53,11 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
   onDelete,
   onActivate,
   onDeactivate,
+  onSetDefault,
+  onUnsetDefault,
   onExport,
   onView,
+  onValidateGraph,
   isLoading = false,
 }) => {
   const formatDate = (dateString: string) => {
@@ -64,7 +72,8 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
     <Card
       className={cn(
         'hover:shadow-md transition-shadow',
-        pipeline.is_active && 'ring-2 ring-primary border-primary/50',
+        pipeline.is_default && 'ring-2 ring-amber-500 border-amber-500/50',
+        pipeline.is_active && !pipeline.is_default && 'ring-2 ring-primary border-primary/50',
         isLoading && 'opacity-50 pointer-events-none'
       )}
     >
@@ -75,13 +84,13 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
             <div
               className={cn(
                 'p-2 rounded-lg',
-                pipeline.is_active ? 'bg-primary/10' : 'bg-muted'
+                pipeline.is_default ? 'bg-amber-500/10' : pipeline.is_active ? 'bg-primary/10' : 'bg-muted'
               )}
             >
               <GitBranch
                 className={cn(
                   'h-5 w-5',
-                  pipeline.is_active ? 'text-primary' : 'text-muted-foreground'
+                  pipeline.is_default ? 'text-amber-600' : pipeline.is_active ? 'text-primary' : 'text-muted-foreground'
                 )}
               />
             </div>
@@ -103,6 +112,16 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
                 <Eye className="h-4 w-4 mr-2" />
                 View Details
               </DropdownMenuItem>
+              {onValidateGraph && (
+                <DropdownMenuItem
+                  onClick={() => onValidateGraph(pipeline)}
+                  disabled={!pipeline.is_active || !pipeline.is_valid}
+                  className={pipeline.is_active && pipeline.is_valid ? 'text-blue-600 focus:text-blue-600' : ''}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Validate Pipeline Graph
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onEdit(pipeline)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
@@ -125,6 +144,24 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
                   Activate
                 </DropdownMenuItem>
               )}
+              {pipeline.is_default ? (
+                <DropdownMenuItem
+                  onClick={() => onUnsetDefault(pipeline)}
+                  className="text-amber-600 focus:text-amber-600"
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Remove Default
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => onSetDefault(pipeline)}
+                  disabled={!pipeline.is_active}
+                  className={pipeline.is_active ? 'text-amber-600 focus:text-amber-600' : ''}
+                >
+                  <Star className="h-4 w-4 mr-2" />
+                  Set as Default
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => onExport(pipeline)}>
                 <Download className="h-4 w-4 mr-2" />
                 Export YAML
@@ -132,8 +169,8 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => onDelete(pipeline)}
-                disabled={pipeline.is_active}
-                className={!pipeline.is_active ? 'text-destructive focus:text-destructive' : ''}
+                disabled={pipeline.is_active || pipeline.is_default}
+                className={!pipeline.is_active && !pipeline.is_default ? 'text-destructive focus:text-destructive' : ''}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
@@ -150,8 +187,14 @@ export const PipelineCard: React.FC<PipelineCardProps> = ({
         )}
 
         {/* Status Badges */}
-        <div className="flex items-center gap-2 mb-3">
-          {pipeline.is_active && (
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {pipeline.is_default && (
+            <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              <Star className="h-3 w-3" />
+              Default
+            </Badge>
+          )}
+          {pipeline.is_active && !pipeline.is_default && (
             <Badge variant="default" className="gap-1">
               <Zap className="h-3 w-3" />
               Active

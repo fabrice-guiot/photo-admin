@@ -33,9 +33,10 @@ class AnalysisResult(Base):
 
     Attributes:
         id: Primary key
-        collection_id: Foreign key to Collection (CASCADE on delete)
+        collection_id: Foreign key to Collection (CASCADE on delete, nullable for display-graph mode)
         tool: Tool name ('photostats', 'photo_pairing', 'pipeline_validation')
-        pipeline_id: Foreign key to Pipeline (SET NULL on delete, for pipeline_validation only)
+        pipeline_id: Foreign key to Pipeline (SET NULL on delete)
+        pipeline_version: Pipeline version used at execution time (nullable)
         status: Result status (COMPLETED, FAILED, CANCELLED)
         started_at: Execution start timestamp
         completed_at: Execution end timestamp
@@ -46,13 +47,14 @@ class AnalysisResult(Base):
         files_scanned: Number of files processed
         issues_found: Number of issues detected
         created_at: Record creation timestamp
-        collection: Related collection (many-to-one)
+        collection: Related collection (many-to-one, nullable)
         pipeline: Related pipeline (many-to-one, nullable)
 
     Constraints:
-        - collection_id required and must reference existing collection
+        - collection_id optional (NULL for pipeline-only display-graph mode)
         - tool must be one of: 'photostats', 'photo_pairing', 'pipeline_validation'
-        - pipeline_id required when tool='pipeline_validation', null otherwise
+        - PhotoStats/PhotoPairing require collection_id
+        - Pipeline Validation display-graph mode: collection_id NULL, pipeline_id required
         - completed_at must be >= started_at
         - duration_seconds must be >= 0
         - results_json must be valid JSON
@@ -73,7 +75,7 @@ class AnalysisResult(Base):
     collection_id = Column(
         Integer,
         ForeignKey("collections.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,  # Nullable for pipeline-only validation (display-graph mode)
         index=True
     )
     pipeline_id = Column(
@@ -82,6 +84,7 @@ class AnalysisResult(Base):
         nullable=True,
         index=True
     )
+    pipeline_version = Column(Integer, nullable=True)
 
     # Core fields
     tool = Column(String(50), nullable=False, index=True)

@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import type { Connector } from '@/contracts/api/connector-api'
 import type { Collection } from '@/contracts/api/collection-api'
-import type { JobResponse, JobStatus, ToolType, QueueStatusResponse } from '@/contracts/api/tools-api'
+import type { JobResponse, JobStatus, ToolType, ToolMode, QueueStatusResponse, ToolRunRequest } from '@/contracts/api/tools-api'
 import type { AnalysisResult, AnalysisResultSummary, ResultStatsResponse } from '@/contracts/api/results-api'
 import type { Pipeline, PipelineSummary, PipelineStatsResponse, ValidationResult, PipelineHistoryEntry, FilenamePreviewResponse } from '@/contracts/api/pipelines-api'
 
@@ -27,6 +27,7 @@ let pipelines: Pipeline[] = [
     ],
     version: 1,
     is_active: true,
+    is_default: true,
     is_valid: true,
     validation_errors: null,
     created_at: '2025-01-01T09:00:00Z',
@@ -49,6 +50,7 @@ let pipelines: Pipeline[] = [
     ],
     version: 2,
     is_active: false,
+    is_default: false,
     is_valid: true,
     validation_errors: null,
     created_at: '2025-01-01T10:00:00Z',
@@ -65,6 +67,7 @@ let pipelines: Pipeline[] = [
     edges: [],
     version: 1,
     is_active: false,
+    is_default: false,
     is_valid: false,
     validation_errors: ['Orphaned node: orphan'],
     created_at: '2025-01-01T12:00:00Z',
@@ -98,6 +101,7 @@ let results: AnalysisResult[] = [
     collection_name: 'Test Collection',
     tool: 'photostats',
     pipeline_id: null,
+    pipeline_version: null,
     pipeline_name: null,
     status: 'COMPLETED',
     started_at: '2025-01-01T10:00:00Z',
@@ -122,6 +126,7 @@ let results: AnalysisResult[] = [
     collection_name: 'Test Collection',
     tool: 'photo_pairing',
     pipeline_id: null,
+    pipeline_version: null,
     pipeline_name: null,
     status: 'COMPLETED',
     started_at: '2025-01-01T11:00:00Z',
@@ -147,6 +152,7 @@ let results: AnalysisResult[] = [
     collection_name: 'Remote S3 Collection',
     tool: 'photostats',
     pipeline_id: null,
+    pipeline_version: null,
     pipeline_name: null,
     status: 'FAILED',
     started_at: '2025-01-01T12:00:00Z',
@@ -156,11 +162,38 @@ let results: AnalysisResult[] = [
     issues_found: 0,
     error_message: 'Connection timeout to S3 bucket',
     has_report: false,
-    results: {},
+    results: {
+      total_size: 0,
+      total_files: 0,
+      file_counts: {},
+      orphaned_images: [],
+      orphaned_xmp: [],
+    },
     created_at: '2025-01-01T12:00:00Z',
   },
+  {
+    id: 4,
+    collection_id: 2,
+    collection_name: 'Remote S3 Collection',
+    tool: 'pipeline_validation',
+    pipeline_id: 1,
+    pipeline_version: 1,
+    pipeline_name: 'Standard RAW Workflow',
+    status: 'COMPLETED',
+    started_at: '2025-01-01T13:00:00Z',
+    completed_at: '2025-01-01T13:05:00Z',
+    duration_seconds: 300,
+    files_scanned: 500,
+    issues_found: 3,
+    error_message: null,
+    has_report: true,
+    results: {
+      consistency_counts: { CONSISTENT: 400, PARTIAL: 50, INCONSISTENT: 50 },
+    },
+    created_at: '2025-01-01T13:00:00Z',
+  },
 ]
-let nextResultId = 4
+let nextResultId = 5
 
 let connectors: Connector[] = [
   {
@@ -193,6 +226,9 @@ let collections: Collection[] = [
     location: '/photos',
     state: 'live',
     connector_id: null,
+    pipeline_id: null,
+    pipeline_version: null,
+    pipeline_name: null,
     cache_ttl: 3600,
     is_accessible: true,
     accessibility_message: null,
@@ -207,6 +243,9 @@ let collections: Collection[] = [
     location: 'my-bucket/photos',
     state: 'closed',
     connector_id: 1,
+    pipeline_id: 1,
+    pipeline_version: 1,
+    pipeline_name: 'Standard RAW Workflow',
     cache_ttl: 86400,
     is_accessible: true,
     accessibility_message: null,
@@ -327,6 +366,18 @@ export const handlers = [
         )
       }
     }
+    // Look up pipeline if pipeline_id is provided
+    let pipelineId: number | null = null
+    let pipelineVersion: number | null = null
+    let pipelineName: string | null = null
+    if (data.pipeline_id) {
+      const pipeline = pipelines.find((p) => p.id === data.pipeline_id)
+      if (pipeline && pipeline.is_active) {
+        pipelineId = pipeline.id
+        pipelineVersion = pipeline.version
+        pipelineName = pipeline.name
+      }
+    }
     const newCollection: Collection = {
       id: nextCollectionId++,
       name: data.name!,
@@ -334,6 +385,9 @@ export const handlers = [
       location: data.location!,
       state: data.state!,
       connector_id: data.connector_id ?? null,
+      pipeline_id: pipelineId,
+      pipeline_version: pipelineVersion,
+      pipeline_name: pipelineName,
       cache_ttl: data.cache_ttl ?? null,
       is_accessible: true,
       accessibility_message: null,
@@ -410,6 +464,58 @@ export const handlers = [
     })
   }),
 
+  http.post(`${BASE_URL}/collections/:id/assign-pipeline`, ({ params, request }) => {
+    const url = new URL(request.url)
+    const pipelineIdParam = url.searchParams.get('pipeline_id')
+    if (!pipelineIdParam) {
+      return HttpResponse.json(
+        { detail: 'pipeline_id query parameter is required' },
+        { status: 400 }
+      )
+    }
+    const pipelineId = Number(pipelineIdParam)
+    const collectionIndex = collections.findIndex((c) => c.id === Number(params.id))
+    if (collectionIndex === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    const pipeline = pipelines.find((p) => p.id === pipelineId)
+    if (!pipeline) {
+      return HttpResponse.json(
+        { detail: `Pipeline ${pipelineId} not found` },
+        { status: 404 }
+      )
+    }
+    if (!pipeline.is_active) {
+      return HttpResponse.json(
+        { detail: `Pipeline '${pipeline.name}' is not active` },
+        { status: 400 }
+      )
+    }
+    collections[collectionIndex] = {
+      ...collections[collectionIndex],
+      pipeline_id: pipeline.id,
+      pipeline_version: pipeline.version,
+      pipeline_name: pipeline.name,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(collections[collectionIndex])
+  }),
+
+  http.post(`${BASE_URL}/collections/:id/clear-pipeline`, ({ params }) => {
+    const collectionIndex = collections.findIndex((c) => c.id === Number(params.id))
+    if (collectionIndex === -1) {
+      return new HttpResponse(null, { status: 404 })
+    }
+    collections[collectionIndex] = {
+      ...collections[collectionIndex],
+      pipeline_id: null,
+      pipeline_version: null,
+      pipeline_name: null,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(collections[collectionIndex])
+  }),
+
   // Collection stats endpoint
   http.get(`${BASE_URL}/collections/stats`, () => {
     return HttpResponse.json({
@@ -426,9 +532,61 @@ export const handlers = [
   // ============================================================================
 
   http.post(`${BASE_URL}/tools/run`, async ({ request }) => {
-    const data = await request.json() as { collection_id: number; tool: ToolType; pipeline_id?: number }
+    const data = await request.json() as ToolRunRequest
 
-    // Check if collection exists and is accessible
+    // Handle display_graph mode (pipeline validation without collection)
+    if (data.mode === 'display_graph') {
+      if (!data.pipeline_id) {
+        return HttpResponse.json(
+          { detail: 'pipeline_id is required for display_graph mode' },
+          { status: 400 }
+        )
+      }
+
+      // Check for duplicate display_graph job
+      const existingJob = jobs.find(
+        (j) => j.pipeline_id === data.pipeline_id && j.mode === 'display_graph' &&
+               (j.status === 'queued' || j.status === 'running')
+      )
+      if (existingJob) {
+        return HttpResponse.json(
+          {
+            detail: {
+              message: `Display graph already running on pipeline ${data.pipeline_id}`,
+              existing_job_id: existingJob.id,
+            }
+          },
+          { status: 409 }
+        )
+      }
+
+      const newJob: JobResponse = {
+        id: `job-${nextJobId++}`,
+        collection_id: null,
+        tool: data.tool,
+        pipeline_id: data.pipeline_id,
+        mode: 'display_graph',
+        status: 'queued',
+        position: jobs.filter((j) => j.status === 'queued').length + 1,
+        created_at: new Date().toISOString(),
+        started_at: null,
+        completed_at: null,
+        progress: null,
+        error_message: null,
+        result_id: null,
+      }
+      jobs.push(newJob)
+      return HttpResponse.json(newJob, { status: 202 })
+    }
+
+    // Collection mode - check if collection exists and is accessible
+    if (!data.collection_id) {
+      return HttpResponse.json(
+        { detail: 'collection_id is required for collection mode' },
+        { status: 400 }
+      )
+    }
+
     const collection = collections.find((c) => c.id === data.collection_id)
     if (!collection) {
       return HttpResponse.json(
@@ -452,7 +610,7 @@ export const handlers = [
     // Check for duplicate job
     const existingJob = jobs.find(
       (j) => j.collection_id === data.collection_id && j.tool === data.tool &&
-             (j.status === 'QUEUED' || j.status === 'RUNNING')
+             (j.status === 'queued' || j.status === 'running')
     )
     if (existingJob) {
       return HttpResponse.json(
@@ -471,12 +629,15 @@ export const handlers = [
       collection_id: data.collection_id,
       tool: data.tool,
       pipeline_id: data.pipeline_id ?? null,
-      status: 'QUEUED',
-      position: jobs.filter((j) => j.status === 'QUEUED').length + 1,
+      mode: data.mode ?? null,
+      status: 'queued',
+      position: jobs.filter((j) => j.status === 'queued').length + 1,
       created_at: new Date().toISOString(),
       started_at: null,
       completed_at: null,
       progress: null,
+      error_message: null,
+      result_id: null,
     }
     jobs.push(newJob)
     return HttpResponse.json(newJob, { status: 202 })
@@ -506,25 +667,25 @@ export const handlers = [
     if (!job) {
       return new HttpResponse(null, { status: 404 })
     }
-    if (job.status !== 'QUEUED') {
+    if (job.status !== 'queued') {
       return HttpResponse.json(
         { detail: 'Only queued jobs can be cancelled' },
         { status: 400 }
       )
     }
-    job.status = 'CANCELLED'
+    job.status = 'cancelled'
     job.completed_at = new Date().toISOString()
     return HttpResponse.json(job)
   }),
 
   http.get(`${BASE_URL}/tools/queue/status`, () => {
     const queueStatus: QueueStatusResponse = {
-      queued_count: jobs.filter((j) => j.status === 'QUEUED').length,
-      running_count: jobs.filter((j) => j.status === 'RUNNING').length,
-      completed_count: jobs.filter((j) => j.status === 'COMPLETED').length,
-      failed_count: jobs.filter((j) => j.status === 'FAILED').length,
-      cancelled_count: jobs.filter((j) => j.status === 'CANCELLED').length,
-      current_job_id: jobs.find((j) => j.status === 'RUNNING')?.id ?? null,
+      queued_count: jobs.filter((j) => j.status === 'queued').length,
+      running_count: jobs.filter((j) => j.status === 'running').length,
+      completed_count: jobs.filter((j) => j.status === 'completed').length,
+      failed_count: jobs.filter((j) => j.status === 'failed').length,
+      cancelled_count: jobs.filter((j) => j.status === 'cancelled').length,
+      current_job_id: jobs.find((j) => j.status === 'running')?.id ?? null,
     }
     return HttpResponse.json(queueStatus)
   }),
@@ -560,6 +721,9 @@ export const handlers = [
         collection_id: r.collection_id,
         collection_name: r.collection_name,
         tool: r.tool,
+        pipeline_id: r.pipeline_id,
+        pipeline_version: r.pipeline_version,
+        pipeline_name: r.pipeline_name,
         status: r.status,
         started_at: r.started_at,
         completed_at: r.completed_at,
@@ -648,6 +812,7 @@ export const handlers = [
       description: p.description,
       version: p.version,
       is_active: p.is_active,
+      is_default: p.is_default,
       is_valid: p.is_valid,
       node_count: p.nodes.length,
       created_at: p.created_at,
@@ -658,12 +823,13 @@ export const handlers = [
   }),
 
   http.get(`${BASE_URL}/pipelines/stats`, () => {
-    const activePipeline = pipelines.find((p) => p.is_active)
+    const defaultPipeline = pipelines.find((p) => p.is_default)
     const stats: PipelineStatsResponse = {
       total_pipelines: pipelines.length,
       valid_pipelines: pipelines.filter((p) => p.is_valid).length,
-      active_pipeline_id: activePipeline?.id ?? null,
-      active_pipeline_name: activePipeline?.name ?? null,
+      active_pipeline_count: pipelines.filter((p) => p.is_active).length,
+      default_pipeline_id: defaultPipeline?.id ?? null,
+      default_pipeline_name: defaultPipeline?.name ?? null,
     }
     return HttpResponse.json(stats)
   }),
@@ -695,6 +861,7 @@ export const handlers = [
       edges: data.edges,
       version: 1,
       is_active: false,
+      is_default: false,
       is_valid: true,
       validation_errors: null,
       created_at: new Date().toISOString(),
@@ -893,6 +1060,7 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
       edges: [{ from: 'capture', to: 'done' }],
       version: 1,
       is_active: false,
+      is_default: false,
       is_valid: true,
       validation_errors: null,
       created_at: new Date().toISOString(),
@@ -923,6 +1091,7 @@ export function resetMockData(): void {
       ],
       version: 1,
       is_active: true,
+      is_default: true,
       is_valid: true,
       validation_errors: null,
       created_at: '2025-01-01T09:00:00Z',
@@ -945,6 +1114,7 @@ export function resetMockData(): void {
       ],
       version: 2,
       is_active: false,
+      is_default: false,
       is_valid: true,
       validation_errors: null,
       created_at: '2025-01-01T10:00:00Z',
@@ -961,6 +1131,7 @@ export function resetMockData(): void {
       edges: [],
       version: 1,
       is_active: false,
+      is_default: false,
       is_valid: false,
       validation_errors: ['Orphaned node: orphan'],
       created_at: '2025-01-01T12:00:00Z',
@@ -1015,6 +1186,9 @@ export function resetMockData(): void {
       location: '/photos',
       state: 'live',
       connector_id: null,
+      pipeline_id: null,
+      pipeline_version: null,
+      pipeline_name: null,
       cache_ttl: 3600,
       is_accessible: true,
       accessibility_message: null,
@@ -1029,6 +1203,9 @@ export function resetMockData(): void {
       location: 'my-bucket/photos',
       state: 'closed',
       connector_id: 1,
+      pipeline_id: 1,
+      pipeline_version: 1,
+      pipeline_name: 'Standard RAW Workflow',
       cache_ttl: 86400,
       is_accessible: true,
       accessibility_message: null,
@@ -1045,6 +1222,7 @@ export function resetMockData(): void {
       collection_name: 'Test Collection',
       tool: 'photostats',
       pipeline_id: null,
+      pipeline_version: null,
       pipeline_name: null,
       status: 'COMPLETED',
       started_at: '2025-01-01T10:00:00Z',
@@ -1069,6 +1247,7 @@ export function resetMockData(): void {
       collection_name: 'Test Collection',
       tool: 'photo_pairing',
       pipeline_id: null,
+      pipeline_version: null,
       pipeline_name: null,
       status: 'COMPLETED',
       started_at: '2025-01-01T11:00:00Z',
@@ -1094,6 +1273,7 @@ export function resetMockData(): void {
       collection_name: 'Remote S3 Collection',
       tool: 'photostats',
       pipeline_id: null,
+      pipeline_version: null,
       pipeline_name: null,
       status: 'FAILED',
       started_at: '2025-01-01T12:00:00Z',
@@ -1103,12 +1283,39 @@ export function resetMockData(): void {
       issues_found: 0,
       error_message: 'Connection timeout to S3 bucket',
       has_report: false,
-      results: {},
+      results: {
+        total_size: 0,
+        total_files: 0,
+        file_counts: {},
+        orphaned_images: [],
+        orphaned_xmp: [],
+      },
       created_at: '2025-01-01T12:00:00Z',
+    },
+    {
+      id: 4,
+      collection_id: 2,
+      collection_name: 'Remote S3 Collection',
+      tool: 'pipeline_validation',
+      pipeline_id: 1,
+      pipeline_version: 1,
+      pipeline_name: 'Standard RAW Workflow',
+      status: 'COMPLETED',
+      started_at: '2025-01-01T13:00:00Z',
+      completed_at: '2025-01-01T13:05:00Z',
+      duration_seconds: 300,
+      files_scanned: 500,
+      issues_found: 3,
+      error_message: null,
+      has_report: true,
+      results: {
+        consistency_counts: { CONSISTENT: 400, PARTIAL: 50, INCONSISTENT: 50 },
+      },
+      created_at: '2025-01-01T13:00:00Z',
     },
   ]
   nextConnectorId = 3
   nextCollectionId = 3
   nextJobId = 1
-  nextResultId = 4
+  nextResultId = 5
 }
