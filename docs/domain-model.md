@@ -80,11 +80,13 @@ All user-facing entities MUST implement Universal Unique Identifiers following t
 | Camera | `cam_` | `cam_01HGW2BBG0000000000000006` |
 | Album | `alb_` | `alb_01HGW2BBG0000000000000007` |
 | Image | `img_` | `img_01HGW2BBG0000000000000008` |
-| Location | `loc_` | `loc_01HGW2BBG0000000000000009` |
-| Organizer | `org_` | `org_01HGW2BBG000000000000000A` |
-| Performer | `prf_` | `prf_01HGW2BBG000000000000000B` |
-| Result | `res_` | `res_01HGW2BBG000000000000000C` |
-| Agent | `agt_` | `agt_01HGW2BBG000000000000000D` |
+| File | `fil_` | `fil_01HGW2BBG0000000000000009` |
+| Workflow | `wfl_` | `wfl_01HGW2BBG000000000000000A` |
+| Location | `loc_` | `loc_01HGW2BBG000000000000000B` |
+| Organizer | `org_` | `org_01HGW2BBG000000000000000C` |
+| Performer | `prf_` | `prf_01HGW2BBG000000000000000D` |
+| Result | `res_` | `res_01HGW2BBG000000000000000E` |
+| Agent | `agt_` | `agt_01HGW2BBG000000000000000F` |
 
 **Implementation Reference:** [puidv7-js](https://github.com/puidv7/puidv7-js)
 
@@ -124,6 +126,10 @@ The application implements team-based data isolation:
 | [Camera](#camera) | :construction: | Equipment | Medium |
 | [Album](#album) | :construction: | Content | Medium |
 | [Image](#image) | :construction: | Content | Medium |
+| [File](#file) | :construction: | Content | Medium |
+| [Workflow](#workflow) | :construction: | Workflow | Medium |
+| [WorkflowCollection](#workflowcollection-junction-table) | :construction: | Junction | Medium |
+| [ImageWorkflowProgress](#imageworkflowprogress) | :construction: | Junction | Medium |
 | [Location/Venue](#locationvenue) | :construction: | Reference | Medium |
 | [Organizer](#organizer) | :construction: | Reference | Low |
 | [Performer](#performer) | :construction: | Reference | Low |
@@ -182,6 +188,32 @@ The application implements team-based data isolation:
 - Many-to-one with Connector (RESTRICT on delete)
 - Many-to-one with Pipeline (SET NULL on delete)
 - One-to-many with AnalysisResult (CASCADE delete)
+- One-to-many with File (RESTRICT delete - Files must be moved/deleted first)
+- Many-to-many with Workflow (via WorkflowCollection junction)
+
+**Collection vs Image vs File:**
+
+Collections contain **Files**, not Images directly. A Collection is a storage location; an Image is a logical concept that may span multiple Collections through its Files:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                     WORKFLOW: "Airshow Processing"                    │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                       │
+│  Collection A              Collection B              Collection C     │
+│  "Card1-Import"           "Selects"                 "Exports"         │
+│  (role: SOURCE)           (role: WORKING)           (role: OUTPUT)    │
+│  ┌─────────────┐          ┌─────────────┐          ┌─────────────┐   │
+│  │AB3D0001.CR3 │          │AB3D0001.DNG │          │AB3D0001.TIF │   │
+│  │AB3D0001.XMP │──────────│             │──────────│             │   │
+│  │             │  Image   │             │  Image   │             │   │
+│  │AB3D0002.CR3 │ AB3D0001 │AB3D0002.DNG │ AB3D0001 │AB3D0002.TIF │   │
+│  │AB3D0002.XMP │──────────│             │──────────│             │   │
+│  └─────────────┘          └─────────────┘          └─────────────┘   │
+│                                                                       │
+│  All 6 files shown belong to 2 Images, spread across 3 Collections   │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -540,7 +572,7 @@ The application implements team-based data isolation:
 **Priority:** Medium
 **Target Epic:** 009 or later
 
-**Purpose:** Logical grouping of images from an Event or session.
+**Purpose:** Logical grouping of Images from an Event or session, serving as the container for workflow processing.
 
 | Attribute | Type | Constraints | Description |
 |-----------|------|-------------|-------------|
@@ -548,7 +580,6 @@ The application implements team-based data isolation:
 | `uuid` | UUID | unique, not null | External identifier |
 | `team_id` | Integer | FK(teams.id), not null | Owning team |
 | `event_id` | Integer | FK(events.id), nullable | Source event |
-| `collection_id` | Integer | FK(collections.id), nullable | Primary storage |
 | `name` | String(255) | not null | Album name |
 | `description` | Text | nullable | Album description |
 | `cover_image_id` | Integer | FK(images.id), nullable | Cover thumbnail |
@@ -556,10 +587,17 @@ The application implements team-based data isolation:
 | `created_at` | DateTime | not null | Creation timestamp |
 | `updated_at` | DateTime | not null | Last modification |
 
-**Collection Relationship:**
-- Ideally 1:1 with Collection, but real-world is messier
-- Picker tool helps users link Collection images to Albums
-- Track image movement between Collections to preserve history
+**Relationships:**
+- Many-to-one with Event (optional - historical albums may not have events)
+- One-to-many with Image (Images belong to one Album)
+- One-to-many with Workflow (can have multiple workflow executions over time)
+
+**Workflow Integration:**
+When a photographer creates an Album:
+1. Selects a Pipeline to define expected processing path
+2. System creates a Workflow to track execution
+3. As Files are added to Collections, they are linked to Images in the Album
+4. Progress is tracked per-Image through the Pipeline nodes
 
 ---
 
@@ -568,48 +606,291 @@ The application implements team-based data isolation:
 **Priority:** Medium
 **Target Epic:** 009 or later
 
-**Purpose:** Individual photo asset with metadata.
+**Purpose:** Logical representation of a photograph, independent of its physical file artifacts.
+
+An Image is the **conceptual entity** representing a single photograph. It may be persisted as multiple Files across multiple Collections as it moves through processing stages. The Image is identified by its origin (camera + counter + timestamp) and tracks its journey through the workflow.
 
 | Attribute | Type | Constraints | Description |
 |-----------|------|-------------|-------------|
 | `id` | Integer | PK, auto-increment | Internal identifier |
 | `uuid` | UUID | unique, not null | External identifier |
 | `team_id` | Integer | FK(teams.id), not null | Owning team |
-| `album_id` | Integer | FK(albums.id), nullable | Parent album |
-| `collection_id` | Integer | FK(collections.id), not null | Storage location |
-| `camera_id` | String(4) | not null | Source camera ID |
-| `counter` | String(4) | not null | Image counter from filename |
-| `capture_timestamp` | DateTime | nullable | When photo was taken |
-| `file_path` | String(1024) | not null | Path within collection |
-| `file_size` | BigInteger | nullable | File size in bytes |
-| `exif_json` | JSONB | nullable | Extracted EXIF metadata |
-| `xmp_json` | JSONB | nullable | XMP sidecar metadata |
-| `workflow_node_id` | String(100) | nullable | Current pipeline position |
-| `workflow_status` | Enum | nullable | Processing status |
+| `album_id` | Integer | FK(albums.id), not null | Parent album |
+| `camera_id` | String(4) | not null | Source camera ID (from filename) |
+| `counter` | String(4) | not null | Image counter (from filename) |
+| `capture_timestamp` | DateTime | nullable | When photo was taken (from EXIF) |
+| `original_filename` | String(255) | not null | Original capture filename |
+| `exif_json` | JSONB | nullable | Extracted EXIF metadata (shared across Files) |
+| `rating` | Integer | nullable | User rating (1-5 stars) |
+| `label_color` | String(20) | nullable | Color label (red, yellow, green, etc.) |
+| `is_pick` | Boolean | nullable | Flagged as picked/selected |
+| `is_rejected` | Boolean | not null, default=false | Marked as rejected |
+| `notes` | Text | nullable | User notes about this image |
+| `metadata_json` | JSONB | nullable | Additional user metadata |
 | `created_at` | DateTime | not null | Record creation |
 | `updated_at` | DateTime | not null | Last modification |
 
 **Unique Image Identification:**
-- Natural key: `camera_id` + `counter` + `capture_timestamp`
-- Handles filename suffix variations (processing outputs, numeric differentiators)
-
-**Metadata Reading Strategy:**
-- Live collections: Full EXIF/XMP extraction
-- Archived collections: Timestamp estimation from event date, user refinement
-- Group optimization: Extract from one file (e.g., JPG), apply to related files
+- Natural key: `album_id` + `camera_id` + `counter`
+- `capture_timestamp` provides additional disambiguation when counters reset
+- The same physical photo (same camera_id + counter + timestamp) appearing in different Albums creates separate Image records
 
 **Relationships:**
-- Many-to-one with Album (optional)
-- Many-to-one with Collection (required)
+- Many-to-one with Album (required)
+- One-to-many with File (Image has multiple file artifacts)
 - Many-to-many with Performer (via ImagePerformer junction)
+- One-to-many with ImageWorkflowProgress (tracks position in each Workflow)
 
-**Performer Identification:**
-- Images may contain zero, one, or many Performers
-- Zero performers: Ambiance shots, surroundings, equipment, landscapes
-- Identification methods:
-  - **Manual tagging**: User identifies performers in images (initial approach)
-  - **AI/ML detection**: Automated identification (future enhancement)
-- Supports cross-referencing: "Show all images of Performer X across all events"
+**Key Distinction: Image vs File**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         IMAGE (Logical)                         │
+│  "The photograph I took of the Blue Angels at 2:35 PM"          │
+│  Identified by: AB3D0001, captured 2026-01-07T14:35:22          │
+├─────────────────────────────────────────────────────────────────┤
+│                        FILES (Physical)                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │ AB3D0001.CR3 │  │ AB3D0001.XMP │  │AB3D0001-s.DNG│          │
+│  │ (RAW capture)│  │ (sidecar)    │  │ (denoised)   │          │
+│  │ Collection A │  │ Collection A │  │ Collection B │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│  ┌──────────────┐  ┌──────────────┐                             │
+│  │AB3D0001-s.TIF│  │AB3D0001-w.JPG│                             │
+│  │ (exported)   │  │ (web export) │                             │
+│  │ Collection C │  │ Collection D │                             │
+│  └──────────────┘  └──────────────┘                             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### File
+
+**Priority:** Medium
+**Target Epic:** 009 or later
+
+**Purpose:** Physical artifact persisting an Image in a specific format at a specific storage location.
+
+A File represents a single physical file on storage. Multiple Files may represent the same Image (different formats, processing stages, or copies). Files are the actual artifacts that exist in Collections.
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `uuid` | UUID | unique, not null | External identifier |
+| `team_id` | Integer | FK(teams.id), not null | Owning team |
+| `image_id` | Integer | FK(images.id), not null | Parent Image |
+| `collection_id` | Integer | FK(collections.id), not null | Storage location |
+| `filename` | String(255) | not null | Filename (without path) |
+| `relative_path` | String(1024) | not null | Path within Collection |
+| `extension` | String(20) | not null | File extension (lowercase, with dot) |
+| `file_size` | BigInteger | nullable | Size in bytes |
+| `file_hash` | String(64) | nullable | SHA-256 hash for integrity |
+| `format_type` | Enum | not null | `RAW`, `SIDECAR`, `PROCESSED`, `EXPORT` |
+| `pipeline_node_id` | String(100) | nullable | Pipeline node that produced this file |
+| `is_primary` | Boolean | not null, default=false | Primary representation of Image |
+| `sidecar_for_id` | Integer | FK(files.id), nullable | Parent file (for XMP sidecars) |
+| `discovered_at` | DateTime | not null | When file was discovered/imported |
+| `file_modified_at` | DateTime | nullable | File system modification time |
+| `metadata_json` | JSONB | nullable | File-specific metadata |
+| `created_at` | DateTime | not null | Record creation |
+| `updated_at` | DateTime | not null | Last modification |
+
+**Format Types:**
+
+| Type | Description | Examples |
+|------|-------------|----------|
+| `RAW` | Original camera capture | .CR3, .NEF, .ARW, .DNG (camera) |
+| `SIDECAR` | Metadata file accompanying another file | .XMP |
+| `PROCESSED` | Intermediate processing output | .DNG (denoised), .PSD |
+| `EXPORT` | Final export artifact | .TIFF, .JPG, .PNG |
+
+**Constraints:**
+- `(collection_id, relative_path)` is unique (one file per path per collection)
+- CASCADE delete when Image is deleted
+- RESTRICT delete on Collection if Files exist
+
+**Relationships:**
+- Many-to-one with Image (required)
+- Many-to-one with Collection (required)
+- Self-referential: Sidecar files reference their parent file
+
+**Sidecar Relationship:**
+XMP sidecars and similar metadata files link to their parent:
+```
+┌─────────────────┐         ┌─────────────────┐
+│  AB3D0001.CR3   │◄────────│  AB3D0001.XMP   │
+│  format: RAW    │         │  format: SIDECAR│
+│  is_primary: T  │         │  sidecar_for_id │
+└─────────────────┘         └─────────────────┘
+```
+
+---
+
+### Workflow
+
+**Priority:** Medium
+**Target Epic:** 009 or later
+
+**Purpose:** Tracks the execution of a Pipeline against an Album, monitoring progress of each Image through processing stages.
+
+A Workflow is the **runtime instance** of applying a Pipeline to an Album. It tracks which Images have reached which Pipeline nodes, which Collections are being used, and overall completion status.
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `uuid` | UUID | unique, not null | External identifier |
+| `team_id` | Integer | FK(teams.id), not null | Owning team |
+| `album_id` | Integer | FK(albums.id), not null | Target album |
+| `pipeline_id` | Integer | FK(pipelines.id), not null | Blueprint pipeline |
+| `pipeline_version` | Integer | not null | Pinned pipeline version |
+| `name` | String(255) | nullable | Optional workflow name |
+| `status` | Enum | not null | Workflow status |
+| `started_at` | DateTime | nullable | When processing began |
+| `completed_at` | DateTime | nullable | When processing finished |
+| `deadline` | DateTime | nullable | Target completion date |
+| `progress_json` | JSONB | nullable | Cached aggregate progress |
+| `settings_json` | JSONB | nullable | Workflow-specific settings |
+| `notes` | Text | nullable | Workflow notes |
+| `created_at` | DateTime | not null | Record creation |
+| `updated_at` | DateTime | not null | Last modification |
+
+**Status Values:**
+
+| Status | Description |
+|--------|-------------|
+| `CREATED` | Workflow created, not started |
+| `IN_PROGRESS` | Actively processing images |
+| `PAUSED` | Processing paused by user |
+| `COMPLETED` | All images reached termination |
+| `CANCELLED` | Workflow cancelled |
+
+**Progress JSON Structure:**
+```json
+{
+  "total_images": 500,
+  "by_node": {
+    "capture": {"count": 500, "percentage": 100.0},
+    "raw_file": {"count": 500, "percentage": 100.0},
+    "selection": {"count": 450, "percentage": 90.0},
+    "denoise": {"count": 400, "percentage": 80.0},
+    "export_tiff": {"count": 350, "percentage": 70.0},
+    "termination_archive": {"count": 300, "percentage": 60.0}
+  },
+  "by_path": {
+    "archive_ready": {"count": 300, "percentage": 60.0},
+    "rejected": {"count": 50, "percentage": 10.0},
+    "in_progress": {"count": 150, "percentage": 30.0}
+  },
+  "last_updated": "2026-01-07T15:30:00Z"
+}
+```
+
+**Relationships:**
+- Many-to-one with Album (required)
+- Many-to-one with Pipeline (required, pinned version)
+- One-to-many with WorkflowCollection (storage locations used)
+- One-to-many with ImageWorkflowProgress (per-image tracking)
+
+**User Story Example:**
+
+```
+1. Photographer creates Album for "Blue Angels Airshow Day 1"
+2. Selects "Standard RAW Workflow" Pipeline → Workflow created
+3. Imports camera cards:
+   - Memory card 1 → Collection "BA-Day1-Card1" (attached to Workflow)
+   - Memory card 2 → Collection "BA-Day1-Card2" (attached to Workflow)
+4. System discovers Files → creates Images in Album
+5. Processing begins:
+   - Selection: Picks moved to Collection "BA-Day1-Selects"
+   - Denoise: DNG files added to "BA-Day1-Selects"
+   - Export: TIFFs to Collection "BA-Day1-Exports"
+6. Progress tracked: 60% at archive_ready termination
+```
+
+---
+
+### WorkflowCollection (Junction Table)
+
+**Priority:** Medium
+**Target Epic:** 009 or later
+
+**Purpose:** Links Workflows to the Collections used during processing.
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `workflow_id` | Integer | FK(workflows.id), not null | Parent workflow |
+| `collection_id` | Integer | FK(collections.id), not null | Attached collection |
+| `role` | Enum | not null | Collection's role in workflow |
+| `pipeline_node_id` | String(100) | nullable | Associated pipeline node |
+| `attached_at` | DateTime | not null | When collection was attached |
+| `created_at` | DateTime | not null | Record creation |
+
+**Role Values:**
+
+| Role | Description |
+|------|-------------|
+| `SOURCE` | Initial capture files (input) |
+| `WORKING` | Intermediate processing storage |
+| `OUTPUT` | Final export destination |
+| `ARCHIVE` | Long-term archive location |
+
+**Constraints:**
+- `(workflow_id, collection_id)` may appear multiple times with different roles
+- CASCADE delete when Workflow is deleted
+
+---
+
+### ImageWorkflowProgress
+
+**Priority:** Medium
+**Target Epic:** 009 or later
+
+**Purpose:** Tracks each Image's progress through a specific Workflow's Pipeline.
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `image_id` | Integer | FK(images.id), not null | The image |
+| `workflow_id` | Integer | FK(workflows.id), not null | The workflow |
+| `current_node_id` | String(100) | not null | Furthest reached node |
+| `path_taken` | JSONB | not null | Ordered list of nodes traversed |
+| `status` | Enum | not null | Image's workflow status |
+| `entered_at` | DateTime | not null | When image entered current node |
+| `files_json` | JSONB | nullable | Files produced at each node |
+| `created_at` | DateTime | not null | Record creation |
+| `updated_at` | DateTime | not null | Last modification |
+
+**Status Values:**
+
+| Status | Description |
+|--------|-------------|
+| `PENDING` | Not yet started processing |
+| `IN_PROGRESS` | Currently being processed |
+| `COMPLETED` | Reached termination node |
+| `REJECTED` | Rejected during selection |
+| `ERROR` | Processing error occurred |
+
+**Path Taken Structure:**
+```json
+["capture", "raw_file", "xmp_sidecar", "selection", "denoise", "export_tiff"]
+```
+
+**Files JSON Structure:**
+```json
+{
+  "capture": {"file_id": 1001, "collection_id": 5},
+  "raw_file": {"file_id": 1001, "collection_id": 5},
+  "xmp_sidecar": {"file_id": 1002, "collection_id": 5},
+  "selection": {"file_id": 1003, "collection_id": 6},
+  "denoise": {"file_id": 1004, "collection_id": 6},
+  "export_tiff": {"file_id": 1005, "collection_id": 7}
+}
+```
+
+**Constraints:**
+- `(image_id, workflow_id)` is unique
+- CASCADE delete when Image or Workflow is deleted
 
 ---
 
@@ -858,72 +1139,120 @@ Performers are the primary subjects being photographed. The Image-Performer rela
 
 ### Future State (Full Domain)
 
+The complete domain model centers around three key subsystems:
+1. **Events & Planning** - Calendar, scheduling, logistics
+2. **Content & Storage** - Albums, Images, Files, Collections
+3. **Processing & Workflow** - Pipelines, Workflows, progress tracking
+
 ```
-┌──────────────┐
-│     Team     │◄─────────────────────────────────────────────┐
-└──────┬───────┘                                              │
-       │                                                      │
-       │ 1:*                                                  │
-       ▼                                                      │
-┌──────────────┐    *:*     ┌──────────────┐    1:*    ┌──────┴───────┐
-│     User     │◄──────────►│    Event     │──────────►│    Album     │
-└──────────────┘  attendees └──────┬───────┘           └──────┬───────┘
-                                   │                          │
-         ┌─────────────────────────┼──────────────────────────┤
-         │                         │                          │
-         ▼ *:1                     ▼ *:1                      ▼ 1:*
-┌──────────────┐          ┌──────────────┐            ┌──────────────┐
-│   Location   │          │   Category   │            │    Image     │
-└──────────────┘          └──────────────┘            └───────┬──────┘
-         │                         │                          │
-         │                         ▼ *:1                      │ *:*
-         │                ┌──────────────┐                    │(ImagePerformer)
-         └───────────────►│   Organizer  │                    │
-                          └──────────────┘                    │
-                                   ▲                          │
-┌──────────────┐    *:*     ┌──────┴───────┐    *:*           │
-│  Performer   │◄──────────►│    Event     │◄─────────────────┘
-│  (subject)   │ (scheduled)└──────────────┘   (in images)
-└──────────────┘
-
-┌──────────────┐    1:*     ┌──────────────┐    1:*
-│  Connector   │───────────►│  Collection  │◄────────────────────────┐
-└──────────────┘            └──────┬───────┘                         │
-                                   │                                 │
-                            CASCADE│ 1:*                             │
-                                   ▼                           (storage)
-┌──────────────┐    1:*     ┌──────────────┐                         │
-│   Pipeline   │───────────►│AnalysisResult│                   ┌─────┴──────┐
-└──────┬───────┘  SET NULL  └──────────────┘                   │   Image    │
-       │                                                       └────────────┘
-CASCADE│ 1:*
-       ▼
-┌──────────────┐
-│PipelineHistory│
-└──────────────┘
-
-┌──────────────┐          ┌──────────────┐
-│    Camera    │          │    Agent     │
-│ (standalone) │          │  (future)    │
+                              ┌─────────────┐
+                              │    Team     │ (Multi-tenancy root)
+                              └──────┬──────┘
+        ┌────────────────────────────┼────────────────────────────┐
+        │                            │                            │
+        ▼                            ▼                            ▼
+┌──────────────┐            ┌──────────────┐            ┌──────────────┐
+│     User     │◄──────────►│    Event     │            │   Pipeline   │
+└──────────────┘  attendees └──────┬───────┘            └──────┬───────┘
+                                   │                           │
+                    ┌──────────────┼──────────────┐            │
+                    │              │              │            │
+                    ▼              ▼              ▼            │
+            ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+            │ Location │  │ Category │  │Organizer │          │
+            └──────────┘  └──────────┘  └──────────┘          │
+                                   │                           │
+┌──────────────┐    *:*           │                           │
+│  Performer   │◄─────────────────┤                           │
+└──────┬───────┘   (scheduled)    │                           │
+       │                          ▼                           │
+       │ *:*              ┌──────────────┐                    │
+       │ (in images)      │    Album     │◄───────────────────┤
+       │                  └──────┬───────┘                    │
+       │                         │                            │
+       │                         │ 1:*                        │
+       │                         ▼                            ▼
+       │                  ┌──────────────┐            ┌──────────────┐
+       └─────────────────►│    Image     │◄───────────│   Workflow   │
+         ImagePerformer   └──────┬───────┘            └──────┬───────┘
+                                 │                           │
+                                 │ 1:*                       │ *:*
+                                 ▼                           │WorkflowCollection
+                          ┌──────────────┐                   │
+                          │    File      │                   │
+                          └──────┬───────┘                   │
+                                 │                           │
+                                 │ *:1                       │
+                                 ▼                           ▼
+┌──────────────┐    1:*   ┌──────────────┐            (attached to)
+│  Connector   │─────────►│  Collection  │◄───────────────────┘
 └──────────────┘          └──────────────┘
+```
 
-Legend:
-  ──────►  One-to-many (arrow points to "many" side)
-  ◄──────► Many-to-many
-  (text)   Relationship context/junction table
+**Core Processing Model: Pipeline → Workflow → Album → Image → File → Collection**
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           PROCESSING HIERARCHY                              │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PIPELINE (Blueprint)           WORKFLOW (Execution)                        │
+│  ┌─────────────────┐           ┌─────────────────────────────────────────┐ │
+│  │ "Standard RAW"  │           │ Workflow for "Airshow Day 1" Album      │ │
+│  │                 │──────────►│                                         │ │
+│  │ Nodes:          │  applies  │ Status: IN_PROGRESS                     │ │
+│  │ - capture       │  to       │ Progress: 60% at termination            │ │
+│  │ - raw_file      │           │                                         │ │
+│  │ - selection     │           │ Attached Collections:                   │ │
+│  │ - denoise       │           │ - Card1-Import (SOURCE)                 │ │
+│  │ - export_tiff   │           │ - Selects (WORKING)                     │ │
+│  │ - termination   │           │ - Exports (OUTPUT)                      │ │
+│  └─────────────────┘           └─────────────────────────────────────────┘ │
+│                                              │                              │
+│                                              │ tracks progress of           │
+│                                              ▼                              │
+│  ALBUM                         ┌─────────────────────────────────────────┐ │
+│  ┌─────────────────┐          │ ImageWorkflowProgress (per Image)        │ │
+│  │"Airshow Day 1"  │          │                                          │ │
+│  │                 │          │ Image AB3D0001:                          │ │
+│  │ Contains:       │          │   current_node: export_tiff              │ │
+│  │ - 500 Images    │          │   path: [capture→raw→select→denoise→exp]│ │
+│  │                 │          │   status: IN_PROGRESS                    │ │
+│  └────────┬────────┘          │                                          │ │
+│           │                   │ Image AB3D0002:                          │ │
+│           │ 1:*               │   current_node: termination              │ │
+│           ▼                   │   status: COMPLETED                      │ │
+│  ┌─────────────────┐          └─────────────────────────────────────────┘ │
+│  │     IMAGE       │                                                       │
+│  │   (Logical)     │                                                       │
+│  │                 │                                                       │
+│  │ AB3D0001        │──────┐                                                │
+│  │ camera+counter  │      │ 1:* (one Image, many Files)                   │
+│  └─────────────────┘      │                                                │
+│                           ▼                                                │
+│  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐              │
+│  │ FILE (Physical) │ │ FILE (Physical) │ │ FILE (Physical) │              │
+│  │                 │ │                 │ │                 │              │
+│  │ AB3D0001.CR3    │ │ AB3D0001.DNG    │ │ AB3D0001.TIF    │              │
+│  │ format: RAW     │ │ format:PROCESSED│ │ format: EXPORT  │              │
+│  │ node: capture   │ │ node: denoise   │ │ node: export    │              │
+│  │                 │ │                 │ │                 │              │
+│  │ Collection:     │ │ Collection:     │ │ Collection:     │              │
+│  │ "Card1-Import"  │ │ "Selects"       │ │ "Exports"       │              │
+│  └─────────────────┘ └─────────────────┘ └─────────────────┘              │
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Key Relationship: Performer ↔ Image**
-
-The Performer-Image relationship is central to the application's value proposition:
 
 ```
 ┌──────────────┐                              ┌──────────────┐
 │  Performer   │                              │    Image     │
 │              │         *:*                  │              │
-│  - name      │◄────────────────────────────►│  - file_path │
+│  - name      │◄────────────────────────────►│  - camera_id │
 │  - type      │      ImagePerformer          │  - album_id  │
-│  - ref_imgs  │      (junction table)        │  - exif_json │
+│  - ref_imgs  │      (junction table)        │  - counter   │
 └──────────────┘                              └──────────────┘
                            │
                            ▼
@@ -936,6 +1265,11 @@ The Performer-Image relationship is central to the application's value propositi
               │  - verified             │
               └─────────────────────────┘
 ```
+
+**Legend:**
+- `──────►` One-to-many (arrow points to "many" side)
+- `◄──────►` Many-to-many
+- `(text)` Relationship context/junction table
 
 ---
 
@@ -996,14 +1330,21 @@ Avoid JSONB for:
 
 ### A. Migration Roadmap
 
-| Phase | Entities | Dependencies |
-|-------|----------|--------------|
-| Current | Collection, Connector, Pipeline, AnalysisResult, Configuration | - |
-| Phase 1 | Team, User | Auth system |
-| Phase 2 | Event, Category, Location | Team, User |
-| Phase 3 | Album, Image | Event, Collection |
-| Phase 4 | Camera, Organizer, Performer | Team |
-| Phase 5 | Agent | Team, Infrastructure |
+| Phase | Entities | Dependencies | Description |
+|-------|----------|--------------|-------------|
+| Current | Collection, Connector, Pipeline, PipelineHistory, AnalysisResult, Configuration | - | Storage, tools, and analysis |
+| Phase 1 | Team, User | Auth system | Multi-tenancy foundation |
+| Phase 2 | Event, Category, Location, Organizer | Team, User | Calendar and planning |
+| Phase 3 | Album, Image, File | Team, Collection | Content management core |
+| Phase 4 | Workflow, WorkflowCollection, ImageWorkflowProgress | Album, Pipeline | Processing orchestration |
+| Phase 5 | Performer, ImagePerformer | Team, Image | Subject tracking |
+| Phase 6 | Camera | Team | Equipment tracking |
+| Phase 7 | Agent | Team, Infrastructure | Distributed processing |
+
+**Critical Path:**
+1. Team/User must precede all user-facing entities
+2. Album/Image/File must precede Workflow (content before processing)
+3. Workflow enables tracking; can be added after Albums are in use
 
 ### B. API Endpoint Conventions
 
@@ -1033,12 +1374,17 @@ GET    /api/{entity}s/stats    - KPI statistics for TopHeader
 | Term | Definition |
 |------|------------|
 | **Actuation** | Single shutter activation (camera usage metric) |
-| **Collection** | Physical storage location containing photo files |
+| **Album** | Logical grouping of Images from an Event or session |
+| **Collection** | Physical storage location containing Files |
 | **Connector** | Authentication credentials for remote storage |
-| **Pipeline** | Directed graph defining photo processing workflow |
-| **Sidecar** | Metadata file (.xmp) accompanying a photo file |
+| **File** | Physical artifact persisting an Image in a specific format |
+| **Image** | Logical representation of a photograph (may have multiple Files) |
+| **Image Group** | Set of Files representing the same Image across Collections |
+| **Pipeline** | Directed graph defining expected photo processing workflow (blueprint) |
+| **Sidecar** | Metadata file (.xmp) accompanying another file |
 | **Tenant** | Isolated data boundary (Team) |
 | **Termination** | Pipeline end state (classification of image processing outcome) |
+| **Workflow** | Runtime execution of a Pipeline against an Album (tracks progress) |
 
 ---
 
