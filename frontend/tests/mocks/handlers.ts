@@ -4,6 +4,13 @@ import type { Collection } from '@/contracts/api/collection-api'
 import type { JobResponse, JobStatus, ToolType, ToolMode, QueueStatusResponse, ToolRunRequest } from '@/contracts/api/tools-api'
 import type { AnalysisResult, AnalysisResultSummary, ResultStatsResponse } from '@/contracts/api/results-api'
 import type { Pipeline, PipelineSummary, PipelineStatsResponse, ValidationResult, PipelineHistoryEntry, FilenamePreviewResponse } from '@/contracts/api/pipelines-api'
+import type {
+  PhotoStatsTrendResponse,
+  PhotoPairingTrendResponse,
+  PipelineValidationTrendResponse,
+  DisplayGraphTrendResponse,
+  TrendSummaryResponse
+} from '@/contracts/api/trends-api'
 
 // Mock data
 let jobs: JobResponse[] = []
@@ -1077,6 +1084,287 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
     }
     pipelines.push(newPipeline)
     return HttpResponse.json(newPipeline, { status: 201 })
+  }),
+
+  // ============================================================================
+  // Trends API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/trends/photostats`, ({ request }) => {
+    const url = new URL(request.url)
+    const collectionIds = url.searchParams.get('collection_ids')
+
+    // Determine mode based on collection_ids parameter
+    const parsedIds = collectionIds ? collectionIds.split(',').map(Number).filter(n => !isNaN(n)) : []
+    const isComparisonMode = parsedIds.length >= 1 && parsedIds.length <= 5
+
+    if (isComparisonMode) {
+      // Comparison mode: return per-collection data
+      const response: PhotoStatsTrendResponse = {
+        mode: 'comparison',
+        data_points: [],
+        collections: parsedIds.map(id => {
+          const collection = collections.find(c => c.id === id)
+          return {
+            collection_id: id,
+            collection_name: collection?.name ?? `Collection ${id}`,
+            data_points: [
+              {
+                date: '2025-01-01T10:00:00Z',
+                result_id: 1,
+                orphaned_images_count: 5,
+                orphaned_xmp_count: 3,
+                total_files: 1000,
+                total_size: 5000000000,
+              },
+              {
+                date: '2025-01-02T10:00:00Z',
+                result_id: 2,
+                orphaned_images_count: 3,
+                orphaned_xmp_count: 2,
+                total_files: 1050,
+                total_size: 5250000000,
+              },
+            ],
+          }
+        }),
+      }
+      return HttpResponse.json(response)
+    }
+
+    // Aggregated mode: return summed data
+    const response: PhotoStatsTrendResponse = {
+      mode: 'aggregated',
+      data_points: [
+        {
+          date: '2025-01-01T00:00:00Z',
+          orphaned_images: 10,
+          orphaned_metadata: 5,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-02T00:00:00Z',
+          orphaned_images: 8,
+          orphaned_metadata: 4,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-03T00:00:00Z',
+          orphaned_images: 6,
+          orphaned_metadata: 3,
+          collections_included: 2,
+        },
+      ],
+      collections: [],
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/trends/photo-pairing`, ({ request }) => {
+    const url = new URL(request.url)
+    const collectionIds = url.searchParams.get('collection_ids')
+
+    // Determine mode based on collection_ids parameter
+    const parsedIds = collectionIds ? collectionIds.split(',').map(Number).filter(n => !isNaN(n)) : []
+    const isComparisonMode = parsedIds.length >= 1 && parsedIds.length <= 5
+
+    if (isComparisonMode) {
+      // Comparison mode: return per-collection data
+      const response: PhotoPairingTrendResponse = {
+        mode: 'comparison',
+        data_points: [],
+        collections: parsedIds.map(id => {
+          const collection = collections.find(c => c.id === id)
+          return {
+            collection_id: id,
+            collection_name: collection?.name ?? `Collection ${id}`,
+            cameras: ['ABC1', 'XYZ2'],
+            data_points: [
+              {
+                date: '2025-01-01T11:00:00Z',
+                result_id: 2,
+                group_count: 400,
+                image_count: 800,
+                camera_usage: { ABC1: 500, XYZ2: 300 },
+              },
+              {
+                date: '2025-01-02T11:00:00Z',
+                result_id: 3,
+                group_count: 420,
+                image_count: 840,
+                camera_usage: { ABC1: 520, XYZ2: 320 },
+              },
+            ],
+          }
+        }),
+      }
+      return HttpResponse.json(response)
+    }
+
+    // Aggregated mode: return summed data (no camera breakdown)
+    const response: PhotoPairingTrendResponse = {
+      mode: 'aggregated',
+      data_points: [
+        {
+          date: '2025-01-01T00:00:00Z',
+          group_count: 800,
+          image_count: 1600,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-02T00:00:00Z',
+          group_count: 840,
+          image_count: 1680,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-03T00:00:00Z',
+          group_count: 880,
+          image_count: 1760,
+          collections_included: 2,
+        },
+      ],
+      collections: [],
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/trends/pipeline-validation`, ({ request }) => {
+    const url = new URL(request.url)
+    const collectionIds = url.searchParams.get('collection_ids')
+
+    // Determine mode based on collection_ids parameter
+    const parsedIds = collectionIds ? collectionIds.split(',').map(Number).filter(n => !isNaN(n)) : []
+    const isComparisonMode = parsedIds.length >= 1 && parsedIds.length <= 5
+
+    if (isComparisonMode) {
+      // Comparison mode: return per-collection data
+      const response: PipelineValidationTrendResponse = {
+        mode: 'comparison',
+        data_points: [],
+        collections: parsedIds.map(id => {
+          const collection = collections.find(c => c.id === id)
+          return {
+            collection_id: id,
+            collection_name: collection?.name ?? `Collection ${id}`,
+            data_points: [
+              {
+                date: '2025-01-01T13:00:00Z',
+                result_id: 4,
+                pipeline_id: 1,
+                pipeline_name: 'Standard RAW Workflow',
+                consistent_count: 400,
+                partial_count: 50,
+                inconsistent_count: 50,
+                consistent_ratio: 80,
+                partial_ratio: 10,
+                inconsistent_ratio: 10,
+              },
+              {
+                date: '2025-01-02T13:00:00Z',
+                result_id: 5,
+                pipeline_id: 1,
+                pipeline_name: 'Standard RAW Workflow',
+                consistent_count: 420,
+                partial_count: 45,
+                inconsistent_count: 35,
+                consistent_ratio: 84,
+                partial_ratio: 9,
+                inconsistent_ratio: 7,
+              },
+            ],
+          }
+        }),
+      }
+      return HttpResponse.json(response)
+    }
+
+    // Aggregated mode: return percentage data
+    const response: PipelineValidationTrendResponse = {
+      mode: 'aggregated',
+      data_points: [
+        {
+          date: '2025-01-01T00:00:00Z',
+          overall_consistency_pct: 80,
+          overall_inconsistent_pct: 10,
+          black_box_consistency_pct: 85,
+          browsable_consistency_pct: 75,
+          total_images: 1000,
+          consistent_count: 800,
+          inconsistent_count: 100,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-02T00:00:00Z',
+          overall_consistency_pct: 82,
+          overall_inconsistent_pct: 8,
+          black_box_consistency_pct: 87,
+          browsable_consistency_pct: 77,
+          total_images: 1050,
+          consistent_count: 861,
+          inconsistent_count: 84,
+          collections_included: 2,
+        },
+        {
+          date: '2025-01-03T00:00:00Z',
+          overall_consistency_pct: 85,
+          overall_inconsistent_pct: 6,
+          black_box_consistency_pct: 90,
+          browsable_consistency_pct: 80,
+          total_images: 1100,
+          consistent_count: 935,
+          inconsistent_count: 66,
+          collections_included: 2,
+        },
+      ],
+      collections: [],
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/trends/display-graph`, () => {
+    const response: DisplayGraphTrendResponse = {
+      data_points: [
+        {
+          date: '2025-01-01T00:00:00Z',
+          total_paths: 100,
+          valid_paths: 90,
+          black_box_archive_paths: 50,
+          browsable_archive_paths: 40,
+        },
+        {
+          date: '2025-01-02T00:00:00Z',
+          total_paths: 110,
+          valid_paths: 100,
+          black_box_archive_paths: 55,
+          browsable_archive_paths: 45,
+        },
+      ],
+      pipelines_included: [
+        { pipeline_id: 1, pipeline_name: 'Standard RAW Workflow', result_count: 2 },
+      ],
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/trends/summary`, ({ request }) => {
+    const url = new URL(request.url)
+    const collectionId = url.searchParams.get('collection_id')
+
+    const response: TrendSummaryResponse = {
+      collection_id: collectionId ? Number(collectionId) : null,
+      orphaned_trend: 'improving',
+      consistency_trend: 'stable',
+      last_photostats: '2025-01-03T10:00:00Z',
+      last_photo_pairing: '2025-01-03T11:00:00Z',
+      last_pipeline_validation: '2025-01-03T13:00:00Z',
+      data_points_available: {
+        photostats: 3,
+        photo_pairing: 3,
+        pipeline_validation: 3,
+      },
+    }
+    return HttpResponse.json(response)
   }),
 ]
 

@@ -233,38 +233,44 @@
 
 ### Tests for User Story 3
 
-- [ ] T109 [P] [US3] Contract test for GET /api/trends/photostats in backend/tests/unit/test_api_trends.py
-- [ ] T110 [P] [US3] Contract test for GET /api/trends/photo-pairing in backend/tests/unit/test_api_trends.py
-- [ ] T111 [P] [US3] Contract test for GET /api/trends/pipeline-validation in backend/tests/unit/test_api_trends.py
-- [ ] T112 [P] [US3] Contract test for GET /api/trends/summary in backend/tests/unit/test_api_trends.py
-- [ ] T113 [P] [US3] Unit test for TrendService JSONB metric extraction in backend/tests/unit/test_trend_service.py
-- [ ] T114 [P] [US3] Unit test for date range filtering in backend/tests/unit/test_trend_service.py
-- [ ] T115 [P] [US3] Frontend test for useTrends hook in frontend/tests/hooks/useTrends.test.ts
-- [ ] T116 [P] [US3] Frontend test for TrendChart component in frontend/tests/components/TrendChart.test.tsx
+- [x] T109 [P] [US3] Contract test for GET /api/trends/photostats in backend/tests/unit/test_api_trends.py
+- [x] T110 [P] [US3] Contract test for GET /api/trends/photo-pairing in backend/tests/unit/test_api_trends.py
+- [x] T111 [P] [US3] Contract test for GET /api/trends/pipeline-validation in backend/tests/unit/test_api_trends.py
+- [x] T112 [P] [US3] Contract test for GET /api/trends/summary in backend/tests/unit/test_api_trends.py
+- [x] T113 [P] [US3] Unit test for TrendService JSONB metric extraction in backend/tests/unit/test_trend_service.py
+- [x] T114 [P] [US3] Unit test for date range filtering in backend/tests/unit/test_trend_service.py
+- [x] T115 [P] [US3] Frontend test for useTrends hook in frontend/tests/hooks/useTrends.test.ts
+  - **Requires**: Jest/Vitest test runner setup with React Testing Library
+  - **Test cases**: Mock API responses, verify state updates, test filter changes trigger refetch
+- [x] T116 [P] [US3] Frontend test for TrendChart component in frontend/tests/components/TrendChart.test.tsx
+  - **Requires**: Jest/Vitest with @testing-library/react, recharts mock setup
+  - **Test cases**: Render loading state, render error state, render chart with data, verify tooltips
 
 ### Backend Implementation for User Story 3
 
-- [ ] T117 [US3] Create TrendService class in backend/src/services/trend_service.py
-- [ ] T118 [US3] Add photostats_trends method with JSONB queries in backend/src/services/trend_service.py
-- [ ] T119 [US3] Add photo_pairing_trends method with camera usage extraction in backend/src/services/trend_service.py
-- [ ] T120 [US3] Add pipeline_validation_trends method with consistency ratios in backend/src/services/trend_service.py
-- [ ] T121 [US3] Add trend_summary method for dashboard in backend/src/services/trend_service.py
-- [ ] T122 [US3] Create trends API router in backend/src/api/trends.py with all endpoints
-- [ ] T123 [US3] Register trends router in backend/src/main.py
-- [ ] T124 [US3] Integration test for trend data aggregation in backend/tests/integration/test_trend_aggregation.py
+- [x] T117 [US3] Create TrendService class in backend/src/services/trend_service.py
+- [x] T118 [US3] Add photostats_trends method with JSONB queries in backend/src/services/trend_service.py
+- [x] T119 [US3] Add photo_pairing_trends method with camera usage extraction in backend/src/services/trend_service.py
+- [x] T120 [US3] Add pipeline_validation_trends method with consistency ratios in backend/src/services/trend_service.py
+- [x] T121 [US3] Add trend_summary method for dashboard in backend/src/services/trend_service.py
+- [x] T122 [US3] Create trends API router in backend/src/api/trends.py with all endpoints
+- [x] T123 [US3] Register trends router in backend/src/main.py
+- [x] T124 [US3] Integration test for trend data aggregation in backend/tests/integration/test_trend_aggregation.py
 
 ### Frontend Implementation for User Story 3
 
-- [ ] T125 [P] [US3] Create trends API service in frontend/src/services/trends.ts
-- [ ] T126 [US3] Create useTrends hook with tool-specific methods in frontend/src/hooks/useTrends.ts
-- [ ] T127 [P] [US3] Create TrendChart component using Recharts in frontend/src/components/trends/TrendChart.tsx
-- [ ] T128 [P] [US3] Create PhotoStatsTrend component (line chart) in frontend/src/components/trends/PhotoStatsTrend.tsx
-- [ ] T129 [P] [US3] Create PhotoPairingTrend component (multi-line chart) in frontend/src/components/trends/PhotoPairingTrend.tsx
-- [ ] T130 [P] [US3] Create PipelineValidationTrend component (stacked area) in frontend/src/components/trends/PipelineValidationTrend.tsx
-- [ ] T131 [P] [US3] Create DateRangeFilter component with shadcn/ui Select in frontend/src/components/trends/DateRangeFilter.tsx
-- [ ] T132 [P] [US3] Create CollectionCompare component for multi-collection view in frontend/src/components/trends/CollectionCompare.tsx
-- [ ] T133 [US3] Add Trends tab to ResultsPage in frontend/src/pages/ResultsPage.tsx
-- [ ] T134 [US3] Integration test for trend visualization in frontend/tests/integration/trendVisualization.test.tsx
+- [x] T125 [P] [US3] Create trends API service in frontend/src/services/trends.ts
+- [x] T126 [US3] Create useTrends hook with tool-specific methods in frontend/src/hooks/useTrends.ts
+- [x] T127 [P] [US3] Create TrendChart component using Recharts in frontend/src/components/trends/TrendChart.tsx
+- [x] T128 [P] [US3] Create PhotoStatsTrend component (line chart) in frontend/src/components/trends/PhotoStatsTrend.tsx
+- [x] T129 [P] [US3] Create PhotoPairingTrend component (multi-line chart) in frontend/src/components/trends/PhotoPairingTrend.tsx
+- [x] T130 [P] [US3] Create PipelineValidationTrend component (stacked area) in frontend/src/components/trends/PipelineValidationTrend.tsx
+- [x] T131 [P] [US3] Create DateRangeFilter component with shadcn/ui Select in frontend/src/components/trends/DateRangeFilter.tsx
+- [x] T132 [P] [US3] Create CollectionCompare component for multi-collection view in frontend/src/components/trends/CollectionCompare.tsx
+- [x] T133 [US3] Add Trends tab to ResultsPage in frontend/src/pages/ResultsPage.tsx
+- [x] T134 [US3] Integration test for trend visualization in frontend/tests/integration/trendVisualization.test.tsx
+  - **Requires**: Jest/Vitest with MSW (Mock Service Worker) for API mocking, React Testing Library
+  - **Test cases**: Navigate to Trends tab, verify charts render with mock data, test date range filter updates charts, test collection compare multi-select, verify trend summary indicators
 
 **Checkpoint**: User Story 3 complete. Users can view trends for all tool types, filter by date, compare collections.
 
