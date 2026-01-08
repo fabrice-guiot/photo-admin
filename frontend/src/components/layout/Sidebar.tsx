@@ -16,9 +16,7 @@ import {
   X,
   ChevronLeft,
   Pin,
-  Wrench,
-  FileText,
-  TrendingUp,
+  ChartNoAxesCombined,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -64,10 +62,8 @@ const MENU_ITEMS: Omit<MenuItem, 'active'>[] = [
   { id: 'dashboard', icon: LayoutGrid, label: 'Dashboard', href: '/' },
   { id: 'collections', icon: FolderOpen, label: 'Collections', href: '/collections' },
   { id: 'connectors', icon: Plug, label: 'Connectors', href: '/connectors' },
-  { id: 'tools', icon: Wrench, label: 'Tools', href: '/tools' },
-  { id: 'results', icon: FileText, label: 'Results', href: '/results' },
   { id: 'pipelines', icon: Workflow, label: 'Pipelines', href: '/pipelines' },
-  { id: 'trends', icon: TrendingUp, label: 'Trends', href: '/trends' },
+  { id: 'analytics', icon: ChartNoAxesCombined, label: 'Analytics', href: '/analytics' },
   { id: 'config', icon: Settings, label: 'Config', href: '/config' },
 ]
 
