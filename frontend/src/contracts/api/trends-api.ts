@@ -15,6 +15,7 @@ export type TrendDirection = 'improving' | 'stable' | 'degrading' | 'insufficien
 // PhotoStats Trend Types
 // ============================================================================
 
+/** Single data point for PhotoStats comparison mode */
 export interface PhotoStatsTrendPoint {
   /** Timestamp of the analysis run */
   date: string // ISO 8601 timestamp
@@ -36,7 +37,27 @@ export interface PhotoStatsCollectionTrend {
   data_points: PhotoStatsTrendPoint[]
 }
 
+/** Aggregated data point for PhotoStats (summed across all collections) */
+export interface PhotoStatsAggregatedPoint {
+  date: string // ISO 8601 timestamp
+  /** Total orphaned images across all collections */
+  orphaned_images: number
+  /** Total orphaned metadata files (XMP) across all collections */
+  orphaned_metadata: number
+  /** Number of collections with data for this date */
+  collections_included: number
+}
+
+/**
+ * PhotoStats trend response.
+ * - aggregated mode: data_points contains aggregated data
+ * - comparison mode: collections contains per-collection data
+ */
 export interface PhotoStatsTrendResponse {
+  mode: 'aggregated' | 'comparison'
+  /** Aggregated trend data (used in aggregated mode) */
+  data_points: PhotoStatsAggregatedPoint[]
+  /** Per-collection trend data (used in comparison mode) */
   collections: PhotoStatsCollectionTrend[]
 }
 
@@ -44,6 +65,7 @@ export interface PhotoStatsTrendResponse {
 // Photo Pairing Trend Types
 // ============================================================================
 
+/** Single data point for Photo Pairing comparison mode */
 export interface PhotoPairingTrendPoint {
   /** Timestamp of the analysis run */
   date: string // ISO 8601 timestamp
@@ -65,7 +87,27 @@ export interface PhotoPairingCollectionTrend {
   data_points: PhotoPairingTrendPoint[]
 }
 
+/** Aggregated data point for Photo Pairing (summed across all collections) */
+export interface PhotoPairingAggregatedPoint {
+  date: string // ISO 8601 timestamp
+  /** Total image groups across all collections */
+  group_count: number
+  /** Total images across all collections */
+  image_count: number
+  /** Number of collections with data for this date */
+  collections_included: number
+}
+
+/**
+ * Photo Pairing trend response.
+ * - aggregated mode: data_points contains aggregated data (no camera breakdown)
+ * - comparison mode: collections contains per-collection data with cameras
+ */
 export interface PhotoPairingTrendResponse {
+  mode: 'aggregated' | 'comparison'
+  /** Aggregated trend data (used in aggregated mode) */
+  data_points: PhotoPairingAggregatedPoint[]
+  /** Per-collection trend data (used in comparison mode) */
   collections: PhotoPairingCollectionTrend[]
 }
 
@@ -73,6 +115,7 @@ export interface PhotoPairingTrendResponse {
 // Pipeline Validation Trend Types
 // ============================================================================
 
+/** Single data point for Pipeline Validation comparison mode */
 export interface PipelineValidationTrendPoint {
   /** Timestamp of the analysis run */
   date: string // ISO 8601 timestamp
@@ -102,8 +145,78 @@ export interface PipelineValidationCollectionTrend {
   data_points: PipelineValidationTrendPoint[]
 }
 
+/**
+ * Aggregated data point for Pipeline Validation (recalculated from summed counts).
+ *
+ * Series:
+ * - overall_consistency_pct: Total CONSISTENT / Total images
+ * - black_box_consistency_pct: CONSISTENT in Black Box Archive / Total Black Box
+ * - browsable_consistency_pct: CONSISTENT in Browsable Archive / Total Browsable
+ * - overall_inconsistent_pct: Total INCONSISTENT / Total images
+ */
+export interface PipelineValidationAggregatedPoint {
+  date: string // ISO 8601 timestamp
+  /** Overall consistency % across all collections */
+  overall_consistency_pct: number
+  /** Overall inconsistent % across all collections */
+  overall_inconsistent_pct: number
+  /** Consistency % for Black Box Archive termination */
+  black_box_consistency_pct: number
+  /** Consistency % for Browsable Archive termination */
+  browsable_consistency_pct: number
+  /** Total images validated */
+  total_images: number
+  /** Total CONSISTENT count */
+  consistent_count: number
+  /** Total INCONSISTENT count */
+  inconsistent_count: number
+  /** Number of collections with data for this date */
+  collections_included: number
+}
+
+/**
+ * Pipeline Validation trend response.
+ * - aggregated mode: data_points contains aggregated data with percentages
+ * - comparison mode: collections contains per-collection data
+ */
 export interface PipelineValidationTrendResponse {
+  mode: 'aggregated' | 'comparison'
+  /** Aggregated trend data (used in aggregated mode) */
+  data_points: PipelineValidationAggregatedPoint[]
+  /** Per-collection trend data (used in comparison mode) */
   collections: PipelineValidationCollectionTrend[]
+}
+
+// ============================================================================
+// Display Graph Trend Types
+// ============================================================================
+
+/**
+ * Aggregated display graph trend data point.
+ * Data is aggregated across all pipelines for each date.
+ */
+export interface DisplayGraphTrendPoint {
+  /** Timestamp (aggregated by date) */
+  date: string // ISO 8601 timestamp
+  /** Total paths enumerated across all pipelines */
+  total_paths: number
+  /** Valid paths (completed on real termination nodes, not truncated) */
+  valid_paths: number
+  /** Paths ending in Black Box Archive termination */
+  black_box_archive_paths: number
+  /** Paths ending in Browsable Archive termination */
+  browsable_archive_paths: number
+}
+
+export interface DisplayGraphTrendResponse {
+  /** Aggregated data points across all pipelines */
+  data_points: DisplayGraphTrendPoint[]
+  /** List of pipelines included in the aggregation */
+  pipelines_included: Array<{
+    pipeline_id: number
+    pipeline_name: string
+    result_count: number
+  }>
 }
 
 // ============================================================================
@@ -119,6 +232,8 @@ export interface TrendSummaryResponse {
   consistency_trend: TrendDirection
   /** Last PhotoStats run timestamp */
   last_photostats: string | null // ISO 8601 timestamp
+  /** Last Photo Pairing run timestamp */
+  last_photo_pairing: string | null // ISO 8601 timestamp
   /** Last Pipeline Validation run timestamp */
   last_pipeline_validation: string | null // ISO 8601 timestamp
   /** Number of data points available by tool */
@@ -147,6 +262,8 @@ export interface TrendQueryParams {
 export interface PipelineValidationTrendQueryParams extends TrendQueryParams {
   /** Filter by pipeline ID */
   pipeline_id?: number
+  /** Filter by pipeline version */
+  pipeline_version?: number
 }
 
 export interface TrendSummaryQueryParams {
