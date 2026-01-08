@@ -72,8 +72,14 @@ export interface DisplayGraphResults {
   pipeline_version: number
   /** Total number of paths in pipeline */
   total_paths: number
-  /** Number of paths with pairing nodes */
-  pairing_paths: number
+  /** Number of non-truncated paths (completed on real termination nodes) */
+  non_truncated_paths: number
+  /** Number of truncated paths (due to loop limits) */
+  truncated_paths: number
+  /** Non-truncated paths grouped by termination type */
+  non_truncated_by_termination: Record<string, number>
+  /** @deprecated Number of paths with pairing nodes - no longer used */
+  pairing_paths?: number
   /** Array of path details (truncated in API response) */
   paths: Array<{
     path_number: number

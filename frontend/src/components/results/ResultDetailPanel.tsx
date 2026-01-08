@@ -439,6 +439,8 @@ function PipelineValidationResultsView({ results }: { results: PipelineValidatio
 function DisplayGraphResultsView({ results }: { results: DisplayGraphResults & { _truncated?: Record<string, number> } }) {
   const truncatedInfo = results._truncated?.paths
   const displayedPaths = results.paths?.length ?? 0
+  const nonTruncatedByTermination = results.non_truncated_by_termination ?? {}
+  const terminationTypes = Object.keys(nonTruncatedByTermination).sort()
 
   return (
     <div className="space-y-4">
@@ -455,13 +457,13 @@ function DisplayGraphResultsView({ results }: { results: DisplayGraphResults & {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pairing Paths</CardTitle>
+            <CardTitle className="text-sm font-medium">Non-Truncated Paths</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{results.pairing_paths}</div>
+            <div className="text-2xl font-bold">{results.non_truncated_paths ?? 0}</div>
             <div className="text-sm text-muted-foreground">
               {results.total_paths > 0
-                ? ((results.pairing_paths / results.total_paths) * 100).toFixed(1)
+                ? (((results.non_truncated_paths ?? 0) / results.total_paths) * 100).toFixed(1)
                 : 0}%
             </div>
           </CardContent>
@@ -476,6 +478,30 @@ function DisplayGraphResultsView({ results }: { results: DisplayGraphResults & {
           </CardContent>
         </Card>
       </div>
+
+      {/* Non-truncated paths by termination type */}
+      {terminationTypes.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Paths by Termination Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {terminationTypes.map((termType) => (
+                <div key={termType} className="bg-muted rounded-lg p-3">
+                  <div className="text-lg font-semibold">{nonTruncatedByTermination[termType]}</div>
+                  <div className="text-xs text-muted-foreground">{termType}</div>
+                </div>
+              ))}
+            </div>
+            {(results.truncated_paths ?? 0) > 0 && (
+              <div className="mt-3 text-sm text-muted-foreground">
+                {results.truncated_paths} paths were truncated due to loop limits
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Paths preview */}
       {results.paths && results.paths.length > 0 && (

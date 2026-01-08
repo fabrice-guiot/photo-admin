@@ -903,6 +903,88 @@ def build_graph_visualization_table(pipeline: PipelineConfig, config: PhotoAdmin
     return section
 
 
+def build_display_graph_kpis(pipeline: PipelineConfig) -> tuple:
+    """
+    Build KPI cards for display-graph mode.
+
+    Calculates:
+    - Total paths enumerated
+    - Non-truncated paths (completed on real termination nodes)
+    - Non-truncated paths by termination type
+
+    Args:
+        pipeline: PipelineConfig object
+
+    Returns:
+        Tuple of (kpis list, stats dict for results_json)
+    """
+    from utils.report_renderer import KPICard
+
+    # Enumerate all paths
+    all_paths = enumerate_paths_with_pairing(pipeline)
+    total_paths = len(all_paths)
+
+    # Calculate non-truncated paths and by termination type
+    non_truncated_count = 0
+    non_truncated_by_termination = {}
+
+    for path in all_paths:
+        if not path:
+            continue
+
+        termination_node = path[-1]
+        is_truncated = termination_node.get('truncated', False)
+        term_type = termination_node.get('term_type', 'Unknown')
+
+        if not is_truncated:
+            non_truncated_count += 1
+            if term_type not in non_truncated_by_termination:
+                non_truncated_by_termination[term_type] = 0
+            non_truncated_by_termination[term_type] += 1
+
+    # Build KPI cards
+    kpis = [
+        KPICard(
+            title="Total Paths",
+            value=str(total_paths),
+            status="info",
+            icon="🔀",
+            tooltip="Total number of paths enumerated through the pipeline"
+        ),
+        KPICard(
+            title="Non-Truncated Paths",
+            value=str(non_truncated_count),
+            status="success" if non_truncated_count == total_paths else "warning",
+            unit=f"{(non_truncated_count/total_paths*100):.1f}%" if total_paths > 0 else "0%",
+            icon="✓",
+            tooltip="Paths that completed on real termination nodes (not truncated due to loops)"
+        ),
+    ]
+
+    # Add per-termination-type KPIs for non-truncated paths
+    for term_type, count in sorted(non_truncated_by_termination.items()):
+        kpis.append(
+            KPICard(
+                title=f"{term_type}",
+                value=str(count),
+                status="success",
+                unit=f"{(count/total_paths*100):.1f}%" if total_paths > 0 else "0%",
+                icon="📦",
+                tooltip=f"Non-truncated paths terminating at {term_type}"
+            )
+        )
+
+    # Build stats dict for results_json storage
+    stats = {
+        'total_paths': total_paths,
+        'non_truncated_paths': non_truncated_count,
+        'truncated_paths': total_paths - non_truncated_count,
+        'non_truncated_by_termination': non_truncated_by_termination
+    }
+
+    return kpis, stats
+
+
 def build_kpi_cards(validation_results: list) -> List:
     """
     Build KPI cards for executive summary statistics.
@@ -1280,19 +1362,20 @@ def build_report_context(
 
     scan_duration = (scan_end - scan_start).total_seconds()
 
-    # Build KPIs
-    kpis = build_kpi_cards(validation_results)
-
     # Build sections
     sections = []
 
-    # Add graph visualization section if requested
+    # Build KPIs - use display_graph KPIs if in that mode
     if display_graph and pipeline and config:
+        # Display-graph mode: use specialized KPIs
+        kpis, _ = build_display_graph_kpis(pipeline)
         graph_section = build_graph_visualization_table(pipeline, config)
         sections.append(graph_section)
-
-    sections.extend(build_chart_sections(validation_results))
-    sections.extend(build_table_sections(validation_results))
+    else:
+        # Normal validation mode: use standard KPIs
+        kpis = build_kpi_cards(validation_results)
+        sections.extend(build_chart_sections(validation_results))
+        sections.extend(build_table_sections(validation_results))
 
     return ReportContext(
         tool_name="Pipeline Validation Tool",

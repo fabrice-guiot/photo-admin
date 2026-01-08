@@ -1022,6 +1022,9 @@ class ToolService:
         """
         Synchronous Display Graph execution for thread pool.
         """
+        import time
+        start_time = time.time()
+
         job.progress = {"stage": "initializing", "percentage": 0}
         self._broadcast_progress_sync(job, loop)
 
@@ -1043,16 +1046,74 @@ class ToolService:
         job.progress = {"stage": "enumerating_paths", "percentage": 40}
         self._broadcast_progress_sync(job, loop)
 
-        # Build pipeline graph and enumerate paths
-        from utils.pipeline_processor import PipelineGraph
-        pipeline_graph = PipelineGraph(pipeline_config)
-        paths = pipeline_graph.enumerate_paths_with_pairing()
+        # Enumerate paths through the pipeline
+        from utils.pipeline_processor import enumerate_paths_with_pairing, generate_expected_files
+        paths = enumerate_paths_with_pairing(pipeline_config)
+
+        job.progress = {"stage": "calculating_kpis", "percentage": 50}
+        self._broadcast_progress_sync(job, loop)
+
+        # Extract sample_filename from Capture node for expected file generation
+        capture_node = next(
+            (n for n in pipeline.nodes_json if n.get('type') == 'capture'),
+            None
+        )
+        sample_base = capture_node.get('properties', {}).get('sample_filename', 'XXXX0001') if capture_node else 'XXXX0001'
+
+        # Calculate KPIs
+        total_paths = len(paths)
+        non_truncated_count = 0
+        truncated_count = 0
+        non_truncated_by_termination: Dict[str, int] = {}
+        path_details = []
+
+        for idx, path in enumerate(paths):
+            if not path:
+                continue
+
+            # Get termination info from last node
+            termination_node = path[-1]
+            is_truncated = termination_node.get('truncated', False)
+            term_type = termination_node.get('term_type', 'Unknown')
+
+            if is_truncated:
+                truncated_count += 1
+            else:
+                non_truncated_count += 1
+                non_truncated_by_termination[term_type] = non_truncated_by_termination.get(term_type, 0) + 1
+
+            # Check if path contains a Pairing node (correct check)
+            is_pairing_path = any(node.get('type') == 'Pairing' for node in path)
+
+            # Build node IDs list (filter out None values)
+            node_ids = [node.get('id') or 'unknown' for node in path]
+
+            # Generate expected files for this path (filter out None values)
+            raw_expected_files = generate_expected_files(path, sample_base) or []
+            expected_files = [f for f in raw_expected_files if f is not None]
+
+            path_details.append({
+                "path_number": idx + 1,
+                "nodes": node_ids,
+                "termination": term_type or 'Unknown',
+                "is_pairing_path": is_pairing_path,
+                "is_truncated": is_truncated,
+                "expected_files": expected_files
+            })
 
         job.progress = {"stage": "generating_report", "percentage": 70}
         self._broadcast_progress_sync(job, loop)
 
+        # Calculate scan duration
+        scan_duration = time.time() - start_time
+
         # Generate HTML report
-        report_html = self._generate_display_graph_report(pipeline, paths, pipeline_config)
+        report_html = self._generate_display_graph_report(
+            pipeline.name,
+            pipeline.version,
+            path_details,
+            scan_duration
+        )
 
         job.progress = {
             "stage": "completed",
@@ -1063,15 +1124,14 @@ class ToolService:
         return {
             "results": {
                 "pipeline_name": pipeline.name,
+                "pipeline_id": pipeline.id,
                 "pipeline_version": pipeline.version,
-                "total_paths": len(paths),
-                "path_details": [
-                    {
-                        "termination": path.termination_type,
-                        "expected_files": path.expected_files
-                    }
-                    for path in paths
-                ]
+                "total_paths": total_paths,
+                "non_truncated_paths": non_truncated_count,
+                "truncated_paths": truncated_count,
+                "non_truncated_by_termination": non_truncated_by_termination,
+                "paths": path_details,
+                "scan_duration": scan_duration
             },
             "report_html": report_html,
             "pipeline_id": pipeline.id,

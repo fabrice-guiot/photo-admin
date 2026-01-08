@@ -288,13 +288,21 @@ export const NODE_TYPE_DEFINITIONS: NodeTypeDefinition[] = [
       {
         key: 'termination_type',
         label: 'Termination Type',
-        type: 'string',
+        type: 'select',
         required: true,
-        hint: 'Type of archival state. Example: Black Box Archive, Browsable Archive, Web Export Ready',
+        options: ['Black Box Archive', 'Browsable Archive'],
+        hint: 'Type of archival state this termination node represents',
       },
     ],
   },
 ]
+
+/**
+ * Predefined termination types for pipeline analysis.
+ * All pipelines must use these standard termination types.
+ */
+export const TERMINATION_TYPES = ['Black Box Archive', 'Browsable Archive'] as const
+export type TerminationType = typeof TERMINATION_TYPES[number]
 
 // ============================================================================
 // API Endpoint Definitions (OpenAPI-style documentation)
