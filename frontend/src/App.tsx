@@ -31,6 +31,7 @@ import ConnectorsPage from './pages/ConnectorsPage'
 import SettingsPage from './pages/SettingsPage'
 import PipelinesPage from './pages/PipelinesPage'
 import PipelineEditorPage from './pages/PipelineEditorPage'
+import ConfigurationPage from './pages/ConfigurationPage'
 
 // ============================================================================
 // Route Configuration
@@ -96,6 +97,12 @@ const routes: RouteConfig[] = [
     path: '/settings',
     element: <SettingsPage />,
     pageTitle: 'Settings',
+    pageIcon: Settings,
+  },
+  {
+    path: '/config',
+    element: <ConfigurationPage />,
+    pageTitle: 'Configuration',
     pageIcon: Settings,
   },
 ]

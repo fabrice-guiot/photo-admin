@@ -25,7 +25,7 @@ _TEST_MASTER_KEY = Fernet.generate_key().decode('utf-8')
 os.environ['PHOTO_ADMIN_MASTER_KEY'] = _TEST_MASTER_KEY
 os.environ['PHOTO_ADMIN_DB_URL'] = 'sqlite:///:memory:'
 
-from backend.src.models import Base, Connector, Collection, AnalysisResult, Pipeline
+from backend.src.models import Base, Connector, Collection, AnalysisResult, Pipeline, Configuration
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.job_queue import JobQueue

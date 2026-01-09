@@ -30,6 +30,8 @@ from backend.src.utils.job_queue import JobQueue
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.logging_config import init_logging, get_logger
 from backend.src.utils.websocket import get_connection_manager, ConnectionManager
+from backend.src.db.database import SessionLocal
+from backend.src.services.config_service import ConfigService
 
 # Import version management
 from version import __version__
@@ -113,6 +115,20 @@ async def lifespan(app: FastAPI):
 
     # Log CORS configuration
     logger.info(f"CORS allowed origins: {cors_origins}")
+
+    # Seed default configuration (extension keys must always exist)
+    # Skip during testing to avoid database session conflicts
+    if os.environ.get('PYTEST_CURRENT_TEST') is None:
+        logger.info("Seeding default configuration values")
+        db = SessionLocal()
+        try:
+            config_service = ConfigService(db)
+            config_service.seed_default_extensions()
+            logger.info("Default configuration seeded successfully")
+        finally:
+            db.close()
+    else:
+        logger.info("Skipping configuration seeding in test environment")
 
     logger.info("Photo-admin backend started successfully")
 
@@ -302,7 +318,7 @@ async def get_version() -> Dict[str, str]:
 
 
 # API routers
-from backend.src.api import collections, connectors, tools, results, pipelines, trends
+from backend.src.api import collections, connectors, tools, results, pipelines, trends, config
 
 app.include_router(collections.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
@@ -310,6 +326,7 @@ app.include_router(tools.router, prefix="/api")
 app.include_router(results.router, prefix="/api")
 app.include_router(pipelines.router, prefix="/api")
 app.include_router(trends.router, prefix="/api")
+app.include_router(config.router, prefix="/api")
 
 
 # Root endpoint

@@ -37,6 +37,21 @@ from backend.src.schemas.results import (
     ResultStatsResponse,
     DeleteResponse,
 )
+from backend.src.schemas.config import (
+    ConfigCategory,
+    ConfigSourceType,
+    ImportSessionStatus,
+    ConfigItemCreate,
+    ConfigItemUpdate,
+    ConflictResolutionRequest,
+    ConfigItemResponse,
+    CategoryConfigResponse,
+    ConfigurationResponse,
+    ConfigConflict,
+    ImportSessionResponse,
+    ImportResultResponse,
+    ConfigStatsResponse,
+)
 
 __all__ = [
     # Collection schemas
@@ -69,4 +84,18 @@ __all__ = [
     "AnalysisResultResponse",
     "ResultStatsResponse",
     "DeleteResponse",
+    # Config schemas
+    "ConfigCategory",
+    "ConfigSourceType",
+    "ImportSessionStatus",
+    "ConfigItemCreate",
+    "ConfigItemUpdate",
+    "ConflictResolutionRequest",
+    "ConfigItemResponse",
+    "CategoryConfigResponse",
+    "ConfigurationResponse",
+    "ConfigConflict",
+    "ImportSessionResponse",
+    "ImportResultResponse",
+    "ConfigStatsResponse",
 ]

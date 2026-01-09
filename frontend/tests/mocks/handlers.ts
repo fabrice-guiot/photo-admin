@@ -11,6 +11,16 @@ import type {
   DisplayGraphTrendResponse,
   TrendSummaryResponse
 } from '@/contracts/api/trends-api'
+import type {
+  ConfigurationResponse,
+  CategoryConfigResponse,
+  ConfigValueResponse,
+  ConfigStatsResponse,
+  ImportSessionResponse,
+  ImportResultResponse,
+  ConfigCategory,
+  ConfigItem
+} from '@/contracts/api/config-api'
 
 // Mock data
 let jobs: JobResponse[] = []
@@ -264,6 +274,25 @@ let collections: Collection[] = [
 
 let nextConnectorId = 3
 let nextCollectionId = 3
+
+// Config mock data
+let configData = {
+  extensions: {
+    photo_extensions: ['.dng', '.cr3', '.arw'],
+    metadata_extensions: ['.xmp'],
+    require_sidecar: ['.cr3'],
+  },
+  cameras: {
+    'AB3D': { name: 'Canon EOS R5', serial_number: '12345' },
+    'XY7Z': { name: 'Sony A7R IV', serial_number: '67890' },
+  } as Record<string, { name: string; serial_number: string }>,
+  processing_methods: {
+    'HDR': 'High Dynamic Range',
+    'BW': 'Black and White',
+  } as Record<string, string>,
+  importSessions: {} as Record<string, ImportSessionResponse>,
+  lastImport: null as string | null,
+}
 
 const BASE_URL = 'http://localhost:8000/api'
 
@@ -1366,6 +1395,245 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
     }
     return HttpResponse.json(response)
   }),
+
+  // ============================================================================
+  // Config API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/config`, () => {
+    const response: ConfigurationResponse = {
+      extensions: configData.extensions,
+      cameras: configData.cameras,
+      processing_methods: configData.processing_methods,
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/config/stats`, () => {
+    const camerasCount = Object.keys(configData.cameras).length
+    const methodsCount = Object.keys(configData.processing_methods).length
+    const extensionsCount = 3 // photo_extensions, metadata_extensions, require_sidecar
+
+    const response: ConfigStatsResponse = {
+      total_items: camerasCount + methodsCount + extensionsCount,
+      cameras_configured: camerasCount,
+      processing_methods_configured: methodsCount,
+      last_import: configData.lastImport,
+      source_breakdown: {
+        database: camerasCount + methodsCount + extensionsCount,
+        yaml_import: 0,
+      },
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/config/export`, () => {
+    const yamlContent = `# Photo Admin Configuration
+extensions:
+  photo_extensions: ${JSON.stringify(configData.extensions.photo_extensions)}
+  metadata_extensions: ${JSON.stringify(configData.extensions.metadata_extensions)}
+  require_sidecar: ${JSON.stringify(configData.extensions.require_sidecar)}
+cameras:
+${Object.entries(configData.cameras).map(([id, cam]) => `  ${id}:
+    - name: ${cam.name}
+      serial_number: "${cam.serial_number}"`).join('\n')}
+processing_methods:
+${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: "${desc}"`).join('\n')}
+`
+    return new HttpResponse(yamlContent, {
+      headers: {
+        'Content-Type': 'application/x-yaml',
+        'Content-Disposition': 'attachment; filename="photo-admin-config.yaml"',
+      },
+    })
+  }),
+
+  http.get(`${BASE_URL}/config/:category`, ({ params }) => {
+    const category = params.category as ConfigCategory
+    let items: ConfigItem[] = []
+
+    if (category === 'extensions') {
+      items = [
+        { key: 'photo_extensions', value: configData.extensions.photo_extensions, description: null, source: 'database', updated_at: '2025-01-01T09:00:00Z' },
+        { key: 'metadata_extensions', value: configData.extensions.metadata_extensions, description: null, source: 'database', updated_at: '2025-01-01T09:00:00Z' },
+        { key: 'require_sidecar', value: configData.extensions.require_sidecar, description: null, source: 'database', updated_at: '2025-01-01T09:00:00Z' },
+      ]
+    } else if (category === 'cameras') {
+      items = Object.entries(configData.cameras).map(([key, value]) => ({
+        key,
+        value: [value],
+        description: null,
+        source: 'database' as const,
+        updated_at: '2025-01-01T09:00:00Z',
+      }))
+    } else if (category === 'processing_methods') {
+      items = Object.entries(configData.processing_methods).map(([key, value]) => ({
+        key,
+        value,
+        description: null,
+        source: 'database' as const,
+        updated_at: '2025-01-01T09:00:00Z',
+      }))
+    }
+
+    const response: CategoryConfigResponse = { category, items }
+    return HttpResponse.json(response)
+  }),
+
+  // Import handlers MUST come before generic :category/:key handlers
+  // to prevent import/sessionId from matching as category=import, key=sessionId
+  http.post(`${BASE_URL}/config/import`, async ({ request }) => {
+    const formData = await request.formData()
+    const file = formData.get('file') as File
+
+    const sessionId = `test-session-${Date.now()}`
+    const session: ImportSessionResponse = {
+      session_id: sessionId,
+      status: 'pending',
+      file_name: file?.name || 'config.yaml',
+      total_items: 5,
+      new_items: 3,
+      conflicts: [
+        {
+          category: 'cameras',
+          key: 'AB3D',
+          database_value: { name: 'Canon EOS R5', serial_number: '12345' },
+          yaml_value: { name: 'Canon EOS R5 Updated', serial_number: '12345' },
+          resolved: false,
+          resolution: null,
+        },
+      ],
+    }
+    configData.importSessions[sessionId] = session
+    return HttpResponse.json(session)
+  }),
+
+  http.get(`${BASE_URL}/config/import/:sessionId`, ({ params }) => {
+    const session = configData.importSessions[params.sessionId as string]
+    if (!session) {
+      return HttpResponse.json({ detail: 'Import session not found' }, { status: 404 })
+    }
+    return HttpResponse.json(session)
+  }),
+
+  http.post(`${BASE_URL}/config/import/:sessionId/resolve`, async ({ params, request }) => {
+    const session = configData.importSessions[params.sessionId as string]
+    if (!session) {
+      return HttpResponse.json({ detail: 'Import session not found' }, { status: 404 })
+    }
+
+    const data = await request.json() as { resolutions: Array<{ category: string; key: string; use_yaml: boolean }> }
+
+    // Apply resolutions
+    session.status = 'applied'
+    configData.lastImport = new Date().toISOString()
+
+    const response: ImportResultResponse = {
+      success: true,
+      items_imported: data.resolutions.filter(r => r.use_yaml).length + session.new_items,
+      items_skipped: data.resolutions.filter(r => !r.use_yaml).length,
+      message: 'Import completed successfully',
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.post(`${BASE_URL}/config/import/:sessionId/cancel`, ({ params }) => {
+    const session = configData.importSessions[params.sessionId as string]
+    if (!session) {
+      return HttpResponse.json({ detail: 'Import session not found' }, { status: 404 })
+    }
+    session.status = 'cancelled'
+    return HttpResponse.json({ message: 'Import cancelled' })
+  }),
+
+  http.get(`${BASE_URL}/config/:category/:key`, ({ params }) => {
+    const category = params.category as ConfigCategory
+    const key = params.key as string
+
+    let value: unknown = null
+    if (category === 'cameras' && configData.cameras[key]) {
+      value = [configData.cameras[key]]
+    } else if (category === 'processing_methods' && configData.processing_methods[key]) {
+      value = configData.processing_methods[key]
+    } else if (category === 'extensions') {
+      value = configData.extensions[key as keyof typeof configData.extensions]
+    }
+
+    if (value === null || value === undefined) {
+      return HttpResponse.json({ detail: 'Configuration not found' }, { status: 404 })
+    }
+
+    const response: ConfigValueResponse = {
+      category,
+      key,
+      value,
+      description: null,
+      source: 'database',
+      updated_at: '2025-01-01T09:00:00Z',
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.post(`${BASE_URL}/config/:category/:key`, async ({ params, request }) => {
+    const category = params.category as ConfigCategory
+    const key = params.key as string
+    const data = await request.json() as { value: unknown; description?: string }
+
+    if (category === 'cameras') {
+      const cameraArray = data.value as Array<{ name: string; serial_number: string }>
+      configData.cameras[key] = cameraArray[0]
+    } else if (category === 'processing_methods') {
+      configData.processing_methods[key] = data.value as string
+    }
+
+    const response: ConfigValueResponse = {
+      category,
+      key,
+      value: data.value,
+      description: data.description ?? null,
+      source: 'database',
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(response, { status: 201 })
+  }),
+
+  http.put(`${BASE_URL}/config/:category/:key`, async ({ params, request }) => {
+    const category = params.category as ConfigCategory
+    const key = params.key as string
+    const data = await request.json() as { value: unknown; description?: string }
+
+    if (category === 'cameras') {
+      const cameraArray = data.value as Array<{ name: string; serial_number: string }>
+      configData.cameras[key] = cameraArray[0]
+    } else if (category === 'processing_methods') {
+      configData.processing_methods[key] = data.value as string
+    } else if (category === 'extensions') {
+      configData.extensions[key as keyof typeof configData.extensions] = data.value as string[]
+    }
+
+    const response: ConfigValueResponse = {
+      category,
+      key,
+      value: data.value,
+      description: data.description ?? null,
+      source: 'database',
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.delete(`${BASE_URL}/config/:category/:key`, ({ params }) => {
+    const category = params.category as ConfigCategory
+    const key = params.key as string
+
+    if (category === 'cameras') {
+      delete configData.cameras[key]
+    } else if (category === 'processing_methods') {
+      delete configData.processing_methods[key]
+    }
+
+    return HttpResponse.json({ message: 'Configuration deleted successfully' })
+  }),
 ]
 
 // Helper to reset mock data (useful for tests)
@@ -1615,4 +1883,22 @@ export function resetMockData(): void {
   nextCollectionId = 3
   nextJobId = 1
   nextResultId = 5
+  // Reset config data
+  configData = {
+    extensions: {
+      photo_extensions: ['.dng', '.cr3', '.arw'],
+      metadata_extensions: ['.xmp'],
+      require_sidecar: ['.cr3'],
+    },
+    cameras: {
+      'AB3D': { name: 'Canon EOS R5', serial_number: '12345' },
+      'XY7Z': { name: 'Sony A7R IV', serial_number: '67890' },
+    },
+    processing_methods: {
+      'HDR': 'High Dynamic Range',
+      'BW': 'Black and White',
+    },
+    importSessions: {},
+    lastImport: null,
+  }
 }

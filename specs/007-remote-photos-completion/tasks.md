@@ -284,48 +284,48 @@
 
 ### Tests for User Story 4
 
-- [ ] T135 [P] [US4] Contract test for GET /api/config in backend/tests/unit/test_api_config.py
-- [ ] T136 [P] [US4] Contract test for POST /api/config/import in backend/tests/unit/test_api_config.py
-- [ ] T137 [P] [US4] Contract test for POST /api/config/import/{id}/resolve in backend/tests/unit/test_api_config.py
-- [ ] T138 [P] [US4] Contract test for GET /api/config/export in backend/tests/unit/test_api_config.py
-- [ ] T139 [P] [US4] Unit test for ConfigService CRUD in backend/tests/unit/test_config_service.py
-- [ ] T140 [P] [US4] Unit test for conflict detection in backend/tests/unit/test_config_service.py
-- [ ] T141 [P] [US4] Unit test for import session management in backend/tests/unit/test_config_service.py
-- [ ] T142 [P] [US4] Unit test for YAML export in backend/tests/unit/test_config_service.py
-- [ ] T143 [P] [US4] Frontend test for useConfig hook in frontend/tests/hooks/useConfig.test.ts
-- [ ] T144 [P] [US4] Frontend test for ConflictResolver component in frontend/tests/components/ConflictResolver.test.tsx
+- [x] T135 [P] [US4] Contract test for GET /api/config in backend/tests/unit/test_api_config.py
+- [x] T136 [P] [US4] Contract test for POST /api/config/import in backend/tests/unit/test_api_config.py
+- [x] T137 [P] [US4] Contract test for POST /api/config/import/{id}/resolve in backend/tests/unit/test_api_config.py
+- [x] T138 [P] [US4] Contract test for GET /api/config/export in backend/tests/unit/test_api_config.py
+- [x] T139 [P] [US4] Unit test for ConfigService CRUD in backend/tests/unit/test_config_service.py
+- [x] T140 [P] [US4] Unit test for conflict detection in backend/tests/unit/test_config_service.py
+- [x] T141 [P] [US4] Unit test for import session management in backend/tests/unit/test_config_service.py
+- [x] T142 [P] [US4] Unit test for YAML export in backend/tests/unit/test_config_service.py
+- [x] T143 [P] [US4] Frontend test for useConfig hook in frontend/tests/hooks/useConfig.test.ts
+- [x] T144 [P] [US4] Frontend test for ConflictResolver component in frontend/tests/components/config/ConflictResolver.test.tsx
 
 ### Backend Implementation for User Story 4
 
-- [ ] T145 [US4] Create ConfigService class in backend/src/services/config_service.py with CRUD methods
-- [ ] T146 [US4] Add import_yaml method with conflict detection in backend/src/services/config_service.py
-- [ ] T147 [US4] Add ImportSession class for session management in backend/src/services/config_service.py
-- [ ] T148 [US4] Add resolve_conflicts method in backend/src/services/config_service.py
-- [ ] T149 [US4] Add export_yaml method in backend/src/services/config_service.py
-- [ ] T150 [US4] Add stats method for KPIs in backend/src/services/config_service.py
-- [ ] T151 [US4] Create config API router in backend/src/api/config.py with all endpoints
-- [ ] T152 [US4] Register config router in backend/src/main.py
-- [ ] T153 [US4] Integration test for import flow in backend/tests/integration/test_config_import.py
+- [x] T145 [US4] Create ConfigService class in backend/src/services/config_service.py with CRUD methods
+- [x] T146 [US4] Add import_yaml method with conflict detection in backend/src/services/config_service.py
+- [x] T147 [US4] Add ImportSession class for session management in backend/src/services/config_service.py
+- [x] T148 [US4] Add resolve_conflicts method in backend/src/services/config_service.py
+- [x] T149 [US4] Add export_yaml method in backend/src/services/config_service.py
+- [x] T150 [US4] Add stats method for KPIs in backend/src/services/config_service.py
+- [x] T151 [US4] Create config API router in backend/src/api/config.py with all endpoints
+- [x] T152 [US4] Register config router in backend/src/main.py
+- [x] T153 [US4] Integration test for import flow in backend/tests/integration/test_config_import.py
 
 ### CLI Integration for User Story 4
 
-- [ ] T154 [US4] Extend PhotoAdminConfig with database_url parameter in utils/config_manager.py
-- [ ] T155 [US4] Add _load_from_database method to PhotoAdminConfig in utils/config_manager.py
-- [ ] T156 [US4] Implement database-first with YAML fallback logic in utils/config_manager.py
-- [ ] T157 [US4] Unit test for database config loading in tests/test_config_manager.py
-- [ ] T158 [US4] Unit test for YAML fallback behavior in tests/test_config_manager.py
+- [x] T154 [US4] Extend PhotoAdminConfig with database_url parameter in utils/config_manager.py
+- [x] T155 [US4] Add _load_from_database method to PhotoAdminConfig in utils/config_manager.py
+- [x] T156 [US4] Implement database-first with YAML fallback logic in utils/config_manager.py
+- [x] T157 [US4] Unit test for database config loading in tests/test_config_manager.py
+- [x] T158 [US4] Unit test for YAML fallback behavior in tests/test_config_manager.py
 
 ### Frontend Implementation for User Story 4
 
-- [ ] T159 [P] [US4] Create config API service in frontend/src/services/config.ts
-- [ ] T160 [US4] Create useConfig hook with CRUD, import, export methods in frontend/src/hooks/useConfig.ts
-- [ ] T161 [US4] Create useConfigStats hook for KPIs in frontend/src/hooks/useConfig.ts
-- [ ] T162 [P] [US4] Create ConfigEditor component with inline editing in frontend/src/components/config/ConfigEditor.tsx
-- [ ] T163 [US4] Create ConflictResolver component with side-by-side comparison in frontend/src/components/config/ConflictResolver.tsx
-- [ ] T164 [P] [US4] Create ImportDialog component with file upload in frontend/src/components/config/ImportDialog.tsx
-- [ ] T165 [US4] Create ConfigPage with TopHeader KPI integration in frontend/src/pages/ConfigPage.tsx
-- [ ] T166 [US4] Add route for /config in frontend/src/App.tsx
-- [ ] T167 [US4] Integration test for config migration flow in frontend/tests/integration/configMigration.test.tsx
+- [x] T159 [P] [US4] Create config API service in frontend/src/services/config.ts
+- [x] T160 [US4] Create useConfig hook with CRUD, import, export methods in frontend/src/hooks/useConfig.ts
+- [x] T161 [US4] Create useConfigStats hook for KPIs in frontend/src/hooks/useConfig.ts
+- [x] T162 [P] [US4] Create ConfigEditor component with inline editing in frontend/src/components/config/ConfigEditor.tsx (integrated in ConfigurationPage)
+- [x] T163 [US4] Create ConflictResolver component with side-by-side comparison in frontend/src/components/config/ConflictResolver.tsx (integrated in ConfigurationPage)
+- [x] T164 [P] [US4] Create ImportDialog component with file upload in frontend/src/components/config/ImportDialog.tsx (integrated in ConfigurationPage)
+- [x] T165 [US4] Create ConfigPage with TopHeader KPI integration in frontend/src/pages/ConfigPage.tsx (as ConfigurationPage.tsx)
+- [x] T166 [US4] Add route for /config in frontend/src/App.tsx
+- [x] T167 [US4] Integration test for config migration flow in frontend/tests/integration/configMigration.test.tsx
 
 **Checkpoint**: User Story 4 complete. Users can import/export config, resolve conflicts, CLI tools use database config.
 
