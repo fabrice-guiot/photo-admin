@@ -252,6 +252,7 @@ class ConnectorResponse(BaseModel):
 
     Fields:
         id: Connector ID
+        external_id: External identifier (con_xxx)
         name: Connector name
         type: ConnectorType
         metadata: User-defined metadata
@@ -265,6 +266,7 @@ class ConnectorResponse(BaseModel):
         >>> response = ConnectorResponse.from_orm(connector_obj)
     """
     id: int
+    external_id: str = Field(..., description="External identifier (con_xxx)")
     name: str
     type: ConnectorType
     metadata: Optional[Dict[str, Any]] = None
@@ -299,6 +301,7 @@ class ConnectorResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": 1,
+                "external_id": "con_01hgw2bbg0000000000000001",
                 "name": "Production AWS",
                 "type": "s3",
                 "metadata": {"team": "engineering"},
@@ -464,6 +467,7 @@ class CollectionResponse(BaseModel):
 
     Fields:
         id: Collection ID
+        external_id: External identifier (col_xxx)
         name: Collection name
         type: Collection type
         location: File path or remote location
@@ -484,6 +488,7 @@ class CollectionResponse(BaseModel):
         >>> response = CollectionResponse.from_orm(collection_obj)
     """
     id: int
+    external_id: str = Field(..., description="External identifier (col_xxx)")
     name: str
     type: CollectionType
     location: str
@@ -528,6 +533,7 @@ class CollectionResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": 1,
+                "external_id": "col_01hgw2bbg0000000000000000",
                 "name": "Vacation Photos 2024",
                 "type": "s3",
                 "location": "s3://my-bucket/photos/2024/vacation",
@@ -544,6 +550,7 @@ class CollectionResponse(BaseModel):
                 "updated_at": "2025-12-30T10:30:00",
                 "connector": {
                     "id": 1,
+                    "external_id": "con_01hgw2bbg0000000000000001",
                     "name": "Production AWS",
                     "type": "s3",
                     "is_active": True

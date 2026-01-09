@@ -39,39 +39,39 @@
 
 ### Backend Core
 
-- [ ] T004 Implement ExternalIdMixin class in backend/src/models/mixins/external_id.py
-- [ ] T005 Implement ExternalIdService with generation/encoding logic in backend/src/services/external_id.py
-- [ ] T006 [P] Create Pydantic schemas for external ID validation in backend/src/schemas/external_id.py
-- [ ] T007 [P] Write unit tests for ExternalIdService in backend/tests/unit/test_external_id_service.py
+- [x] T004 Implement ExternalIdMixin class in backend/src/models/mixins/external_id.py
+- [x] T005 Implement ExternalIdService with generation/encoding logic in backend/src/services/external_id.py
+- [x] T006 [P] Create Pydantic schemas for external ID validation in backend/src/schemas/external_id.py
+- [x] T007 [P] Write unit tests for ExternalIdService in backend/tests/unit/test_external_id_service.py
 
 ### Model Updates (add UUID column to each entity)
 
-- [ ] T008 [P] Add ExternalIdMixin to Collection model in backend/src/models/collection.py
-- [ ] T009 [P] Add ExternalIdMixin to Connector model in backend/src/models/connector.py
-- [ ] T010 [P] Add ExternalIdMixin to Pipeline model in backend/src/models/pipeline.py
-- [ ] T011 [P] Add ExternalIdMixin to AnalysisResult model in backend/src/models/analysis_result.py
+- [x] T008 [P] Add ExternalIdMixin to Collection model in backend/src/models/collection.py
+- [x] T009 [P] Add ExternalIdMixin to Connector model in backend/src/models/connector.py
+- [x] T010 [P] Add ExternalIdMixin to Pipeline model in backend/src/models/pipeline.py
+- [x] T011 [P] Add ExternalIdMixin to AnalysisResult model in backend/src/models/analysis_result.py
 
 ### Database Migration
 
-- [ ] T012 Create Alembic migration to add nullable UUID columns to all entities in backend/alembic/versions/
-- [ ] T013 Add UUID population logic to migration: generate UUIDv7 for all existing records in backend/alembic/versions/
-- [ ] T014 Update migration to make UUID columns non-nullable and create unique indexes in backend/alembic/versions/
-- [ ] T015 Write migration tests to verify zero data loss in backend/tests/integration/test_external_id_migration.py
+- [x] T012 Create Alembic migration to add nullable UUID columns to all entities in backend/alembic/versions/
+- [x] T013 Add UUID population logic to migration: generate UUIDv7 for all existing records in backend/alembic/versions/
+- [x] T014 Update migration to make UUID columns non-nullable and create unique indexes in backend/alembic/versions/
+- [x] T015 Write migration tests to verify zero data loss in backend/tests/integration/test_external_id_migration.py
 
 ### Schema Updates (add external_id to response schemas)
 
-- [ ] T016 [P] Add external_id field to CollectionResponse in backend/src/schemas/collection.py
-- [ ] T017 [P] Add external_id field to ConnectorResponse in backend/src/schemas/collection.py
-- [ ] T018 [P] Add external_id field to PipelineResponse in backend/src/schemas/pipelines.py
-- [ ] T019 [P] Add external_id field to AnalysisResultResponse in backend/src/schemas/results.py
+- [x] T016 [P] Add external_id field to CollectionResponse in backend/src/schemas/collection.py
+- [x] T017 [P] Add external_id field to ConnectorResponse in backend/src/schemas/collection.py
+- [x] T018 [P] Add external_id field to PipelineResponse in backend/src/schemas/pipelines.py
+- [x] T019 [P] Add external_id field to AnalysisResultResponse in backend/src/schemas/results.py
 
 ### Frontend Core
 
-- [ ] T020 Create external ID utilities in frontend/src/utils/externalId.ts
-- [ ] T021 [P] Write tests for external ID utilities in frontend/src/utils/externalId.test.ts
-- [ ] T022 [P] Add external_id field to Collection type in frontend/src/types/collection.ts
-- [ ] T023 [P] Add external_id field to Connector type in frontend/src/types/connector.ts
-- [ ] T024 [P] Add external_id field to Pipeline type in frontend/src/contracts/api/pipelines-api.ts
+- [x] T020 Create external ID utilities in frontend/src/utils/externalId.ts
+- [x] T021 [P] Write tests for external ID utilities in frontend/src/utils/externalId.test.ts
+- [x] T022 [P] Add external_id field to Collection type in frontend/src/types/collection.ts
+- [x] T023 [P] Add external_id field to Connector type in frontend/src/types/connector.ts
+- [x] T024 [P] Add external_id field to Pipeline type in frontend/src/contracts/api/pipelines-api.ts
 
 **Checkpoint**: Foundation ready - UUID columns exist, external_id in all responses - user story implementation can now begin
 

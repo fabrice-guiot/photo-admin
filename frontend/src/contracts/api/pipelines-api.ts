@@ -52,6 +52,7 @@ export interface ValidationError {
 
 export interface PipelineSummary {
   id: number
+  external_id: string  // External identifier (pip_xxx)
   name: string
   description: string | null
   version: number
@@ -65,6 +66,7 @@ export interface PipelineSummary {
 
 export interface Pipeline {
   id: number
+  external_id: string  // External identifier (pip_xxx)
   name: string
   description: string | null
   nodes: PipelineNode[]

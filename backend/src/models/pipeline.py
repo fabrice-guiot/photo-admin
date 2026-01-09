@@ -20,9 +20,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from backend.src.models import Base
+from backend.src.models.mixins import ExternalIdMixin
 
 
-class Pipeline(Base):
+class Pipeline(Base, ExternalIdMixin):
     """
     Pipeline model for photo processing workflows.
 
@@ -31,6 +32,8 @@ class Pipeline(Base):
 
     Attributes:
         id: Primary key
+        uuid: UUIDv7 for external identification (inherited from ExternalIdMixin)
+        external_id: External ID string property (pip_xxx, inherited from ExternalIdMixin)
         name: Unique display name
         description: Purpose/usage description
         nodes_json: Node definitions array (JSONB)
@@ -57,6 +60,7 @@ class Pipeline(Base):
 
     Indexes:
         - idx_pipelines_name: name
+        - uuid (unique, for external ID lookups)
         - idx_pipelines_active: is_active WHERE is_active = true
         - idx_pipelines_default: is_default WHERE is_default = true
 
@@ -76,6 +80,9 @@ class Pipeline(Base):
     """
 
     __tablename__ = "pipelines"
+
+    # External ID prefix for Pipeline entities
+    EXTERNAL_ID_PREFIX = "pip"
 
     # Primary key
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -66,6 +66,7 @@ class AnalysisResultSummary(BaseModel):
     For pipeline-only results (display_graph mode), collection fields are null.
     """
     id: int = Field(..., description="Result ID")
+    external_id: str = Field(..., description="External identifier (res_xxx)")
     collection_id: Optional[int] = Field(None, description="Collection ID (null for display_graph)")
     collection_name: Optional[str] = Field(None, description="Collection name (null for display_graph)")
     tool: str = Field(..., description="Tool that produced this result")
@@ -86,6 +87,7 @@ class AnalysisResultSummary(BaseModel):
             "examples": [
                 {
                     "id": 1,
+                    "external_id": "res_01hgw2bbg0000000000000003",
                     "collection_id": 1,
                     "collection_name": "Vacation 2024",
                     "tool": "pipeline_validation",
@@ -102,6 +104,7 @@ class AnalysisResultSummary(BaseModel):
                 },
                 {
                     "id": 2,
+                    "external_id": "res_01hgw2bbg0000000000000004",
                     "collection_id": None,
                     "collection_name": None,
                     "tool": "pipeline_validation",
@@ -174,6 +177,7 @@ class AnalysisResultResponse(BaseModel):
     For pipeline-only results (display_graph mode), collection fields are null.
     """
     id: int = Field(..., description="Result ID")
+    external_id: str = Field(..., description="External identifier (res_xxx)")
     collection_id: Optional[int] = Field(None, description="Collection ID (null for display_graph)")
     collection_name: Optional[str] = Field(None, description="Collection name (null for display_graph)")
     tool: str = Field(..., description="Tool that produced this result")
@@ -196,6 +200,7 @@ class AnalysisResultResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": 1,
+                "external_id": "res_01hgw2bbg0000000000000003",
                 "collection_id": 1,
                 "collection_name": "Vacation 2024",
                 "tool": "pipeline_validation",

@@ -5,5 +5,4 @@
  * across components and hooks.
  */
 
-// Utilities will be exported here as they are implemented
-// export * from './externalId'
+export * from './externalId'

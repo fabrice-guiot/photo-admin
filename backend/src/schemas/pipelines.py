@@ -188,6 +188,7 @@ class PipelineSummary(BaseModel):
     Contains essential information without full node/edge details.
     """
     id: int = Field(..., description="Pipeline ID")
+    external_id: str = Field(..., description="External identifier (pip_xxx)")
     name: str = Field(..., description="Pipeline name")
     description: Optional[str] = Field(None, description="Pipeline description")
     version: int = Field(..., description="Current version")
@@ -203,6 +204,7 @@ class PipelineSummary(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": 1,
+                "external_id": "pip_01hgw2bbg0000000000000002",
                 "name": "Standard RAW Workflow",
                 "description": "RAW capture to processed TIFF export",
                 "version": 3,
@@ -224,6 +226,7 @@ class PipelineResponse(BaseModel):
     Contains all information including nodes and edges.
     """
     id: int = Field(..., description="Pipeline ID")
+    external_id: str = Field(..., description="External identifier (pip_xxx)")
     name: str = Field(..., description="Pipeline name")
     description: Optional[str] = Field(None, description="Pipeline description")
     nodes: List[PipelineNode] = Field(..., description="Node definitions")
@@ -241,6 +244,7 @@ class PipelineResponse(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": 1,
+                "external_id": "pip_01hgw2bbg0000000000000002",
                 "name": "Standard RAW Workflow",
                 "description": "RAW capture to processed TIFF export",
                 "nodes": [
