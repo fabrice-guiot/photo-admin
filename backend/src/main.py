@@ -22,19 +22,120 @@ from typing import Dict, Any
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.job_queue import JobQueue
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.logging_config import init_logging, get_logger
-from backend.src.utils.websocket import get_connection_manager, ConnectionManager
+from backend.src.utils.websocket import get_connection_manager
 from backend.src.db.database import SessionLocal
 from backend.src.services.config_service import ConfigService
 
 # Import version management
 from version import __version__
+
+
+# ============================================================================
+# Rate Limiting Configuration (T168)
+# ============================================================================
+# Configure rate limiter with sensible defaults for single-user deployment
+# These protect against runaway scripts and misconfigured clients
+limiter = Limiter(key_func=get_remote_address)
+
+
+# ============================================================================
+# Security Headers Middleware (T170)
+# ============================================================================
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Add security headers to all responses.
+
+    Headers added:
+    - X-Content-Type-Options: Prevent MIME type sniffing
+    - X-Frame-Options: Prevent clickjacking
+    - X-XSS-Protection: Enable XSS filter (legacy, but still useful)
+    - Referrer-Policy: Control referrer information
+    - Content-Security-Policy: Restrict resource loading
+    - Permissions-Policy: Control browser features
+
+    Note: CSRF protection is handled via SameSite cookies in browsers.
+    For API-only backends, CORS with credentials=True provides adequate
+    protection since the Origin header is verified.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+
+        # Prevent MIME type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # Prevent clickjacking (allow for docs pages)
+        if request.url.path not in ["/docs", "/redoc", "/openapi.json"]:
+            response.headers["X-Frame-Options"] = "DENY"
+
+        # Enable XSS filter (legacy, but still useful for older browsers)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Control referrer information
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Content Security Policy
+        # Skip restrictive CSP for documentation pages (Swagger UI needs external resources)
+        if request.url.path not in ["/docs", "/redoc", "/openapi.json"]:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'none'; "
+                "frame-ancestors 'none'"
+            )
+
+        # Disable browser features not needed by API
+        response.headers["Permissions-Policy"] = (
+            "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+            "magnetometer=(), microphone=(), payment=(), usb=()"
+        )
+
+        return response
+
+
+# ============================================================================
+# Request Size Limit Middleware (T169)
+# ============================================================================
+# Maximum request body size: 10MB for file uploads
+MAX_REQUEST_SIZE = 10 * 1024 * 1024  # 10MB
+
+
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    """
+    Limit request body size to prevent resource exhaustion.
+
+    This middleware checks the Content-Length header and rejects
+    requests that exceed the configured maximum.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+
+        if content_length:
+            try:
+                size = int(content_length)
+                if size > MAX_REQUEST_SIZE:
+                    return JSONResponse(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        content={
+                            "error": "Request Entity Too Large",
+                            "message": f"Request body exceeds maximum size of {MAX_REQUEST_SIZE // (1024 * 1024)}MB",
+                            "max_size_bytes": MAX_REQUEST_SIZE
+                        }
+                    )
+            except ValueError:
+                pass  # Invalid Content-Length, let server handle it
+
+        return await call_next(request)
 
 
 def validate_master_key() -> None:
@@ -153,6 +254,25 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# ============================================================================
+# Configure Rate Limiter (T168)
+# ============================================================================
+# Attach limiter to app state for access in routes
+app.state.limiter = limiter
+
+# Add rate limit exceeded handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ============================================================================
+# Security Middlewares (T169, T170)
+# ============================================================================
+# Note: Middleware order matters - first added is outermost
+# Add request size limit middleware
+app.add_middleware(RequestSizeLimitMiddleware)
+
+# Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # Configure CORS middleware for frontend development

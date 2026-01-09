@@ -12,6 +12,7 @@ Design:
 - Async endpoints for non-blocking execution
 - WebSocket support for real-time progress
 - Comprehensive error handling
+- Rate limiting to prevent resource exhaustion (T168)
 """
 
 import asyncio
@@ -22,6 +23,8 @@ from fastapi import (
     APIRouter, Depends, HTTPException, Query, Request, WebSocket,
     WebSocketDisconnect, status
 )
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -30,7 +33,7 @@ from backend.src.schemas.tools import (
     QueueStatusResponse, ConflictResponse, RunAllToolsResponse
 )
 from backend.src.services.tool_service import ToolService
-from backend.src.services.exceptions import ConflictError, NotFoundError, CollectionNotAccessibleError
+from backend.src.services.exceptions import ConflictError, CollectionNotAccessibleError
 from backend.src.utils.websocket import ConnectionManager, get_connection_manager
 from backend.src.utils.logging_config import get_logger
 
@@ -41,6 +44,9 @@ router = APIRouter(
     prefix="/tools",
     tags=["Tools"],
 )
+
+# Rate limiter instance - shared from main app
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ============================================================================
@@ -79,10 +85,13 @@ def get_tool_service(
         202: {"description": "Job accepted and queued"},
         400: {"description": "Invalid request"},
         409: {"description": "Tool already running on collection", "model": ConflictResponse},
+        429: {"description": "Too many requests - rate limit exceeded"},
     }
 )
+@limiter.limit("10/minute")  # Rate limit: 10 tool executions per minute (T168)
 async def run_tool(
-    request: ToolRunRequest,
+    request: Request,  # Required for rate limiter - must be named 'request'
+    tool_request: ToolRunRequest = ...,  # Body parameter renamed to avoid conflict
     service: ToolService = Depends(get_tool_service)
 ) -> JobResponse:
     """
@@ -96,7 +105,7 @@ async def run_tool(
     in display_graph mode, pipeline_id is required instead.
 
     Args:
-        request: Tool run request with tool, and mode-specific parameters
+        tool_request: Tool run request with tool, and mode-specific parameters
 
     Returns:
         Created job details
@@ -109,10 +118,10 @@ async def run_tool(
 
     try:
         job = service.run_tool(
-            tool=request.tool,
-            collection_id=request.collection_id,
-            pipeline_id=request.pipeline_id,
-            mode=request.mode
+            tool=tool_request.tool,
+            collection_id=tool_request.collection_id,
+            pipeline_id=tool_request.pipeline_id,
+            mode=tool_request.mode
         )
 
         # Start processing queue in background using asyncio.create_task
@@ -120,10 +129,10 @@ async def run_tool(
         asyncio.create_task(service.process_queue())
 
         # Log appropriately based on mode
-        if request.mode == ToolMode.DISPLAY_GRAPH:
-            logger.info(f"Job {job.id} queued: {request.tool.value} (display_graph) on pipeline {request.pipeline_id}")
+        if tool_request.mode == ToolMode.DISPLAY_GRAPH:
+            logger.info(f"Job {job.id} queued: {tool_request.tool.value} (display_graph) on pipeline {tool_request.pipeline_id}")
         else:
-            logger.info(f"Job {job.id} queued: {request.tool.value} on collection {request.collection_id}")
+            logger.info(f"Job {job.id} queued: {tool_request.tool.value} on collection {tool_request.collection_id}")
         return job
 
     except CollectionNotAccessibleError as e:
@@ -160,9 +169,12 @@ async def run_tool(
         202: {"description": "Jobs accepted and queued"},
         404: {"description": "Collection not found"},
         422: {"description": "Collection not accessible"},
+        429: {"description": "Too many requests - rate limit exceeded"},
     }
 )
+@limiter.limit("5/minute")  # Rate limit: 5 run-all requests per minute (T168)
 async def run_all_tools(
+    request: Request,  # Required for rate limiter
     collection_id: int,
     service: ToolService = Depends(get_tool_service)
 ) -> RunAllToolsResponse:

@@ -11,6 +11,7 @@ Design:
 - Uses dependency injection for services
 - Pydantic validation for request/response
 - Session-based import workflow
+- Rate limiting on import endpoints (T168)
 
 Note: Route order matters! Specific routes (stats, export, import) must come
 before parameterized routes (/{category}, /{category}/{key}).
@@ -18,7 +19,9 @@ before parameterized routes (/{category}, /{category}/{key}).
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File, status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -39,6 +42,9 @@ router = APIRouter(
     prefix="/config",
     tags=["Configuration"],
 )
+
+# Rate limiter instance
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ============================================================================
@@ -115,9 +121,14 @@ def export_config(
 @router.post(
     "/import",
     response_model=ImportSessionResponse,
-    summary="Start YAML import"
+    summary="Start YAML import",
+    responses={
+        429: {"description": "Too many requests - rate limit exceeded"},
+    }
 )
+@limiter.limit("5/minute")  # Rate limit: 5 imports per minute (T168)
 async def start_import(
+    request: Request,  # Required for rate limiter
     file: UploadFile = File(...),
     service: ConfigService = Depends(get_config_service)
 ) -> ImportSessionResponse:
