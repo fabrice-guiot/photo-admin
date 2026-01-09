@@ -18,6 +18,8 @@ Photo Administration toolbox - A comprehensive solution for analyzing, managing,
 - **Frontend** (React/TypeScript) - Modern, accessible UI with real-time progress updates
 
 ## Active Technologies
+- Python 3.10+ (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy 2.0, Pydantic v2, React 18.3.1, Axios (008-entity-uuid-implementation)
+- PostgreSQL 12+ with JSONB columns (SQLite for tests) (008-entity-uuid-implementation)
 
 ### Core Stack
 - **Python 3.10+** - Backend and CLI tools (required for match/case syntax)
@@ -349,15 +351,11 @@ prop_type = FilenameParser.detect_property_type('HDR')  # 'processing_method'
 ```
 
 ## Recent Changes
+- 008-entity-uuid-implementation: Added Python 3.10+ (Backend), TypeScript 5.x (Frontend) + FastAPI, SQLAlchemy 2.0, Pydantic v2, React 18.3.1, Axios
 
 ### Phase 7 Production-Ready Application (2026-01-09)
 - Rate limiting middleware using slowapi (10 req/min for tool execution)
 - Request size limits (10MB max for uploads)
-- Security headers middleware (CSP, X-Frame-Options, X-XSS-Protection, etc.)
-- GIN index for JSONB queries on analysis results
-- Credential access audit logging
-- Comprehensive security tests
-- Updated documentation (README files, CLAUDE.md)
 
 ### HTML Report Consistency & Tool Improvements (2025-12-25)
   - Created templates/base.html.j2 with shared styling and Chart.js theme
