@@ -29,10 +29,11 @@ export const listPipelines = async (params: PipelineListQueryParams = {}): Promi
 }
 
 /**
- * Get pipeline details by ID
+ * Get pipeline details by ID or external ID
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const getPipeline = async (pipelineId: number): Promise<Pipeline> => {
-  const response = await api.get<Pipeline>(`/pipelines/${pipelineId}`)
+export const getPipeline = async (identifier: number | string): Promise<Pipeline> => {
+  const response = await api.get<Pipeline>(`/pipelines/${identifier}`)
   return response.data
 }
 

@@ -33,6 +33,7 @@ from backend.src.schemas.pipelines import (
     PipelineHistoryEntry, PipelineStatsResponse, PipelineNode, PipelineEdge
 )
 from backend.src.services.exceptions import NotFoundError, ConflictError, ValidationError as ServiceValidationError
+from backend.src.services.external_id import ExternalIdService
 from backend.src.utils.logging_config import get_logger
 
 
@@ -134,6 +135,40 @@ class PipelineService:
         """
         pipeline = self._get_pipeline(pipeline_id)
         return self._to_response(pipeline)
+
+    def get_by_identifier(self, identifier: str) -> Tuple[PipelineResponse, bool]:
+        """
+        Get pipeline by numeric ID or external ID.
+
+        Supports both numeric IDs (backward compatible) and external IDs
+        (new URL-safe format). Used by API endpoints that accept either format.
+
+        Args:
+            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "pip_01hgw...")
+
+        Returns:
+            Tuple of (PipelineResponse, is_numeric_id: bool)
+            - Pipeline response
+            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+
+        Raises:
+            ValueError: If identifier format is invalid or prefix doesn't match "pip"
+            NotFoundError: If pipeline doesn't exist
+
+        Example:
+            >>> pipeline, is_numeric = service.get_by_identifier("pip_01hgw2bbg...")
+        """
+        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="pip")
+
+        if id_type == "numeric":
+            pipeline = self._get_pipeline(value)
+            return self._to_response(pipeline), True
+        else:
+            # External ID - value is a UUID
+            pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == value).first()
+            if not pipeline:
+                raise NotFoundError("Pipeline", identifier)
+            return self._to_response(pipeline), False
 
     def list(
         self,
@@ -978,6 +1013,7 @@ class PipelineService:
 
         return PipelineResponse(
             id=pipeline.id,
+            external_id=pipeline.external_id,
             name=pipeline.name,
             description=pipeline.description,
             nodes=nodes,
@@ -1003,6 +1039,7 @@ class PipelineService:
         """
         return PipelineSummary(
             id=pipeline.id,
+            external_id=pipeline.external_id,
             name=pipeline.name,
             description=pipeline.description,
             version=pipeline.version,

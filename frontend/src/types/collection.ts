@@ -106,7 +106,7 @@ export interface CollectionFormData {
 }
 
 export interface CollectionCreate extends Omit<Collection,
-  'id' | 'is_accessible' | 'accessibility_message' | 'created_at' | 'updated_at' | 'last_scanned_at'
+  'id' | 'external_id' | 'is_accessible' | 'accessibility_message' | 'created_at' | 'updated_at' | 'last_scanned_at'
 > {}
 
 export interface CollectionUpdate extends Partial<CollectionCreate> {}

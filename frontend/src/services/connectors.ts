@@ -26,11 +26,12 @@ export const listConnectors = async (filters: Record<string, any> = {}): Promise
 }
 
 /**
- * Get a single connector by ID
+ * Get a single connector by ID or external ID
  * Note: Credentials are NOT included in response for security
+ * @param identifier - Numeric ID or external ID (con_xxx)
  */
-export const getConnector = async (id: number): Promise<Connector> => {
-  const response = await api.get<Connector>(`/connectors/${id}`)
+export const getConnector = async (identifier: number | string): Promise<Connector> => {
+  const response = await api.get<Connector>(`/connectors/${identifier}`)
   return response.data
 }
 

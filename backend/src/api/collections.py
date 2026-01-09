@@ -18,7 +18,7 @@ Design:
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -285,42 +285,72 @@ async def create_collection(
 
 
 @router.get(
-    "/{collection_id}",
+    "/{identifier}",
     response_model=CollectionResponse,
     summary="Get collection",
-    description="Get a single collection by ID with connector details"
+    description="Get a single collection by numeric ID or external ID (e.g., col_01hgw...)"
 )
 async def get_collection(
-    collection_id: int,
+    identifier: str,
     collection_service: CollectionService = Depends(get_collection_service)
 ) -> CollectionResponse:
     """
-    Get collection by ID.
+    Get collection by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/collections/123 (deprecated, will show warning)
+    - External ID: /api/collections/col_01hgw2bbg... (recommended)
 
     Path Parameters:
-        collection_id: Collection ID
+        identifier: Collection ID (numeric) or external ID (col_xxx format)
 
     Returns:
         CollectionResponse with collection details and connector info
 
     Raises:
+        400 Bad Request: If identifier format is invalid or prefix mismatch
         404 Not Found: If collection doesn't exist
 
     Example:
-        GET /api/collections/1
+        GET /api/collections/col_01hgw2bbg0000000000000000
+        GET /api/collections/1  (deprecated)
     """
-    collection = collection_service.get_collection(collection_id)
+    try:
+        collection, is_numeric = collection_service.get_by_identifier(identifier)
 
-    if not collection:
-        logger.warning(f"Collection not found: {collection_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Collection with ID {collection_id} not found"
+        if not collection:
+            logger.warning(f"Collection not found: {identifier}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Collection not found: {identifier}"
+            )
+
+        logger.info(
+            f"Retrieved collection: {collection.name}",
+            extra={"identifier": identifier, "is_numeric_id": is_numeric}
         )
 
-    logger.info(f"Retrieved collection: {collection.name}", extra={"collection_id": collection_id})
+        response_obj = CollectionResponse.model_validate(collection)
 
-    return CollectionResponse.model_validate(collection)
+        # Add deprecation warning for numeric ID usage
+        if is_numeric:
+            return Response(
+                content=response_obj.model_dump_json(),
+                media_type="application/json",
+                headers={
+                    "X-Deprecation-Warning": f"Numeric IDs are deprecated. Use external_id: {collection.external_id}"
+                }
+            )
+
+        return response_obj
+
+    except ValueError as e:
+        # Invalid identifier format or prefix mismatch
+        logger.warning(f"Invalid identifier: {identifier} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @router.put(

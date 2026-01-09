@@ -29,6 +29,7 @@ let nextJobId = 1
 let pipelines: Pipeline[] = [
   {
     id: 1,
+    external_id: 'pip_01hgw2bbg0000000000000001',
     name: 'Standard RAW Workflow',
     description: 'RAW capture to processed TIFF export',
     nodes: [
@@ -52,6 +53,7 @@ let pipelines: Pipeline[] = [
   },
   {
     id: 2,
+    external_id: 'pip_01hgw2bbg0000000000000002',
     name: 'HDR Workflow',
     description: 'HDR processing pipeline',
     nodes: [
@@ -75,6 +77,7 @@ let pipelines: Pipeline[] = [
   },
   {
     id: 3,
+    external_id: 'pip_01hgw2bbg0000000000000003',
     name: 'Invalid Pipeline',
     description: 'Pipeline with validation errors',
     nodes: [
@@ -215,6 +218,7 @@ let nextResultId = 5
 let connectors: Connector[] = [
   {
     id: 1,
+    external_id: 'con_01hgw2bbg0000000000000001',
     name: 'Test S3 Connector',
     type: 's3',
     is_active: true,
@@ -225,6 +229,7 @@ let connectors: Connector[] = [
   },
   {
     id: 2,
+    external_id: 'con_01hgw2bbg0000000000000002',
     name: 'Test GCS Connector',
     type: 'gcs',
     is_active: false,
@@ -238,6 +243,7 @@ let connectors: Connector[] = [
 let collections: Collection[] = [
   {
     id: 1,
+    external_id: 'col_01hgw2bbg0000000000000001',
     name: 'Test Collection',
     type: 'local',
     location: '/photos',
@@ -255,6 +261,7 @@ let collections: Collection[] = [
   },
   {
     id: 2,
+    external_id: 'col_01hgw2bbg0000000000000002',
     name: 'Remote S3 Collection',
     type: 's3',
     location: 'my-bucket/photos',
@@ -328,6 +335,7 @@ export const handlers = [
     const data = await request.json() as Partial<Connector>
     const newConnector: Connector = {
       id: nextConnectorId++,
+      external_id: `con_01hgw2bbg000000000000000${nextConnectorId - 1}`,
       name: data.name!,
       type: data.type!,
       is_active: data.is_active ?? true,
@@ -425,6 +433,7 @@ export const handlers = [
     }
     const newCollection: Collection = {
       id: nextCollectionId++,
+      external_id: `col_01hgw2bbg000000000000000${nextCollectionId - 1}`,
       name: data.name!,
       type: data.type!,
       location: data.location!,
@@ -853,6 +862,7 @@ export const handlers = [
 
     const items: PipelineSummary[] = filteredPipelines.map((p) => ({
       id: p.id,
+      external_id: p.external_id,
       name: p.name,
       description: p.description,
       version: p.version,
@@ -900,6 +910,7 @@ export const handlers = [
 
     const newPipeline: Pipeline = {
       id: nextPipelineId++,
+      external_id: `pip_01hgw2bbg000000000000000${nextPipelineId - 1}`,
       name: data.name,
       description: data.description ?? null,
       nodes: data.nodes,
@@ -1096,6 +1107,7 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
 
     const newPipeline: Pipeline = {
       id: nextPipelineId++,
+      external_id: `pip_01hgw2bbg000000000000000${nextPipelineId - 1}`,
       name: `Imported Pipeline ${nextPipelineId - 1}`,
       description: 'Imported from YAML',
       nodes: [
@@ -1487,9 +1499,11 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
     const file = formData.get('file') as File
 
     const sessionId = `test-session-${Date.now()}`
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes from now
     const session: ImportSessionResponse = {
       session_id: sessionId,
       status: 'pending',
+      expires_at: expiresAt,
       file_name: file?.name || 'config.yaml',
       total_items: 5,
       new_items: 3,
@@ -1641,6 +1655,7 @@ export function resetMockData(): void {
   pipelines = [
     {
       id: 1,
+      external_id: 'pip_01hgw2bbg0000000000000001',
       name: 'Standard RAW Workflow',
       description: 'RAW capture to processed TIFF export',
       nodes: [
@@ -1664,6 +1679,7 @@ export function resetMockData(): void {
     },
     {
       id: 2,
+      external_id: 'pip_01hgw2bbg0000000000000002',
       name: 'HDR Workflow',
       description: 'HDR processing pipeline',
       nodes: [
@@ -1687,6 +1703,7 @@ export function resetMockData(): void {
     },
     {
       id: 3,
+      external_id: 'pip_01hgw2bbg0000000000000003',
       name: 'Invalid Pipeline',
       description: 'Pipeline with validation errors',
       nodes: [
@@ -1724,6 +1741,7 @@ export function resetMockData(): void {
   connectors = [
     {
       id: 1,
+      external_id: 'con_01hgw2bbg0000000000000001',
       name: 'Test S3 Connector',
       type: 's3',
       is_active: true,
@@ -1734,6 +1752,7 @@ export function resetMockData(): void {
     },
     {
       id: 2,
+      external_id: 'con_01hgw2bbg0000000000000002',
       name: 'Test GCS Connector',
       type: 'gcs',
       is_active: false,
@@ -1746,6 +1765,7 @@ export function resetMockData(): void {
   collections = [
     {
       id: 1,
+      external_id: 'col_01hgw2bbg0000000000000001',
       name: 'Test Collection',
       type: 'local',
       location: '/photos',
@@ -1763,6 +1783,7 @@ export function resetMockData(): void {
     },
     {
       id: 2,
+      external_id: 'col_01hgw2bbg0000000000000002',
       name: 'Remote S3 Collection',
       type: 's3',
       location: 'my-bucket/photos',

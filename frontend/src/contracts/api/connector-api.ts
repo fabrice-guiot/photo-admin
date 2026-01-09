@@ -13,6 +13,7 @@ export type ConnectorType = 's3' | 'gcs' | 'smb'
 
 export interface Connector {
   id: number
+  external_id: string  // External identifier (con_xxx) for URL-safe references
   name: string
   type: ConnectorType
   is_active: boolean

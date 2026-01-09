@@ -12,6 +12,7 @@ describe('RunToolDialog', () => {
   const mockCollections: Collection[] = [
     {
       id: 1,
+      external_id: 'col_01hgw2bbg0000000000000001',
       name: 'Test Collection',
       type: 'local',
       location: '/photos',
@@ -29,6 +30,7 @@ describe('RunToolDialog', () => {
     },
     {
       id: 2,
+      external_id: 'col_01hgw2bbg0000000000000002',
       name: 'Remote S3 Collection',
       type: 's3',
       location: 'my-bucket/photos',
@@ -46,6 +48,7 @@ describe('RunToolDialog', () => {
     },
     {
       id: 3,
+      external_id: 'col_01hgw2bbg0000000000000003',
       name: 'Inaccessible Collection',
       type: 'local',
       location: '/bad/path',
@@ -66,6 +69,7 @@ describe('RunToolDialog', () => {
   const mockPipelines: PipelineSummary[] = [
     {
       id: 1,
+      external_id: 'pip_01hgw2bbg0000000000000001',
       name: 'Standard RAW Workflow',
       description: 'Standard RAW processing pipeline',
       version: 1,
@@ -78,6 +82,7 @@ describe('RunToolDialog', () => {
     },
     {
       id: 2,
+      external_id: 'pip_01hgw2bbg0000000000000002',
       name: 'Draft Pipeline',
       description: 'Work in progress',
       version: 1,

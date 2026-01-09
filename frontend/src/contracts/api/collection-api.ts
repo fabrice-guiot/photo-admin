@@ -14,6 +14,7 @@ export type CollectionState = 'live' | 'closed' | 'archived'
 
 export interface Collection {
   id: number
+  external_id: string  // External identifier (col_xxx) for URL-safe references
   name: string
   type: CollectionType
   state: CollectionState

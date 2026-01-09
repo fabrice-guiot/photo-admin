@@ -32,10 +32,11 @@ export const listCollections = async (filters: CollectionListQueryParams = {}): 
 }
 
 /**
- * Get a single collection by ID
+ * Get a single collection by ID or external ID
+ * @param identifier - Numeric ID or external ID (col_xxx)
  */
-export const getCollection = async (id: number): Promise<Collection> => {
-  const response = await api.get<Collection>(`/collections/${id}`)
+export const getCollection = async (identifier: number | string): Promise<Collection> => {
+  const response = await api.get<Collection>(`/collections/${identifier}`)
   return response.data
 }
 

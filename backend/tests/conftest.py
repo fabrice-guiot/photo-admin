@@ -242,6 +242,68 @@ def sample_collection(test_db_session, sample_collection_data):
     return _create
 
 
+@pytest.fixture
+def sample_pipeline_data():
+    """Factory for creating sample pipeline data."""
+    def _create(
+        name='Test Pipeline',
+        description='Test pipeline description',
+        nodes=None,
+        edges=None,
+        is_active=False,
+        is_default=False,
+        is_valid=True,
+    ):
+        if nodes is None:
+            nodes = [
+                {"id": "capture", "type": "capture", "properties": {
+                    "sample_filename": "AB3D0001",
+                    "filename_regex": "([A-Z0-9]{4})([0-9]{4})",
+                    "camera_id_group": "1"
+                }},
+                {"id": "raw", "type": "file", "properties": {"extension": ".dng"}},
+                {"id": "termination", "type": "termination", "properties": {}}
+            ]
+        if edges is None:
+            edges = [
+                {"from": "capture", "to": "raw"},
+                {"from": "raw", "to": "termination"}
+            ]
+        return {
+            'name': name,
+            'description': description,
+            'nodes': nodes,
+            'edges': edges,
+            'is_active': is_active,
+            'is_default': is_default,
+            'is_valid': is_valid,
+        }
+    return _create
+
+
+@pytest.fixture
+def sample_pipeline(test_db_session, sample_pipeline_data):
+    """Factory for creating sample Pipeline models in the database."""
+    def _create(**kwargs):
+        data = sample_pipeline_data(**kwargs)
+
+        pipeline = Pipeline(
+            name=data['name'],
+            description=data['description'],
+            nodes_json=data['nodes'],
+            edges_json=data['edges'],
+            version=1,
+            is_active=data['is_active'],
+            is_default=data['is_default'],
+            is_valid=data['is_valid'],
+        )
+        test_db_session.add(pipeline)
+        test_db_session.commit()
+        test_db_session.refresh(pipeline)
+        return pipeline
+    return _create
+
+
 # ============================================================================
 # Mocked Storage Adapter Fixtures
 # ============================================================================

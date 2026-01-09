@@ -17,9 +17,53 @@ import uuid as uuid_module
 from typing import ClassVar
 
 import base32_crockford
-from sqlalchemy import Column, LargeBinary
+from sqlalchemy import Column, TypeDecorator, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from uuid_extensions import uuid7
+
+
+class UUIDType(TypeDecorator):
+    """
+    Platform-independent UUID type.
+
+    Uses PostgreSQL's native UUID type when available,
+    otherwise stores as 16-byte LargeBinary for SQLite.
+
+    Always presents as a Python UUID object.
+    """
+
+    impl = LargeBinary
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PG_UUID(as_uuid=True))
+        else:
+            return dialect.type_descriptor(LargeBinary(16))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == 'postgresql':
+            return value if isinstance(value, uuid_module.UUID) else uuid_module.UUID(bytes=value)
+        else:
+            # SQLite - store as bytes
+            if isinstance(value, uuid_module.UUID):
+                return value.bytes
+            elif isinstance(value, bytes):
+                return value
+            else:
+                return uuid_module.UUID(str(value)).bytes
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if isinstance(value, uuid_module.UUID):
+            return value
+        elif isinstance(value, bytes):
+            return uuid_module.UUID(bytes=value)
+        else:
+            return uuid_module.UUID(str(value))
 
 
 class ExternalIdMixin:
@@ -49,15 +93,15 @@ class ExternalIdMixin:
     # Abstract: Subclasses must define their 3-character prefix
     EXTERNAL_ID_PREFIX: ClassVar[str]
 
-    # UUID column definition
-    # PostgreSQL: Native UUID type for efficiency
-    # SQLite: LargeBinary(16) for test compatibility
+    # UUID column definition using platform-agnostic UUIDType
+    # PostgreSQL: Uses native UUID type
+    # SQLite: Uses LargeBinary(16) for test compatibility
     uuid = Column(
-        PG_UUID(as_uuid=True).with_variant(LargeBinary(16), "sqlite"),
+        UUIDType(),
         nullable=False,
         unique=True,
         index=True,
-        default=lambda: uuid7()
+        default=uuid7,  # Callable default generates new UUID on insert
     )
 
     @property

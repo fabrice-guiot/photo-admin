@@ -23,6 +23,7 @@ from backend.src.models import Connector, ConnectorType
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.remote import S3Adapter, GCSAdapter, SMBAdapter
+from backend.src.services.external_id import ExternalIdService
 
 
 logger = get_logger("services")
@@ -161,6 +162,53 @@ class ConnectorService:
             connector.decrypted_credentials = json.loads(decrypted_json)
 
         return connector
+
+    def get_by_identifier(
+        self, identifier: str, decrypt_credentials: bool = False
+    ) -> tuple[Optional[Connector], bool]:
+        """
+        Get connector by numeric ID or external ID.
+
+        Supports both numeric IDs (backward compatible) and external IDs
+        (new URL-safe format). Used by API endpoints that accept either format.
+
+        Args:
+            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "con_01hgw...")
+            decrypt_credentials: If True, decrypt and attach credentials
+
+        Returns:
+            Tuple of (Connector or None, is_numeric_id: bool)
+            - Connector instance or None if not found
+            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+
+        Raises:
+            ValueError: If identifier format is invalid or prefix doesn't match "con"
+
+        Example:
+            >>> connector, is_numeric = service.get_by_identifier("con_01hgw2bbg...")
+        """
+        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="con")
+
+        if id_type == "numeric":
+            connector = self.get_connector(value, decrypt_credentials)
+            return connector, True
+        else:
+            # External ID - value is a UUID
+            connector = self.db.query(Connector).filter(Connector.uuid == value).first()
+            if connector and decrypt_credentials:
+                # SECURITY AUDIT LOG: Log credential decryption access
+                logger.info(
+                    "SECURITY: Credential access - decrypting connector credentials",
+                    extra={
+                        "connector_external_id": identifier,
+                        "connector_name": connector.name,
+                        "connector_type": connector.type.value,
+                        "action": "credential_decrypt"
+                    }
+                )
+                decrypted_json = self.encryptor.decrypt(connector.credentials)
+                connector.decrypted_credentials = json.loads(decrypted_json)
+            return connector, False
 
     def list_connectors(
         self,

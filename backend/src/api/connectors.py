@@ -18,7 +18,7 @@ Design:
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -246,42 +246,72 @@ async def create_connector(
 
 
 @router.get(
-    "/{connector_id}",
+    "/{identifier}",
     response_model=ConnectorResponse,
     summary="Get connector",
-    description="Get a single connector by ID (credentials not included)"
+    description="Get a single connector by numeric ID or external ID (e.g., con_01hgw...)"
 )
 async def get_connector(
-    connector_id: int,
+    identifier: str,
     connector_service: ConnectorService = Depends(get_connector_service)
 ) -> ConnectorResponse:
     """
-    Get connector by ID.
+    Get connector by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/connectors/123 (deprecated, will show warning)
+    - External ID: /api/connectors/con_01hgw2bbg... (recommended)
 
     Path Parameters:
-        connector_id: Connector ID
+        identifier: Connector ID (numeric) or external ID (con_xxx format)
 
     Returns:
         ConnectorResponse with connector details (credentials encrypted, not returned)
 
     Raises:
+        400 Bad Request: If identifier format is invalid or prefix mismatch
         404 Not Found: If connector doesn't exist
 
     Example:
-        GET /api/connectors/1
+        GET /api/connectors/con_01hgw2bbg0000000000000000
+        GET /api/connectors/1  (deprecated)
     """
-    connector = connector_service.get_connector(connector_id, decrypt_credentials=False)
+    try:
+        connector, is_numeric = connector_service.get_by_identifier(identifier)
 
-    if not connector:
-        logger.warning(f"Connector not found: {connector_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Connector with ID {connector_id} not found"
+        if not connector:
+            logger.warning(f"Connector not found: {identifier}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Connector not found: {identifier}"
+            )
+
+        logger.info(
+            f"Retrieved connector: {connector.name}",
+            extra={"identifier": identifier, "is_numeric_id": is_numeric}
         )
 
-    logger.info(f"Retrieved connector: {connector.name}", extra={"connector_id": connector_id})
+        response_obj = ConnectorResponse.model_validate(connector)
 
-    return ConnectorResponse.model_validate(connector)
+        # Add deprecation warning for numeric ID usage
+        if is_numeric:
+            return Response(
+                content=response_obj.model_dump_json(),
+                media_type="application/json",
+                headers={
+                    "X-Deprecation-Warning": f"Numeric IDs are deprecated. Use external_id: {connector.external_id}"
+                }
+            )
+
+        return response_obj
+
+    except ValueError as e:
+        # Invalid identifier format or prefix mismatch
+        logger.warning(f"Invalid identifier: {identifier} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @router.put(

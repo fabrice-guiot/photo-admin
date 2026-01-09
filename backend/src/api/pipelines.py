@@ -146,34 +146,59 @@ def create_pipeline(
 
 
 @router.get(
-    "/{pipeline_id}",
+    "/{identifier}",
     response_model=PipelineResponse,
     summary="Get pipeline details"
 )
 def get_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Get full details for a pipeline.
+    Get full details for a pipeline by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/pipelines/123 (deprecated, will show warning)
+    - External ID: /api/pipelines/pip_01hgw2bbg... (recommended)
 
     Includes nodes, edges, and validation status.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Full pipeline details
 
     Raises:
+        400: Invalid identifier format or prefix mismatch
         404: Pipeline not found
     """
     try:
-        return service.get(pipeline_id)
+        pipeline_response, is_numeric = service.get_by_identifier(identifier)
+
+        # Add deprecation warning for numeric ID usage
+        if is_numeric:
+            return Response(
+                content=pipeline_response.model_dump_json(),
+                media_type="application/json",
+                headers={
+                    "X-Deprecation-Warning": f"Numeric IDs are deprecated. Use external_id: {pipeline_response.external_id}"
+                }
+            )
+
+        return pipeline_response
+
+    except ValueError as e:
+        # Invalid identifier format or prefix mismatch
+        logger.warning(f"Invalid identifier: {identifier} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 

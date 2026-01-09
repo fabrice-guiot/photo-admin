@@ -85,21 +85,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T025 [P] [US1] Write API tests for GET /collections/{external_id} in backend/tests/unit/test_api_external_ids.py
-- [ ] T026 [P] [US1] Write API tests for GET /connectors/{external_id} in backend/tests/unit/test_api_external_ids.py
-- [ ] T027 [P] [US1] Write API tests for GET /pipelines/{external_id} in backend/tests/unit/test_api_external_ids.py
+- [x] T025 [P] [US1] Write API tests for GET /collections/{external_id} in backend/tests/unit/test_api_external_ids.py
+- [x] T026 [P] [US1] Write API tests for GET /connectors/{external_id} in backend/tests/unit/test_api_external_ids.py
+- [x] T027 [P] [US1] Write API tests for GET /pipelines/{external_id} in backend/tests/unit/test_api_external_ids.py
 
 ### Implementation for User Story 1
 
-- [ ] T028 [US1] Add identifier parsing helper (numeric vs external) in backend/src/services/external_id.py
-- [ ] T029 [US1] Update CollectionService.get_by_identifier() to support external IDs in backend/src/services/collection_service.py
-- [ ] T030 [P] [US1] Update ConnectorService.get_by_identifier() to support external IDs in backend/src/services/connector_service.py
-- [ ] T031 [P] [US1] Update PipelineService.get_by_identifier() to support external IDs in backend/src/services/pipeline_service.py
-- [ ] T032 [US1] Update GET /collections/{id} endpoint to accept external IDs in backend/src/api/collections.py
-- [ ] T033 [P] [US1] Update GET /connectors/{id} endpoint to accept external IDs in backend/src/api/connectors.py
-- [ ] T034 [P] [US1] Update GET /pipelines/{id} endpoint to accept external IDs in backend/src/api/pipelines.py
-- [ ] T035 [US1] Add error handling for invalid external ID format (400 response) in backend/src/api/collections.py
-- [ ] T036 [US1] Add error handling for prefix mismatch (e.g., con_ at /collections/) in backend/src/services/external_id.py
+- [x] T028 [US1] Add identifier parsing helper (numeric vs external) in backend/src/services/external_id.py
+- [x] T029 [US1] Update CollectionService.get_by_identifier() to support external IDs in backend/src/services/collection_service.py
+- [x] T030 [P] [US1] Update ConnectorService.get_by_identifier() to support external IDs in backend/src/services/connector_service.py
+- [x] T031 [P] [US1] Update PipelineService.get_by_identifier() to support external IDs in backend/src/services/pipeline_service.py
+- [x] T032 [US1] Update GET /collections/{id} endpoint to accept external IDs in backend/src/api/collections.py
+- [x] T033 [P] [US1] Update GET /connectors/{id} endpoint to accept external IDs in backend/src/api/connectors.py
+- [x] T034 [P] [US1] Update GET /pipelines/{id} endpoint to accept external IDs in backend/src/api/pipelines.py
+- [x] T035 [US1] Add error handling for invalid external ID format (400 response) in backend/src/api/collections.py
+- [x] T036 [US1] Add error handling for prefix mismatch (e.g., con_ at /collections/) in backend/src/services/external_id.py
 
 **Checkpoint**: User Story 1 complete - entities accessible via external ID URLs
 
@@ -113,15 +113,15 @@
 
 ### Tests for User Story 2
 
-- [ ] T037 [P] [US2] Write test for external_id in list responses in backend/tests/unit/test_api_external_ids.py
-- [ ] T038 [P] [US2] Write test for external_id in create responses in backend/tests/unit/test_api_external_ids.py
+- [x] T037 [P] [US2] Write test for external_id in list responses in backend/tests/unit/test_api_external_ids.py
+- [x] T038 [P] [US2] Write test for external_id in create responses in backend/tests/unit/test_api_external_ids.py
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] Verify list endpoints return external_id (should work via schema update) in backend/src/api/collections.py
-- [ ] T040 [US2] Verify create endpoints return external_id in response in backend/src/api/collections.py
-- [ ] T041 [P] [US2] Update frontend API services to expect external_id in responses in frontend/src/services/collections.ts
-- [ ] T042 [P] [US2] Update frontend hooks to handle external_id in frontend/src/hooks/useCollections.ts
+- [x] T039 [US2] Verify list endpoints return external_id (should work via schema update) in backend/src/api/collections.py
+- [x] T040 [US2] Verify create endpoints return external_id in response in backend/src/api/collections.py
+- [x] T041 [P] [US2] Update frontend API services to expect external_id in responses in frontend/src/services/collections.ts
+- [x] T042 [P] [US2] Update frontend hooks to handle external_id in frontend/src/hooks/useCollections.ts
 
 **Checkpoint**: User Story 2 complete - all API responses include external_id
 

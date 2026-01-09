@@ -26,6 +26,7 @@ from backend.src.utils.formatting import format_storage_bytes
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.connector_service import ConnectorService
+from backend.src.services.external_id import ExternalIdService
 
 
 logger = get_logger("services")
@@ -198,6 +199,39 @@ class CollectionService:
             ...     print(f"Uses connector: {collection.connector.name}")
         """
         return self.db.query(Collection).filter(Collection.id == collection_id).first()
+
+    def get_by_identifier(self, identifier: str) -> tuple[Optional[Collection], bool]:
+        """
+        Get collection by numeric ID or external ID.
+
+        Supports both numeric IDs (backward compatible) and external IDs
+        (new URL-safe format). Used by API endpoints that accept either format.
+
+        Args:
+            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "col_01hgw...")
+
+        Returns:
+            Tuple of (Collection or None, is_numeric_id: bool)
+            - Collection instance or None if not found
+            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+
+        Raises:
+            ValueError: If identifier format is invalid or prefix doesn't match "col"
+
+        Example:
+            >>> collection, is_numeric = service.get_by_identifier("col_01hgw2bbg...")
+            >>> if collection and not is_numeric:
+            ...     print("Using modern external ID")
+        """
+        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="col")
+
+        if id_type == "numeric":
+            collection = self.db.query(Collection).filter(Collection.id == value).first()
+            return collection, True
+        else:
+            # External ID - value is a UUID
+            collection = self.db.query(Collection).filter(Collection.uuid == value).first()
+            return collection, False
 
     def list_collections(
         self,

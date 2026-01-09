@@ -62,6 +62,7 @@ describe('ConnectorForm', () => {
   it('should show Update button when editing existing connector', () => {
     const existingConnector: Connector = {
       id: 1,
+      external_id: 'con_01hgw2bbg0000000000000001',
       name: 'Existing Connector',
       type: 's3',
       is_active: true,
