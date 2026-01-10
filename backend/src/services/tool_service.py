@@ -17,7 +17,6 @@ Design:
 import asyncio
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -75,7 +74,7 @@ class JobAdapter:
         mode = ToolMode(job.mode) if job.mode else None
 
         return JobResponse(
-            id=UUID(job.id),
+            id=job.id,
             collection_guid=job.collection_guid,
             tool=ToolType(job.tool),
             mode=mode,
@@ -194,7 +193,7 @@ class ToolService:
             from backend.src.services.exceptions import ConflictError
             raise ConflictError(
                 message=f"Tool {tool.value} is already running on collection {collection_id}",
-                existing_job_id=UUID(existing.id),
+                existing_job_id=existing.id,
                 position=self._queue.get_position(existing.id)
             )
 
@@ -267,7 +266,7 @@ class ToolService:
                     from backend.src.services.exceptions import ConflictError
                     raise ConflictError(
                         message=f"Pipeline validation (display_graph) is already running for pipeline {pipeline_id}",
-                        existing_job_id=UUID(job.id),
+                        existing_job_id=job.id,
                         position=self._queue.get_position(job.id)
                     )
 
@@ -290,20 +289,20 @@ class ToolService:
         logger.info(f"Job {job.id} queued for pipeline_validation (display_graph) on pipeline {pipeline_guid}")
         return JobAdapter.to_response(job, position)
 
-    def get_job(self, job_id: UUID) -> Optional[JobResponse]:
+    def get_job(self, job_id: str) -> Optional[JobResponse]:
         """
-        Get job by ID.
+        Get job by ID (GUID format: job_xxx).
 
         Args:
-            job_id: Job identifier
+            job_id: Job identifier in GUID format
 
         Returns:
             Job response if found, None otherwise
         """
-        job = self._queue.get_job(str(job_id))
+        job = self._queue.get_job(job_id)
         if not job:
             return None
-        position = self._queue.get_position(str(job_id))
+        position = self._queue.get_position(job_id)
         return JobAdapter.to_response(job, position)
 
     def list_jobs(
@@ -350,7 +349,7 @@ class ToolService:
         # Sort by created_at descending
         return sorted(all_jobs, key=lambda j: j.created_at, reverse=True)
 
-    def cancel_job(self, job_id: UUID) -> Optional[JobResponse]:
+    def cancel_job(self, job_id: str) -> Optional[JobResponse]:
         """
         Cancel a queued job.
 
@@ -358,7 +357,7 @@ class ToolService:
         interrupted safely.
 
         Args:
-            job_id: Job identifier
+            job_id: Job identifier in GUID format (job_xxx)
 
         Returns:
             Cancelled job response if found and cancellable, None otherwise
@@ -366,7 +365,7 @@ class ToolService:
         Raises:
             ValueError: If job is running and cannot be cancelled
         """
-        job = self._queue.get_job(str(job_id))
+        job = self._queue.get_job(job_id)
         if not job:
             return None
 
@@ -377,12 +376,12 @@ class ToolService:
             return JobAdapter.to_response(job)  # Already completed/failed/cancelled
 
         try:
-            self._queue.cancel(str(job_id))
+            self._queue.cancel(job_id)
         except ValueError:
             pass  # Job may have already been processed
 
         # Refetch to get updated status
-        job = self._queue.get_job(str(job_id))
+        job = self._queue.get_job(job_id)
         logger.info(f"Job {job_id} cancelled")
         return JobAdapter.to_response(job) if job else None
 

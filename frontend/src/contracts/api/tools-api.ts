@@ -29,7 +29,7 @@ export interface ProgressData {
 }
 
 export interface Job {
-  /** Unique job identifier (UUID) */
+  /** Unique job identifier (GUID format: job_xxx) */
   id: string
   /** Collection being analyzed (null for display_graph mode) */
   collection_guid: string | null
@@ -203,7 +203,7 @@ export type WebSocketMessage =
  * Get job status and details
  *
  * Path Parameters:
- *   - job_id: string (UUID)
+ *   - job_id: string (GUID format: job_xxx)
  *
  * Response: 200 JobResponse
  * Errors:
@@ -217,7 +217,7 @@ export type WebSocketMessage =
  * Cancel a queued job
  *
  * Path Parameters:
- *   - job_id: string (UUID)
+ *   - job_id: string (GUID format: job_xxx)
  *
  * Response: 200 JobResponse (with status=cancelled)
  * Errors:
@@ -240,7 +240,7 @@ export type WebSocketMessage =
  * Connect to receive real-time progress updates for a job
  *
  * Path Parameters:
- *   - job_id: string (UUID)
+ *   - job_id: string (GUID format: job_xxx)
  *
  * Messages: WebSocketMessage
  *   - type: 'progress' - ProgressData updates

@@ -17,8 +17,6 @@ Design:
 
 import asyncio
 from typing import List, Optional
-from uuid import UUID
-
 from fastapi import (
     APIRouter, Depends, HTTPException, Query, Request, WebSocket,
     WebSocketDisconnect, status
@@ -410,7 +408,7 @@ def list_jobs(
     summary="Get job details"
 )
 def get_job(
-    job_id: UUID,
+    job_id: str,
     service: ToolService = Depends(get_tool_service)
 ) -> JobResponse:
     """
@@ -440,7 +438,7 @@ def get_job(
     summary="Cancel a queued job"
 )
 def cancel_job(
-    job_id: UUID,
+    job_id: str,
     service: ToolService = Depends(get_tool_service)
 ) -> JobResponse:
     """
@@ -545,7 +543,7 @@ async def global_jobs_websocket(
 @router.websocket("/ws/jobs/{job_id}")
 async def job_progress_websocket(
     websocket: WebSocket,
-    job_id: UUID,
+    job_id: str,
     db: Session = Depends(get_db)
 ):
     """
@@ -568,7 +566,7 @@ async def job_progress_websocket(
     """
     manager = get_connection_manager()
 
-    await manager.connect(str(job_id), websocket)
+    await manager.connect(job_id, websocket)
     logger.info(f"WebSocket connected for job {job_id}")
 
     try:
@@ -592,4 +590,4 @@ async def job_progress_websocket(
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for job {job_id}")
     finally:
-        manager.disconnect(str(job_id), websocket)
+        manager.disconnect(job_id, websocket)

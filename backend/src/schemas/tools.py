@@ -9,7 +9,7 @@ Provides data validation and serialization for:
 
 Design:
 - Strict enum validation for tool types and job status
-- UUID format for job IDs
+- GUID format for job IDs (job_xxx with Crockford Base32 encoding)
 - Optional fields with sensible defaults
 - DateTime serialization for API responses
 """
@@ -17,7 +17,6 @@ Design:
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
-from uuid import UUID
 from pydantic import BaseModel, Field
 
 
@@ -134,7 +133,7 @@ class JobResponse(BaseModel):
     Contains full job state including progress for running jobs
     and result_guid for completed jobs.
     """
-    id: UUID = Field(..., description="Unique job identifier")
+    id: str = Field(..., description="Unique job identifier (job_xxx GUID format)")
     collection_guid: Optional[str] = Field(None, description="Collection GUID being analyzed (null for display_graph)")
     tool: ToolType = Field(..., description="Tool being run")
     mode: Optional[ToolMode] = Field(None, description="Execution mode (for pipeline_validation)")
@@ -152,7 +151,7 @@ class JobResponse(BaseModel):
         "from_attributes": True,
         "json_schema_extra": {
             "example": {
-                "id": "550e8400-e29b-41d4-a716-446655440000",
+                "id": "job_01hgw2bbg0000000000000001",
                 "collection_guid": "col_01hgw2bbg0000000000000001",
                 "tool": "photostats",
                 "status": "running",
@@ -181,7 +180,7 @@ class QueueStatusResponse(BaseModel):
     completed_count: int = Field(0, ge=0, description="Completed jobs")
     failed_count: int = Field(0, ge=0, description="Failed jobs")
     cancelled_count: int = Field(0, ge=0, description="Cancelled jobs")
-    current_job_id: Optional[UUID] = Field(None, description="Currently running job ID")
+    current_job_id: Optional[str] = Field(None, description="Currently running job ID (job_xxx GUID format)")
 
     model_config = {
         "json_schema_extra": {
@@ -191,7 +190,7 @@ class QueueStatusResponse(BaseModel):
                 "completed_count": 10,
                 "failed_count": 1,
                 "cancelled_count": 0,
-                "current_job_id": "550e8400-e29b-41d4-a716-446655440000"
+                "current_job_id": "job_01hgw2bbg0000000000000001"
             }
         }
     }
@@ -202,14 +201,14 @@ class ConflictResponse(BaseModel):
     Response when a tool is already running on a collection.
     """
     message: str = Field(..., description="Conflict description")
-    existing_job_id: UUID = Field(..., description="ID of the existing job")
+    existing_job_id: str = Field(..., description="ID of the existing job (job_xxx GUID format)")
     position: Optional[int] = Field(None, description="Queue position of existing job")
 
     model_config = {
         "json_schema_extra": {
             "example": {
-                "message": "Tool photostats is already running on collection 1",
-                "existing_job_id": "550e8400-e29b-41d4-a716-446655440000",
+                "message": "Tool photostats is already running on collection col_01hgw2bbg0000000000000001",
+                "existing_job_id": "job_01hgw2bbg0000000000000001",
                 "position": None
             }
         }

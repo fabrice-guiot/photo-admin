@@ -16,11 +16,21 @@ import base32_crockford
 from uuid_extensions import uuid7
 
 # Prefix mappings for entity types
+# Database entities (persisted):
+#   col - Collection
+#   con - Connector
+#   pip - Pipeline
+#   res - AnalysisResult
+# In-memory entities (transient):
+#   job - Tool execution job
+#   imp - Config import session
 ENTITY_PREFIXES = {
     "col": "Collection",
     "con": "Connector",
     "pip": "Pipeline",
     "res": "AnalysisResult",
+    "job": "Job",
+    "imp": "ImportSession",
 }
 
 # Crockford Base32 alphabet (excludes I, L, O, U to avoid confusion)
@@ -29,7 +39,7 @@ CROCKFORD_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 # Pattern for validating GUIDs
 # Format: {3-char prefix}_{26-char Crockford Base32}
 GUID_PATTERN = re.compile(
-    r"^(col|con|pip|res)_[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$",
+    r"^(col|con|pip|res|job|imp)_[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$",
     re.IGNORECASE
 )
 
@@ -89,6 +99,28 @@ class GuidService:
         # Pad to 26 characters
         encoded = encoded.zfill(26)
         return f"{prefix}_{encoded.lower()}"
+
+    @staticmethod
+    def generate_guid(prefix: str) -> str:
+        """
+        Generate a new GUID with the specified prefix.
+
+        Convenience method that combines generate_uuid() and encode_uuid().
+
+        Args:
+            prefix: Entity type prefix (col, con, pip, res, job, imp)
+
+        Returns:
+            New GUID string (e.g., "job_01hgw2bbg...")
+
+        Raises:
+            ValueError: If prefix is invalid
+
+        Example:
+            >>> job_id = GuidService.generate_guid("job")
+            >>> session_id = GuidService.generate_guid("imp")
+        """
+        return GuidService.encode_uuid(GuidService.generate_uuid(), prefix)
 
     @staticmethod
     def decode_guid(guid: str) -> tuple[str, uuid.UUID]:

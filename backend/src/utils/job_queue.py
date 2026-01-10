@@ -481,14 +481,18 @@ def init_job_queue() -> JobQueue:
 
 def create_job_id() -> str:
     """
-    Generate a unique job ID.
+    Generate a unique job ID in GUID format.
+
+    Uses UUIDv7 (time-ordered) with Crockford Base32 encoding
+    and 'job_' prefix for consistency with other entity GUIDs.
 
     Returns:
-        str: UUID4 string
+        str: Job GUID (e.g., 'job_01hgw2bbg0000000000000001')
 
     Example:
         >>> job_id = create_job_id()
         >>> print(job_id)
-        '550e8400-e29b-41d4-a716-446655440000'
+        'job_01hgw2bbg0000000000000001'
     """
-    return str(uuid.uuid4())
+    from backend.src.services.guid import GuidService
+    return GuidService.generate_guid("job")
