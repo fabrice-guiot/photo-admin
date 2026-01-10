@@ -64,9 +64,9 @@ export default function AnalyticsPage() {
   // Dialog state
   const [runDialogOpen, setRunDialogOpen] = useState(false)
 
-  // Result detail state
-  const [selectedResultId, setSelectedResultId] = useState<number | null>(
-    urlResultId ? parseInt(urlResultId, 10) : null
+  // Result detail state - uses external_id (e.g., res_xxx)
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(
+    urlResultId || null
   )
   const [detailOpen, setDetailOpen] = useState(!!urlResultId)
 
@@ -182,14 +182,11 @@ export default function AnalyticsPage() {
   // Handle URL parameter for result ID (navigating from jobs)
   useEffect(() => {
     if (urlResultId) {
-      const id = parseInt(urlResultId, 10)
-      if (!isNaN(id)) {
-        setSelectedResultId(id)
-        setDetailOpen(true)
-        // Switch to reports tab when viewing a result
-        if (activeTab !== 'reports') {
-          setActiveTab('reports')
-        }
+      setSelectedResultId(urlResultId)
+      setDetailOpen(true)
+      // Switch to reports tab when viewing a result
+      if (activeTab !== 'reports') {
+        setActiveTab('reports')
       }
     }
   }, [urlResultId])
@@ -283,19 +280,22 @@ export default function AnalyticsPage() {
     refetchQueueStatus()
   }
 
-  // View result from job card
+  // View result from job card (receives numeric result_id from job)
+  // The backend now accepts both numeric IDs and external IDs
   const handleViewResult = (resultId: number) => {
-    setSelectedResultId(resultId)
+    // Convert to string for URL - backend accepts both formats
+    const idString = resultId.toString()
+    setSelectedResultId(idString)
     setDetailOpen(true)
-    setSearchParams({ tab: 'reports', id: resultId.toString() })
+    setSearchParams({ tab: 'reports', id: idString })
     setActiveTab('reports')
   }
 
   // View result from table
   const handleViewResultFromTable = (result: AnalysisResultSummary) => {
-    setSelectedResultId(result.id)
+    setSelectedResultId(result.external_id)
     setDetailOpen(true)
-    setSearchParams({ tab: 'reports', id: result.id.toString() })
+    setSearchParams({ tab: 'reports', id: result.external_id })
   }
 
   // Close detail panel
@@ -312,13 +312,13 @@ export default function AnalyticsPage() {
 
   // Delete result
   const handleDelete = async (result: AnalysisResultSummary) => {
-    await deleteResult(result.id)
+    await deleteResult(result.external_id)
     refetchResultStats()
   }
 
   // Download report
   const handleDownloadReport = async (result: AnalysisResultSummary) => {
-    await downloadReport(result.id)
+    await downloadReport(result.external_id)
   }
 
   // Results filter change

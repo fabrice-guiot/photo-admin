@@ -120,15 +120,16 @@ describe('useResults', () => {
     })
 
     const initialCount = result.current.results.length
-    const resultIdToDelete = result.current.results[0].id
+    const resultToDelete = result.current.results[0]
+    const externalIdToDelete = resultToDelete.external_id
 
     await act(async () => {
-      await result.current.deleteResult(resultIdToDelete)
+      await result.current.deleteResult(externalIdToDelete)
     })
 
     expect(result.current.results).toHaveLength(initialCount - 1)
     expect(result.current.total).toBe(initialCount - 1)
-    expect(result.current.results.find((r) => r.id === resultIdToDelete)).toBeUndefined()
+    expect(result.current.results.find((r) => r.external_id === externalIdToDelete)).toBeUndefined()
   })
 
   it('should fail to delete non-existent result', async () => {
@@ -136,7 +137,7 @@ describe('useResults', () => {
 
     await act(async () => {
       try {
-        await result.current.deleteResult(999)
+        await result.current.deleteResult('res_nonexistent00000000000')
         expect.fail('Should have thrown 404 error')
       } catch (error: any) {
         expect(error.response?.status).toBe(404)

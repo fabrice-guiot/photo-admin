@@ -27,6 +27,7 @@ from backend.src.schemas.results import (
     ResultStatsResponse, ResultListResponse
 )
 from backend.src.services.exceptions import NotFoundError
+from backend.src.services.external_id import ExternalIdService
 from backend.src.utils.logging_config import get_logger
 
 
@@ -200,6 +201,39 @@ class ResultService:
             ))
 
         return summaries, total
+
+    def get_result_by_identifier(self, identifier: str) -> Tuple[Optional[AnalysisResult], bool]:
+        """
+        Get result by numeric ID or external ID.
+
+        Supports both legacy numeric IDs and new external IDs for backward compatibility.
+        Returns tuple of (result, is_numeric_id) to allow callers to add deprecation warnings.
+
+        Args:
+            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "res_01hgw...")
+
+        Returns:
+            Tuple of (AnalysisResult or None, is_numeric_id: bool)
+            - AnalysisResult instance or None if not found
+            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+
+        Raises:
+            ValueError: If identifier format is invalid or prefix doesn't match "res"
+
+        Example:
+            >>> result, is_numeric = service.get_result_by_identifier("res_01hgw2bbg...")
+            >>> if result and not is_numeric:
+            ...     print("Using modern external ID")
+        """
+        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="res")
+
+        if id_type == "numeric":
+            result = self.db.query(AnalysisResult).filter(AnalysisResult.id == value).first()
+            return result, True
+        else:
+            # External ID - value is a UUID
+            result = self.db.query(AnalysisResult).filter(AnalysisResult.uuid == value).first()
+            return result, False
 
     def get_result(self, result_id: int) -> AnalysisResultResponse:
         """

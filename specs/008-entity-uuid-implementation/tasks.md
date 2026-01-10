@@ -135,16 +135,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T043 [P] [US3] Write test for ExternalIdBadge component in frontend/src/components/ExternalIdBadge.test.tsx
+- [x] T043 [P] [US3] Write test for ExternalIdBadge component in frontend/tests/components/ExternalIdBadge.test.tsx
 
 ### Implementation for User Story 3
 
-- [ ] T044 [US3] Create useClipboard hook for copy functionality in frontend/src/hooks/useClipboard.ts
-- [ ] T045 [US3] Create ExternalIdBadge component with copy button in frontend/src/components/ExternalIdBadge.tsx
-- [ ] T046 [US3] Add ExternalIdBadge to Collection detail/dialog in frontend/src/pages/CollectionsPage.tsx
-- [ ] T047 [P] [US3] Add ExternalIdBadge to Connector detail/dialog in frontend/src/pages/ConnectorsPage.tsx
-- [ ] T048 [P] [US3] Add ExternalIdBadge to Pipeline detail view in frontend/src/pages/PipelineEditorPage.tsx
-- [ ] T049 [US3] Add visual feedback for copy action (toast/tooltip) in frontend/src/components/ExternalIdBadge.tsx
+- [x] T044 [US3] Create useClipboard hook for copy functionality in frontend/src/hooks/useClipboard.ts
+- [x] T045 [US3] Create ExternalIdBadge component with copy button in frontend/src/components/ExternalIdBadge.tsx
+- [x] T046 [US3] Add ExternalIdBadge to Collection detail/dialog in frontend/src/pages/CollectionsPage.tsx
+- [x] T047 [P] [US3] Add ExternalIdBadge to Connector detail/dialog in frontend/src/pages/ConnectorsPage.tsx
+- [x] T048 [P] [US3] Add ExternalIdBadge to Pipeline detail view in frontend/src/pages/PipelineEditorPage.tsx
+- [x] T049 [US3] Add visual feedback for copy action (toast/tooltip) in frontend/src/components/ExternalIdBadge.tsx
 
 **Checkpoint**: User Story 3 complete - external IDs visible and copyable in UI
 
@@ -158,18 +158,18 @@
 
 ### Tests for User Story 4
 
-- [ ] T050 [P] [US4] Write test for numeric ID backward compatibility in backend/tests/unit/test_api_external_ids.py
-- [ ] T051 [P] [US4] Write test for deprecation warning header in backend/tests/unit/test_api_external_ids.py
+- [x] T050 [P] [US4] Write test for numeric ID backward compatibility in backend/tests/unit/test_api_external_ids.py
+- [x] T051 [P] [US4] Write test for deprecation warning header in backend/tests/unit/test_api_external_ids.py
 
 ### Implementation for User Story 4
 
-- [ ] T052 [US4] Verify numeric IDs still work in GET endpoints (should already work from T028-T034)
-- [ ] T053 [US4] Add X-Deprecation-Warning header for numeric ID requests in backend/src/api/collections.py
-- [ ] T054 [P] [US4] Add X-Deprecation-Warning header to connector endpoints in backend/src/api/connectors.py
-- [ ] T055 [P] [US4] Add X-Deprecation-Warning header to pipeline endpoints in backend/src/api/pipelines.py
-- [ ] T056 [US4] Update PUT/DELETE endpoints to accept external IDs in backend/src/api/collections.py
-- [ ] T057 [P] [US4] Update PUT/DELETE endpoints for connectors in backend/src/api/connectors.py
-- [ ] T058 [P] [US4] Update PUT/DELETE endpoints for pipelines in backend/src/api/pipelines.py
+- [x] T052 [US4] Verify numeric IDs still work in GET endpoints (should already work from T028-T034)
+- [x] T053 [US4] Add X-Deprecation-Warning header for numeric ID requests in backend/src/api/collections.py
+- [x] T054 [P] [US4] Add X-Deprecation-Warning header to connector endpoints in backend/src/api/connectors.py
+- [x] T055 [P] [US4] Add X-Deprecation-Warning header to pipeline endpoints in backend/src/api/pipelines.py
+- [x] T056 [US4] Update PUT/DELETE endpoints to accept external IDs in backend/src/api/collections.py
+- [x] T057 [P] [US4] Update PUT/DELETE endpoints for connectors in backend/src/api/connectors.py
+- [x] T058 [P] [US4] Update PUT/DELETE endpoints for pipelines in backend/src/api/pipelines.py
 
 **Checkpoint**: User Story 4 complete - backward compatibility maintained with deprecation warnings
 

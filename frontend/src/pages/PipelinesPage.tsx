@@ -80,7 +80,7 @@ export const PipelinesPage: React.FC = () => {
         const pipeline = await importYaml(file)
         await refetch()
         await refetchStats()
-        navigate(`/pipelines/${pipeline.id}`)
+        navigate(`/pipelines/${pipeline.external_id}`)
       } catch (err: any) {
         setActionError(err.userMessage || 'Failed to import pipeline')
       } finally {
@@ -96,14 +96,14 @@ export const PipelinesPage: React.FC = () => {
 
   const handleEdit = useCallback(
     (pipeline: PipelineSummary) => {
-      navigate(`/pipelines/${pipeline.id}/edit`)
+      navigate(`/pipelines/${pipeline.external_id}/edit`)
     },
     [navigate]
   )
 
   const handleView = useCallback(
     (pipeline: PipelineSummary) => {
-      navigate(`/pipelines/${pipeline.id}`)
+      navigate(`/pipelines/${pipeline.external_id}`)
     },
     [navigate]
   )

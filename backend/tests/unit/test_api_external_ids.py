@@ -354,3 +354,182 @@ class TestDeprecationWarningHeader:
 
             assert response.status_code == 200
             assert "X-Deprecation-Warning" not in response.headers
+
+
+class TestPutDeleteWithExternalIds:
+    """Tests for PUT/DELETE endpoints accepting external IDs - T056, T057, T058"""
+
+    # Collection tests - T056
+
+    def test_update_collection_by_external_id(self, test_client, sample_collection):
+        """Should update collection using external ID"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            collection = sample_collection(
+                name="Update Test Collection",
+                type="local",
+                location=temp_dir
+            )
+
+            update_data = {"name": "Updated Collection Name"}
+            response = test_client.put(
+                f"/api/collections/{collection.external_id}",
+                json=update_data
+            )
+
+            assert response.status_code == 200
+            json_data = response.json()
+            assert json_data["name"] == "Updated Collection Name"
+            assert json_data["external_id"] == collection.external_id
+
+    def test_update_collection_by_numeric_id_with_deprecation(self, test_client, sample_collection):
+        """Should update collection using numeric ID with deprecation warning"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            collection = sample_collection(
+                name="Numeric Update Test",
+                type="local",
+                location=temp_dir
+            )
+
+            update_data = {"name": "Updated via Numeric ID"}
+            response = test_client.put(
+                f"/api/collections/{collection.id}",
+                json=update_data
+            )
+
+            assert response.status_code == 200
+            assert "X-Deprecation-Warning" in response.headers
+
+    def test_delete_collection_by_external_id(self, test_client, sample_collection):
+        """Should delete collection using external ID"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            collection = sample_collection(
+                name="Delete Test Collection",
+                type="local",
+                location=temp_dir
+            )
+            external_id = collection.external_id
+
+            response = test_client.delete(f"/api/collections/{external_id}?force=true")
+
+            assert response.status_code == 204
+
+            # Verify deleted
+            get_response = test_client.get(f"/api/collections/{external_id}")
+            assert get_response.status_code == 404
+
+    def test_delete_collection_by_numeric_id_with_deprecation(self, test_client, sample_collection):
+        """Should delete collection using numeric ID with deprecation warning"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            collection = sample_collection(
+                name="Numeric Delete Test",
+                type="local",
+                location=temp_dir
+            )
+
+            response = test_client.delete(f"/api/collections/{collection.id}?force=true")
+
+            assert response.status_code == 204
+            assert "X-Deprecation-Warning" in response.headers
+
+    # Connector tests - T057
+
+    def test_update_connector_by_external_id(self, test_client, sample_connector):
+        """Should update connector using external ID"""
+        connector = sample_connector(name="Update Test Connector", type="s3")
+
+        update_data = {"name": "Updated Connector Name"}
+        response = test_client.put(
+            f"/api/connectors/{connector.external_id}",
+            json=update_data
+        )
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["name"] == "Updated Connector Name"
+        assert json_data["external_id"] == connector.external_id
+
+    def test_update_connector_by_numeric_id_with_deprecation(self, test_client, sample_connector):
+        """Should update connector using numeric ID with deprecation warning"""
+        connector = sample_connector(name="Numeric Update Connector", type="s3")
+
+        update_data = {"name": "Updated via Numeric ID"}
+        response = test_client.put(
+            f"/api/connectors/{connector.id}",
+            json=update_data
+        )
+
+        assert response.status_code == 200
+        assert "X-Deprecation-Warning" in response.headers
+
+    def test_delete_connector_by_external_id(self, test_client, sample_connector):
+        """Should delete connector using external ID"""
+        connector = sample_connector(name="Delete Test Connector", type="s3")
+        external_id = connector.external_id
+
+        response = test_client.delete(f"/api/connectors/{external_id}")
+
+        assert response.status_code == 204
+
+        # Verify deleted
+        get_response = test_client.get(f"/api/connectors/{external_id}")
+        assert get_response.status_code == 404
+
+    def test_delete_connector_by_numeric_id_with_deprecation(self, test_client, sample_connector):
+        """Should delete connector using numeric ID with deprecation warning"""
+        connector = sample_connector(name="Numeric Delete Connector", type="s3")
+
+        response = test_client.delete(f"/api/connectors/{connector.id}")
+
+        assert response.status_code == 204
+        assert "X-Deprecation-Warning" in response.headers
+
+    # Pipeline tests - T058
+
+    def test_update_pipeline_by_external_id(self, test_client, sample_pipeline):
+        """Should update pipeline using external ID"""
+        pipeline = sample_pipeline(name="Update Test Pipeline")
+
+        update_data = {"name": "Updated Pipeline Name"}
+        response = test_client.put(
+            f"/api/pipelines/{pipeline.external_id}",
+            json=update_data
+        )
+
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["name"] == "Updated Pipeline Name"
+        assert json_data["external_id"] == pipeline.external_id
+
+    def test_update_pipeline_by_numeric_id_still_works(self, test_client, sample_pipeline):
+        """Should update pipeline using numeric ID (backward compat)"""
+        pipeline = sample_pipeline(name="Numeric Update Pipeline")
+
+        update_data = {"name": "Updated via Numeric ID"}
+        response = test_client.put(
+            f"/api/pipelines/{pipeline.id}",
+            json=update_data
+        )
+
+        assert response.status_code == 200
+        assert response.json()["name"] == "Updated via Numeric ID"
+
+    def test_delete_pipeline_by_external_id(self, test_client, sample_pipeline):
+        """Should delete pipeline using external ID"""
+        pipeline = sample_pipeline(name="Delete Test Pipeline")
+        external_id = pipeline.external_id
+
+        response = test_client.delete(f"/api/pipelines/{external_id}")
+
+        assert response.status_code == 200  # Pipelines return 200 with message
+
+        # Verify deleted
+        get_response = test_client.get(f"/api/pipelines/{external_id}")
+        assert get_response.status_code == 404
+
+    def test_delete_pipeline_by_numeric_id_still_works(self, test_client, sample_pipeline):
+        """Should delete pipeline using numeric ID (backward compat)"""
+        pipeline = sample_pipeline(name="Numeric Delete Pipeline")
+
+        response = test_client.delete(f"/api/pipelines/{pipeline.id}")
+
+        assert response.status_code == 200  # Pipelines return 200 with message

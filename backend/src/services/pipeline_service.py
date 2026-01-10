@@ -963,6 +963,39 @@ class PipelineService:
             raise NotFoundError("Pipeline", pipeline_id)
         return pipeline
 
+    def _get_pipeline_by_identifier(self, identifier: str) -> Tuple[Pipeline, bool]:
+        """
+        Get pipeline by numeric ID or external ID.
+
+        Supports both numeric IDs (backward compatible) and external IDs
+        (new URL-safe format). Used internally by service methods.
+
+        Args:
+            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "pip_01hgw...")
+
+        Returns:
+            Tuple of (Pipeline model, is_numeric_id: bool)
+            - Pipeline model
+            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+
+        Raises:
+            ValueError: If identifier format is invalid or prefix doesn't match "pip"
+            NotFoundError: If pipeline doesn't exist
+        """
+        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="pip")
+
+        if id_type == "numeric":
+            pipeline = self.db.query(Pipeline).filter(Pipeline.id == value).first()
+            if not pipeline:
+                raise NotFoundError("Pipeline", value)
+            return pipeline, True
+        else:
+            # External ID - value is a UUID
+            pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == value).first()
+            if not pipeline:
+                raise NotFoundError("Pipeline", identifier)
+            return pipeline, False
+
     def _convert_edges_to_json(
         self,
         edges: List[Dict[str, Any]]

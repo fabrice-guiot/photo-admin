@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
@@ -18,6 +19,7 @@ import { useConnectors, useConnectorStats } from '../hooks/useConnectors'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { ConnectorList } from '../components/connectors/ConnectorList'
 import ConnectorForm from '../components/connectors/ConnectorForm'
+import { ExternalIdBadge } from '@/components/ExternalIdBadge'
 import type { Connector } from '@/contracts/api/connector-api'
 
 export default function ConnectorsPage() {
@@ -129,6 +131,13 @@ export default function ConnectorsPage() {
             <DialogTitle>
               {editingConnector ? 'Edit Connector' : 'New Connector'}
             </DialogTitle>
+            {editingConnector && (
+              <DialogDescription asChild>
+                <div className="pt-1">
+                  <ExternalIdBadge externalId={editingConnector.external_id} />
+                </div>
+              </DialogDescription>
+            )}
           </DialogHeader>
           <div className="mt-4">
             {formError && (

@@ -25,8 +25,8 @@ describe('isValidExternalId', () => {
   test('validates correct external IDs', () => {
     expect(isValidExternalId('col_01234567890abcdefghjkmnpqr')).toBe(true)
     expect(isValidExternalId('con_ABCDEFGHJKMNPQRSTVWXYZ0123')).toBe(true)
-    expect(isValidExternalId('pip_01hgw2bbg0000000000000002')).toBe(true)
-    expect(isValidExternalId('res_01HGW2BBG0000000000000003')).toBe(true)
+    expect(isValidExternalId('pip_01hgw2bbg00000000000000002')).toBe(true) // 26 chars after prefix
+    expect(isValidExternalId('res_01HGW2BBG00000000000000003')).toBe(true) // 26 chars after prefix
   })
 
   test('validates case-insensitively', () => {

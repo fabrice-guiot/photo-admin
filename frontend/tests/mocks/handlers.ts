@@ -117,6 +117,7 @@ let nextHistoryId = 3
 let results: AnalysisResult[] = [
   {
     id: 1,
+    external_id: 'res_01hgw2bbg0000000000000001',
     collection_id: 1,
     collection_name: 'Test Collection',
     tool: 'photostats',
@@ -142,6 +143,7 @@ let results: AnalysisResult[] = [
   },
   {
     id: 2,
+    external_id: 'res_01hgw2bbg0000000000000002',
     collection_id: 1,
     collection_name: 'Test Collection',
     tool: 'photo_pairing',
@@ -168,6 +170,7 @@ let results: AnalysisResult[] = [
   },
   {
     id: 3,
+    external_id: 'res_01hgw2bbg0000000000000003',
     collection_id: 2,
     collection_name: 'Remote S3 Collection',
     tool: 'photostats',
@@ -193,6 +196,7 @@ let results: AnalysisResult[] = [
   },
   {
     id: 4,
+    external_id: 'res_01hgw2bbg0000000000000004',
     collection_id: 2,
     collection_name: 'Remote S3 Collection',
     tool: 'pipeline_validation',
@@ -772,6 +776,7 @@ export const handlers = [
       .slice(offset, offset + limit)
       .map((r) => ({
         id: r.id,
+        external_id: r.external_id,
         collection_id: r.collection_id,
         collection_name: r.collection_name,
         tool: r.tool,
@@ -805,16 +810,24 @@ export const handlers = [
     return HttpResponse.json(stats)
   }),
 
-  http.get(`${BASE_URL}/results/:id`, ({ params }) => {
-    const result = results.find((r) => r.id === Number(params.id))
+  http.get(`${BASE_URL}/results/:identifier`, ({ params }) => {
+    // Support both numeric ID and external ID (res_xxx)
+    const identifier = params.identifier as string
+    const result = identifier.startsWith('res_')
+      ? results.find((r) => r.external_id === identifier)
+      : results.find((r) => r.id === Number(identifier))
     if (!result) {
       return new HttpResponse(null, { status: 404 })
     }
     return HttpResponse.json(result)
   }),
 
-  http.delete(`${BASE_URL}/results/:id`, ({ params }) => {
-    const index = results.findIndex((r) => r.id === Number(params.id))
+  http.delete(`${BASE_URL}/results/:identifier`, ({ params }) => {
+    // Support both numeric ID and external ID (res_xxx)
+    const identifier = params.identifier as string
+    const index = identifier.startsWith('res_')
+      ? results.findIndex((r) => r.external_id === identifier)
+      : results.findIndex((r) => r.id === Number(identifier))
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -823,14 +836,18 @@ export const handlers = [
     return HttpResponse.json({ message: 'Result deleted successfully', deleted_id: deletedId })
   }),
 
-  http.get(`${BASE_URL}/results/:id/report`, ({ params }) => {
-    const result = results.find((r) => r.id === Number(params.id))
+  http.get(`${BASE_URL}/results/:identifier/report`, ({ params }) => {
+    // Support both numeric ID and external ID (res_xxx)
+    const identifier = params.identifier as string
+    const result = identifier.startsWith('res_')
+      ? results.find((r) => r.external_id === identifier)
+      : results.find((r) => r.id === Number(identifier))
     if (!result) {
       return new HttpResponse(null, { status: 404 })
     }
     if (!result.has_report) {
       return HttpResponse.json(
-        { detail: `Report for result ${params.id} not found` },
+        { detail: `Report for result ${identifier} not found` },
         { status: 404 }
       )
     }
@@ -1804,6 +1821,7 @@ export function resetMockData(): void {
   results = [
     {
       id: 1,
+      external_id: 'res_01hgw2bbg0000000000000001',
       collection_id: 1,
       collection_name: 'Test Collection',
       tool: 'photostats',
@@ -1829,6 +1847,7 @@ export function resetMockData(): void {
     },
     {
       id: 2,
+      external_id: 'res_01hgw2bbg0000000000000002',
       collection_id: 1,
       collection_name: 'Test Collection',
       tool: 'photo_pairing',
@@ -1855,6 +1874,7 @@ export function resetMockData(): void {
     },
     {
       id: 3,
+      external_id: 'res_01hgw2bbg0000000000000003',
       collection_id: 2,
       collection_name: 'Remote S3 Collection',
       tool: 'photostats',
@@ -1880,6 +1900,7 @@ export function resetMockData(): void {
     },
     {
       id: 4,
+      external_id: 'res_01hgw2bbg0000000000000004',
       collection_id: 2,
       collection_name: 'Remote S3 Collection',
       tool: 'pipeline_validation',

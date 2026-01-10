@@ -203,49 +203,62 @@ def get_pipeline(
 
 
 @router.put(
-    "/{pipeline_id}",
+    "/{identifier}",
     response_model=PipelineResponse,
     summary="Update a pipeline"
 )
 def update_pipeline(
-    pipeline_id: int,
+    identifier: str,
     request: PipelineUpdateRequest,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Update a pipeline.
+    Update a pipeline by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/pipelines/123 (deprecated)
+    - External ID: /api/pipelines/pip_01hgw2bbg... (recommended)
 
     Creates a history entry before updating. Version is incremented.
     If structure changes, validation is re-run.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
         request: Update data
 
     Returns:
         Updated pipeline
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
         409: New name already exists
     """
     try:
+        # Get pipeline by identifier
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+
         # Convert Pydantic models to dicts if provided
         nodes = [n.model_dump() for n in request.nodes] if request.nodes else None
         edges = [e.model_dump(by_alias=True) for e in request.edges] if request.edges else None
 
         return service.update(
-            pipeline_id=pipeline_id,
+            pipeline_id=pipeline.id,
             name=request.name,
             description=request.description,
             nodes=nodes,
             edges=edges,
             change_summary=request.change_summary
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
     except ConflictError as e:
         raise HTTPException(
@@ -255,41 +268,53 @@ def update_pipeline(
 
 
 @router.delete(
-    "/{pipeline_id}",
+    "/{identifier}",
     response_model=DeleteResponse,
     summary="Delete a pipeline"
 )
 def delete_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> DeleteResponse:
     """
-    Delete a pipeline.
+    Delete a pipeline by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/pipelines/123 (deprecated)
+    - External ID: /api/pipelines/pip_01hgw2bbg... (recommended)
 
     Cannot delete the default or active pipeline. Remove default status
     and deactivate it first.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Confirmation with deleted ID
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
         409: Cannot delete default or active pipeline
     """
     try:
-        deleted_id = service.delete(pipeline_id)
-        logger.info(f"Pipeline {pipeline_id} deleted")
+        # Get pipeline by identifier
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        deleted_id = service.delete(pipeline.id)
+        logger.info(f"Pipeline {identifier} deleted")
         return DeleteResponse(
             message="Pipeline deleted successfully",
             deleted_id=deleted_id
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
     except ConflictError as e:
         raise HTTPException(
@@ -303,37 +328,43 @@ def delete_pipeline(
 # ============================================================================
 
 @router.post(
-    "/{pipeline_id}/activate",
+    "/{identifier}/activate",
     response_model=PipelineResponse,
     summary="Activate a pipeline"
 )
 def activate_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Activate a pipeline.
+    Activate a pipeline by numeric ID or external ID.
 
     Multiple pipelines can be active at the same time.
     Active pipelines are valid and ready for use.
     To use a pipeline for tool execution, set it as default.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Activated pipeline
 
     Raises:
-        400: Pipeline has validation errors
+        400: Pipeline has validation errors or invalid identifier
         404: Pipeline not found
     """
     try:
-        return service.activate(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.activate(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
     except ValidationError as e:
         raise HTTPException(
@@ -343,44 +374,51 @@ def activate_pipeline(
 
 
 @router.post(
-    "/{pipeline_id}/deactivate",
+    "/{identifier}/deactivate",
     response_model=PipelineResponse,
     summary="Deactivate a pipeline"
 )
 def deactivate_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Deactivate a pipeline.
+    Deactivate a pipeline by numeric ID or external ID.
 
     If the pipeline is the default, it also loses default status.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Deactivated pipeline
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
     """
     try:
-        return service.deactivate(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.deactivate(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 
 @router.post(
-    "/{pipeline_id}/set-default",
+    "/{identifier}/set-default",
     response_model=PipelineResponse,
     summary="Set a pipeline as default"
 )
 def set_default_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
@@ -391,21 +429,27 @@ def set_default_pipeline(
     The pipeline must be active to be set as default.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Pipeline with is_default=True
 
     Raises:
-        400: Pipeline is not active
+        400: Pipeline is not active or invalid identifier
         404: Pipeline not found
     """
     try:
-        return service.set_default(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.set_default(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
     except ValidationError as e:
         raise HTTPException(
@@ -415,12 +459,12 @@ def set_default_pipeline(
 
 
 @router.post(
-    "/{pipeline_id}/unset-default",
+    "/{identifier}/unset-default",
     response_model=PipelineResponse,
     summary="Remove default status from a pipeline"
 )
 def unset_default_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
@@ -429,20 +473,27 @@ def unset_default_pipeline(
     After this, no pipeline will be the default until another is set.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Pipeline with is_default=False
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
     """
     try:
-        return service.unset_default(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.unset_default(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 
@@ -451,35 +502,42 @@ def unset_default_pipeline(
 # ============================================================================
 
 @router.post(
-    "/{pipeline_id}/validate",
+    "/{identifier}/validate",
     response_model=ValidationResult,
     summary="Validate pipeline structure"
 )
 def validate_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> ValidationResult:
     """
-    Validate pipeline structure.
+    Validate pipeline structure by numeric ID or external ID.
 
     Checks for cycles, orphaned nodes, invalid references, etc.
     Updates the pipeline's is_valid flag.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Validation result with errors if any
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
     """
     try:
-        return service.validate(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.validate(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 
@@ -488,36 +546,42 @@ def validate_pipeline(
 # ============================================================================
 
 @router.post(
-    "/{pipeline_id}/preview",
+    "/{identifier}/preview",
     response_model=FilenamePreviewResponse,
     summary="Preview expected filenames"
 )
 def preview_filenames(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> FilenamePreviewResponse:
     """
-    Preview expected filenames for a pipeline.
+    Preview expected filenames for a pipeline by numeric ID or external ID.
 
     Shows what files would be expected based on the pipeline structure.
     Uses sample_filename from the pipeline's Capture node.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         Expected filenames
 
     Raises:
-        400: Pipeline has validation errors
+        400: Pipeline has validation errors or invalid identifier
         404: Pipeline not found
     """
     try:
-        return service.preview_filenames(pipeline_id=pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.preview_filenames(pipeline_id=pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
     except ValidationError as e:
         raise HTTPException(
@@ -531,64 +595,78 @@ def preview_filenames(
 # ============================================================================
 
 @router.get(
-    "/{pipeline_id}/history",
+    "/{identifier}/history",
     response_model=List[PipelineHistoryEntry],
     summary="Get pipeline version history"
 )
 def get_history(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> List[PipelineHistoryEntry]:
     """
-    Get version history for a pipeline.
+    Get version history for a pipeline by numeric ID or external ID.
 
     Returns history entries ordered by version descending.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         List of history entries
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
     """
     try:
-        return service.get_history(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.get_history(pipeline.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 
 @router.get(
-    "/{pipeline_id}/versions/{version}",
+    "/{identifier}/versions/{version}",
     response_model=PipelineResponse,
     summary="Get a specific version of a pipeline"
 )
 def get_version(
-    pipeline_id: int,
+    identifier: str,
     version: int,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> PipelineResponse:
     """
-    Get a specific historical version of a pipeline.
+    Get a specific historical version of a pipeline by numeric ID or external ID.
 
     Returns the pipeline's nodes and edges as they were at the specified version.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
         version: Version number to retrieve
 
     Returns:
         Pipeline data at that version
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline or version not found
     """
     try:
-        return service.get_version(pipeline_id, version)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        return service.get_version(pipeline.id, version)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -642,37 +720,39 @@ async def import_pipeline(
 
 
 @router.get(
-    "/{pipeline_id}/export",
+    "/{identifier}/export",
     summary="Export pipeline as YAML",
     responses={
         200: {
             "description": "YAML file",
             "content": {"application/x-yaml": {"schema": {"type": "string"}}}
         },
+        400: {"description": "Invalid identifier format"},
         404: {"description": "Pipeline not found"}
     }
 )
 def export_pipeline(
-    pipeline_id: int,
+    identifier: str,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> Response:
     """
-    Export pipeline as YAML file.
+    Export pipeline as YAML file by numeric ID or external ID.
 
     Returns a YAML file with the pipeline definition.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
 
     Returns:
         YAML file with Content-Disposition header
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline not found
     """
     try:
-        yaml_content = service.export_to_yaml(pipeline_id)
-        pipeline = service.get(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        yaml_content = service.export_to_yaml(pipeline.id)
 
         # Generate safe filename
         safe_name = "".join(
@@ -688,47 +768,54 @@ def export_pipeline(
                 "Content-Disposition": f'attachment; filename="{filename}"'
             }
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pipeline {pipeline_id} not found"
+            detail=f"Pipeline not found: {identifier}"
         )
 
 
 @router.get(
-    "/{pipeline_id}/versions/{version}/export",
+    "/{identifier}/versions/{version}/export",
     summary="Export a specific version of a pipeline as YAML",
     responses={
         200: {
             "description": "YAML file",
             "content": {"application/x-yaml": {"schema": {"type": "string"}}}
         },
+        400: {"description": "Invalid identifier format"},
         404: {"description": "Pipeline or version not found"}
     }
 )
 def export_pipeline_version(
-    pipeline_id: int,
+    identifier: str,
     version: int,
     service: PipelineService = Depends(get_pipeline_service)
 ) -> Response:
     """
-    Export a specific version of a pipeline as YAML file.
+    Export a specific version of a pipeline as YAML file by numeric ID or external ID.
 
     Returns a YAML file with the pipeline definition at the specified version.
 
     Args:
-        pipeline_id: Pipeline ID
+        identifier: Pipeline ID (numeric) or external ID (pip_xxx format)
         version: Version number to export
 
     Returns:
         YAML file with Content-Disposition header
 
     Raises:
+        400: Invalid identifier format
         404: Pipeline or version not found
     """
     try:
-        yaml_content = service.export_version_to_yaml(pipeline_id, version)
-        pipeline = service.get(pipeline_id)
+        pipeline, _ = service._get_pipeline_by_identifier(identifier)
+        yaml_content = service.export_version_to_yaml(pipeline.id, version)
 
         # Generate safe filename with version
         safe_name = "".join(
@@ -743,6 +830,11 @@ def export_pipeline_version(
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"'
             }
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
     except NotFoundError as e:
         raise HTTPException(

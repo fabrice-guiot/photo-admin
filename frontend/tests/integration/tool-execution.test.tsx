@@ -161,15 +161,15 @@ describe('Tool Execution Integration', () => {
 
       const initialCount = result.current.results.length
 
-      // Delete the first result
+      // Delete the first result using external_id
       const resultToDelete = result.current.results[0]
       await act(async () => {
-        await result.current.deleteResult(resultToDelete.id)
+        await result.current.deleteResult(resultToDelete.external_id)
       })
 
       // Result should be removed
       expect(result.current.results.length).toBe(initialCount - 1)
-      expect(result.current.results.find(r => r.id === resultToDelete.id)).toBeUndefined()
+      expect(result.current.results.find(r => r.external_id === resultToDelete.external_id)).toBeUndefined()
     })
 
     it('should get result statistics', async () => {

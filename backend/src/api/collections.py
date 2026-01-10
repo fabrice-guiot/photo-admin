@@ -354,23 +354,27 @@ async def get_collection(
 
 
 @router.put(
-    "/{collection_id}",
+    "/{identifier}",
     response_model=CollectionResponse,
     summary="Update collection",
     description="Update collection properties with cache invalidation on state changes"
 )
 async def update_collection(
-    collection_id: int,
+    identifier: str,
     collection_update: CollectionUpdate,
     collection_service: CollectionService = Depends(get_collection_service)
 ) -> CollectionResponse:
     """
-    Update collection properties.
+    Update collection properties by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/collections/123 (deprecated, will show warning)
+    - External ID: /api/collections/col_01hgw2bbg... (recommended)
 
     Only provided fields will be updated. Changing state invalidates cache.
 
     Path Parameters:
-        collection_id: Collection ID
+        identifier: Collection ID (numeric) or external ID (col_xxx format)
 
     Request Body:
         CollectionUpdate schema with optional fields
@@ -379,20 +383,31 @@ async def update_collection(
         CollectionResponse with updated collection
 
     Raises:
+        400 Bad Request: If identifier format is invalid or prefix mismatch
         404 Not Found: If collection doesn't exist
         409 Conflict: If name conflicts with existing collection
-        400 Bad Request: If validation fails
 
     Example:
-        PUT /api/collections/1
+        PUT /api/collections/col_01hgw2bbg0000000000000000
+        PUT /api/collections/1  (deprecated)
         {
           "state": "archived",
           "cache_ttl": 86400
         }
     """
     try:
+        # Get collection by identifier (numeric or external ID)
+        collection, is_numeric = collection_service.get_by_identifier(identifier)
+
+        if not collection:
+            logger.warning(f"Collection not found for update: {identifier}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Collection not found: {identifier}"
+            )
+
         updated_collection = collection_service.update_collection(
-            collection_id=collection_id,
+            collection_id=collection.id,
             name=collection_update.name,
             location=collection_update.location,
             state=collection_update.state,
@@ -403,18 +418,30 @@ async def update_collection(
 
         logger.info(
             f"Updated collection: {updated_collection.name}",
-            extra={"collection_id": collection_id}
+            extra={"identifier": identifier, "is_numeric_id": is_numeric}
         )
 
-        return CollectionResponse.model_validate(updated_collection)
+        response_obj = CollectionResponse.model_validate(updated_collection)
+
+        # Add deprecation warning for numeric ID usage
+        if is_numeric:
+            return Response(
+                content=response_obj.model_dump_json(),
+                media_type="application/json",
+                headers={
+                    "X-Deprecation-Warning": f"Numeric IDs are deprecated. Use external_id: {updated_collection.external_id}"
+                }
+            )
+
+        return response_obj
 
     except ValueError as e:
         error_msg = str(e)
-        # Not found
-        if "not found" in error_msg:
-            logger.warning(f"Collection not found for update: {collection_id}")
+        # Invalid identifier format or prefix mismatch
+        if "prefix mismatch" in error_msg.lower() or "Invalid identifier" in error_msg:
+            logger.warning(f"Invalid identifier: {identifier} - {error_msg}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_msg
             )
         # Name conflict
@@ -432,6 +459,9 @@ async def update_collection(
                 detail=error_msg
             )
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         logger.error(f"Error updating collection: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -441,23 +471,28 @@ async def update_collection(
 
 
 @router.delete(
-    "/{collection_id}",
+    "/{identifier}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete collection",
     description="Delete collection with optional force flag to bypass result/job checks"
 )
 async def delete_collection(
-    collection_id: int,
+    identifier: str,
+    response: Response,
     force: bool = Query(False, description="Force delete even if results/jobs exist"),
     collection_service: CollectionService = Depends(get_collection_service)
 ) -> None:
     """
-    Delete collection.
+    Delete collection by numeric ID or external ID.
+
+    Supports both formats for backward compatibility:
+    - Numeric ID: /api/collections/123 (deprecated, will show warning)
+    - External ID: /api/collections/col_01hgw2bbg... (recommended)
 
     Checks for analysis results and active jobs. Requires force=true if they exist.
 
     Path Parameters:
-        collection_id: Collection ID
+        identifier: Collection ID (numeric) or external ID (col_xxx format)
 
     Query Parameters:
         force: If true, delete even if results/jobs exist
@@ -466,35 +501,58 @@ async def delete_collection(
         204 No Content on success
 
     Raises:
+        400 Bad Request: If identifier format is invalid or prefix mismatch
         404 Not Found: If collection doesn't exist
         409 Conflict: If results/jobs exist and force=false
 
     Example:
-        DELETE /api/collections/1?force=true
+        DELETE /api/collections/col_01hgw2bbg0000000000000000?force=true
+        DELETE /api/collections/1?force=true  (deprecated)
     """
     try:
+        # Get collection by identifier (numeric or external ID)
+        collection, is_numeric = collection_service.get_by_identifier(identifier)
+
+        if not collection:
+            logger.warning(f"Collection not found for deletion: {identifier}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Collection not found: {identifier}"
+            )
+
         collection_service.delete_collection(
-            collection_id=collection_id,
+            collection_id=collection.id,
             force=force
         )
 
         logger.info(
             f"Deleted collection",
-            extra={"collection_id": collection_id, "force": force}
+            extra={"identifier": identifier, "is_numeric_id": is_numeric, "force": force}
         )
+
+        # Add deprecation warning for numeric ID usage
+        if is_numeric:
+            response.headers["X-Deprecation-Warning"] = "Numeric IDs are deprecated. Use external_id instead."
 
     except ValueError as e:
         error_msg = str(e)
+        # Invalid identifier format or prefix mismatch
+        if "prefix mismatch" in error_msg.lower() or "Invalid identifier" in error_msg:
+            logger.warning(f"Invalid identifier: {identifier} - {error_msg}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
         # Not found
-        if "not found" in error_msg:
-            logger.warning(f"Collection not found for deletion: {collection_id}")
+        elif "not found" in error_msg:
+            logger.warning(f"Collection not found for deletion: {identifier}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=error_msg
             )
         # Results/jobs exist
         elif "force=True" in error_msg:
-            logger.warning(f"Collection has results/jobs: {collection_id}")
+            logger.warning(f"Collection has results/jobs: {identifier}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=error_msg
@@ -506,6 +564,9 @@ async def delete_collection(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=error_msg
             )
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         logger.error(f"Error deleting collection: {str(e)}", exc_info=True)

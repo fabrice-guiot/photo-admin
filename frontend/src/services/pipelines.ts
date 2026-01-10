@@ -47,84 +47,94 @@ export const createPipeline = async (data: PipelineCreateRequest): Promise<Pipel
 
 /**
  * Update an existing pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const updatePipeline = async (pipelineId: number, data: PipelineUpdateRequest): Promise<Pipeline> => {
-  const response = await api.put<Pipeline>(`/pipelines/${pipelineId}`, data)
+export const updatePipeline = async (identifier: number | string, data: PipelineUpdateRequest): Promise<Pipeline> => {
+  const response = await api.put<Pipeline>(`/pipelines/${identifier}`, data)
   return response.data
 }
 
 /**
  * Delete a pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const deletePipeline = async (pipelineId: number): Promise<PipelineDeleteResponse> => {
-  const response = await api.delete<PipelineDeleteResponse>(`/pipelines/${pipelineId}`)
+export const deletePipeline = async (identifier: number | string): Promise<PipelineDeleteResponse> => {
+  const response = await api.delete<PipelineDeleteResponse>(`/pipelines/${identifier}`)
   return response.data
 }
 
 /**
  * Activate a pipeline for validation runs
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const activatePipeline = async (pipelineId: number): Promise<Pipeline> => {
-  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/activate`)
+export const activatePipeline = async (identifier: number | string): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${identifier}/activate`)
   return response.data
 }
 
 /**
  * Deactivate a pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const deactivatePipeline = async (pipelineId: number): Promise<Pipeline> => {
-  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/deactivate`)
+export const deactivatePipeline = async (identifier: number | string): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${identifier}/deactivate`)
   return response.data
 }
 
 /**
  * Set a pipeline as the default for tool execution
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const setDefaultPipeline = async (pipelineId: number): Promise<Pipeline> => {
-  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/set-default`)
+export const setDefaultPipeline = async (identifier: number | string): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${identifier}/set-default`)
   return response.data
 }
 
 /**
  * Remove default status from a pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const unsetDefaultPipeline = async (pipelineId: number): Promise<Pipeline> => {
-  const response = await api.post<Pipeline>(`/pipelines/${pipelineId}/unset-default`)
+export const unsetDefaultPipeline = async (identifier: number | string): Promise<Pipeline> => {
+  const response = await api.post<Pipeline>(`/pipelines/${identifier}/unset-default`)
   return response.data
 }
 
 /**
  * Validate pipeline structure
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const validatePipeline = async (pipelineId: number): Promise<ValidationResult> => {
-  const response = await api.post<ValidationResult>(`/pipelines/${pipelineId}/validate`)
+export const validatePipeline = async (identifier: number | string): Promise<ValidationResult> => {
+  const response = await api.post<ValidationResult>(`/pipelines/${identifier}/validate`)
   return response.data
 }
 
 /**
  * Preview expected filenames for a pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
 export const previewFilenames = async (
-  pipelineId: number,
+  identifier: number | string,
   data: FilenamePreviewRequest = {}
 ): Promise<FilenamePreviewResponse> => {
-  const response = await api.post<FilenamePreviewResponse>(`/pipelines/${pipelineId}/preview`, data)
+  const response = await api.post<FilenamePreviewResponse>(`/pipelines/${identifier}/preview`, data)
   return response.data
 }
 
 /**
  * Get pipeline version history
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const getPipelineHistory = async (pipelineId: number): Promise<PipelineHistoryEntry[]> => {
-  const response = await api.get<PipelineHistoryEntry[]>(`/pipelines/${pipelineId}/history`)
+export const getPipelineHistory = async (identifier: number | string): Promise<PipelineHistoryEntry[]> => {
+  const response = await api.get<PipelineHistoryEntry[]>(`/pipelines/${identifier}/history`)
   return response.data
 }
 
 /**
  * Get a specific version of a pipeline
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const getPipelineVersion = async (pipelineId: number, version: number): Promise<Pipeline> => {
-  const response = await api.get<Pipeline>(`/pipelines/${pipelineId}/versions/${version}`)
+export const getPipelineVersion = async (identifier: number | string, version: number): Promise<Pipeline> => {
+  const response = await api.get<Pipeline>(`/pipelines/${identifier}/versions/${version}`)
   return response.data
 }
 
@@ -152,23 +162,25 @@ export const importPipeline = async (file: File): Promise<Pipeline> => {
 
 /**
  * Get URL for downloading pipeline as YAML
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const getExportUrl = (pipelineId: number): string => {
+export const getExportUrl = (identifier: number | string): string => {
   const baseUrl = api.defaults.baseURL || 'http://localhost:8000/api'
-  return `${baseUrl}/pipelines/${pipelineId}/export`
+  return `${baseUrl}/pipelines/${identifier}/export`
 }
 
 /**
  * Download pipeline as YAML file
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
-export const downloadPipelineYaml = async (pipelineId: number): Promise<{ blob: Blob; filename: string }> => {
-  const response = await api.get(`/pipelines/${pipelineId}/export`, {
+export const downloadPipelineYaml = async (identifier: number | string): Promise<{ blob: Blob; filename: string }> => {
+  const response = await api.get(`/pipelines/${identifier}/export`, {
     responseType: 'blob',
   })
 
   // Extract filename from Content-Disposition header
   const contentDisposition = response.headers['content-disposition']
-  let filename = `pipeline_${pipelineId}.yaml` // Fallback
+  let filename = `pipeline_${identifier}.yaml` // Fallback
 
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/)
@@ -182,18 +194,19 @@ export const downloadPipelineYaml = async (pipelineId: number): Promise<{ blob: 
 
 /**
  * Download a specific version of a pipeline as YAML file
+ * @param identifier - Numeric ID or external ID (pip_xxx)
  */
 export const downloadPipelineVersionYaml = async (
-  pipelineId: number,
+  identifier: number | string,
   version: number
 ): Promise<{ blob: Blob; filename: string }> => {
-  const response = await api.get(`/pipelines/${pipelineId}/versions/${version}/export`, {
+  const response = await api.get(`/pipelines/${identifier}/versions/${version}/export`, {
     responseType: 'blob',
   })
 
   // Extract filename from Content-Disposition header
   const contentDisposition = response.headers['content-disposition']
-  let filename = `pipeline_${pipelineId}_v${version}.yaml` // Fallback
+  let filename = `pipeline_${identifier}_v${version}.yaml` // Fallback
 
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/)

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
@@ -16,6 +17,7 @@ import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
 import { FiltersSection } from '../components/collections/FiltersSection'
 import CollectionForm from '../components/collections/CollectionForm'
+import { ExternalIdBadge } from '@/components/ExternalIdBadge'
 import type { Collection, CollectionState, CollectionType } from '@/contracts/api/collection-api'
 
 export default function CollectionsPage() {
@@ -173,6 +175,13 @@ export default function CollectionsPage() {
             <DialogTitle>
               {editingCollection ? 'Edit Collection' : 'New Collection'}
             </DialogTitle>
+            {editingCollection && (
+              <DialogDescription asChild>
+                <div className="pt-1">
+                  <ExternalIdBadge externalId={editingCollection.external_id} />
+                </div>
+              </DialogDescription>
+            )}
           </DialogHeader>
           <div className="mt-4">
             {formError && (
