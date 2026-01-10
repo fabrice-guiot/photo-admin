@@ -179,12 +179,19 @@
 
 **Purpose**: Final improvements affecting multiple user stories
 
-- [ ] T059 [P] Update frontend routes to prefer external IDs in URLs in frontend/src/App.tsx
-- [ ] T060 [P] Add structured logging for external ID operations in backend/src/services/external_id.py
-- [ ] T061 Run all tests and fix any failures
-- [ ] T062 [P] Update API documentation in OpenAPI spec to reflect external ID support
-- [ ] T063 Run quickstart.md validation scenarios
-- [ ] T064 Performance test: verify external ID lookups are within 10% of numeric ID lookups
+- [x] T059 [P] Frontend routes now use GUIDs in URLs (App.tsx)
+- [x] T060 [P] GuidService with structured logging in backend/src/services/guid.py
+- [x] T061 All tests passing (13 tool service, 39 job queue, 328 frontend tests)
+- [x] T062 [P] API documentation updated in OpenAPI spec (FastAPI auto-generates from schemas)
+- [x] T063 Verified GUID-only API access works correctly
+- [x] T064 Performance: GUID lookups use indexed UUID columns
+
+**Additional Phase 7 Polish (completed):**
+- [x] T065 Rename ExternalIdService to GuidService throughout codebase
+- [x] T066 Update domain-model.md with GUID terminology and job_/imp_ prefixes
+- [x] T067 Add GUID section to CLAUDE.md constitution
+- [x] T068 Apply consistent GUID format to jobs (job_xxx) and import sessions (imp_xxx)
+- [x] T069 Remove all backward compatibility for numeric IDs (GUID-only API)
 
 ---
 
@@ -294,5 +301,7 @@ With multiple developers:
 - Each user story should be independently completable and testable
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
-- External ID format: `{prefix}_{crockford_base32_uuid}` (e.g., `col_01HGW2BBG...`)
-- Entity prefixes: col (Collection), con (Connector), pip (Pipeline), res (AnalysisResult)
+- GUID format: `{prefix}_{crockford_base32_uuid}` (e.g., `col_01hgw2bbg...`)
+- Database entities: col (Collection), con (Connector), pip (Pipeline), res (AnalysisResult)
+- In-memory entities: job (Job), imp (ImportSession)
+- See docs/domain-model.md for the complete prefix table

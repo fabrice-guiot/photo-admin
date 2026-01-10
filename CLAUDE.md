@@ -245,6 +245,38 @@ useEffect(() => {
 
 ## Architecture Principles (Constitution)
 
+### 0. Global Unique Identifiers (GUIDs) - Issue #42
+
+All entities in the presentation layer (APIs, URLs, UI) are identified exclusively by GUIDs. Numeric IDs are internal-only.
+
+**GUID Format:** `{prefix}_{26-char Crockford Base32}`
+
+Example: `col_01hgw2bbg0000000000000001`
+
+**Entity Prefixes (Implemented):**
+
+| Entity | Prefix | Example |
+|--------|--------|---------|
+| Collection | `col_` | `col_01hgw2bbg...` |
+| Connector | `con_` | `con_01hgw2bbg...` |
+| Pipeline | `pip_` | `pip_01hgw2bbg...` |
+| Result | `res_` | `res_01hgw2bbg...` |
+| Job | `job_` | `job_01hgw2bbg...` |
+| ImportSession | `imp_` | `imp_01hgw2bbg...` |
+
+**Key Files:**
+- `backend/src/services/guid.py` - GuidService for generation/validation
+- `backend/src/models/mixins/external_id.py` - ExternalIdMixin for DB entities
+- `frontend/src/utils/guid.ts` - Frontend utilities
+
+**Rules:**
+- API responses use `.guid` property (never expose internal `.id`)
+- Path parameters use `{guid}` for entity endpoints
+- Foreign key references in responses use `_guid` suffix (e.g., `collection_guid`)
+- All new entities MUST implement this pattern
+
+See `docs/domain-model.md` for the complete prefix table including planned entities.
+
 ### 1. Independent CLI Tools
 - Each tool is a standalone Python script at repository root
 - Tools can run independently without requiring other tools
