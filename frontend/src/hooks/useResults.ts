@@ -92,7 +92,7 @@ export const useResults = (options: UseResultsOptions = {}): UseResultsReturn =>
     setError(null)
     try {
       await resultsService.deleteResult(identifier)
-      setResults(prev => prev.filter(r => r.external_id !== identifier))
+      setResults(prev => prev.filter(r => r.guid !== identifier))
       setTotal(prev => Math.max(0, prev - 1))
     } catch (err: any) {
       const errorMessage = err.userMessage || 'Failed to delete result'

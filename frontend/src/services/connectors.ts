@@ -26,12 +26,12 @@ export const listConnectors = async (filters: Record<string, any> = {}): Promise
 }
 
 /**
- * Get a single connector by ID or external ID
+ * Get a single connector by GUID
  * Note: Credentials are NOT included in response for security
- * @param identifier - Numeric ID or external ID (con_xxx)
+ * @param guid - External ID (con_xxx format)
  */
-export const getConnector = async (identifier: number | string): Promise<Connector> => {
-  const response = await api.get<Connector>(`/connectors/${identifier}`)
+export const getConnector = async (guid: string): Promise<Connector> => {
+  const response = await api.get<Connector>(`/connectors/${guid}`)
   return response.data
 }
 
@@ -45,25 +45,28 @@ export const createConnector = async (data: ConnectorCreateRequest): Promise<Con
 
 /**
  * Update an existing connector
+ * @param guid - External ID (con_xxx format)
  */
-export const updateConnector = async (id: number, data: ConnectorUpdateRequest): Promise<Connector> => {
-  const response = await api.put<Connector>(`/connectors/${id}`, data)
+export const updateConnector = async (guid: string, data: ConnectorUpdateRequest): Promise<Connector> => {
+  const response = await api.put<Connector>(`/connectors/${guid}`, data)
   return response.data
 }
 
 /**
  * Delete a connector
+ * @param guid - External ID (con_xxx format)
  * @throws Error 409 if collections reference this connector
  */
-export const deleteConnector = async (id: number): Promise<void> => {
-  await api.delete(`/connectors/${id}`)
+export const deleteConnector = async (guid: string): Promise<void> => {
+  await api.delete(`/connectors/${guid}`)
 }
 
 /**
  * Test connector connection
+ * @param guid - External ID (con_xxx format)
  */
-export const testConnector = async (id: number): Promise<ConnectorTestResponse> => {
-  const response = await api.post<ConnectorTestResponse>(`/connectors/${id}/test`)
+export const testConnector = async (guid: string): Promise<ConnectorTestResponse> => {
+  const response = await api.post<ConnectorTestResponse>(`/connectors/${guid}/test`)
   return response.data
 }
 

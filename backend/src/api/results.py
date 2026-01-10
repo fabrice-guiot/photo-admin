@@ -59,7 +59,7 @@ def get_result_service(db: Session = Depends(get_db)) -> ResultService:
     summary="List analysis results"
 )
 def list_results(
-    collection_id: Optional[int] = Query(None, gt=0, description="Filter by collection"),
+    collection_guid: Optional[str] = Query(None, description="Filter by collection GUID (col_xxx)"),
     tool: Optional[str] = Query(None, description="Filter by tool type"),
     status: Optional[ResultStatus] = Query(None, description="Filter by status"),
     from_date: Optional[date] = Query(None, description="Filter from date"),
@@ -77,7 +77,7 @@ def list_results(
     Returns paginated results sorted by the specified field.
 
     Args:
-        collection_id: Filter by collection ID
+        collection_guid: Filter by collection GUID (col_xxx format)
         tool: Filter by tool type (photostats, photo_pairing, pipeline_validation)
         status: Filter by result status (COMPLETED, FAILED, CANCELLED)
         from_date: Filter from date (inclusive)
@@ -90,24 +90,30 @@ def list_results(
     Returns:
         Paginated list of result summaries
     """
-    items, total = service.list_results(
-        collection_id=collection_id,
-        tool=tool,
-        status=status,
-        from_date=from_date,
-        to_date=to_date,
-        limit=limit,
-        offset=offset,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
+    try:
+        items, total = service.list_results(
+            collection_guid=collection_guid,
+            tool=tool,
+            status=status,
+            from_date=from_date,
+            to_date=to_date,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
 
-    return ResultListResponse(
-        items=items,
-        total=total,
-        limit=limit,
-        offset=offset
-    )
+        return ResultListResponse(
+            items=items,
+            total=total,
+            limit=limit,
+            offset=offset
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @router.get(
@@ -135,59 +141,41 @@ def get_stats(
 # ============================================================================
 
 @router.get(
-    "/{identifier}",
+    "/{guid}",
     response_model=AnalysisResultResponse,
     summary="Get result details"
 )
 def get_result(
-    identifier: str,
+    guid: str,
     service: ResultService = Depends(get_result_service)
 ) -> AnalysisResultResponse:
     """
-    Get full details for an analysis result by numeric ID or external ID.
-
-    Supports both formats for backward compatibility:
-    - Numeric ID: /api/results/123 (deprecated, will show warning)
-    - External ID: /api/results/res_01hgw2bbg... (recommended)
+    Get full details for an analysis result by GUID.
 
     Args:
-        identifier: Result ID (numeric) or external ID (res_xxx format)
+        guid: Result GUID (res_xxx format)
 
     Returns:
         Full result details including tool-specific data
 
     Raises:
-        400 Bad Request: If identifier format is invalid or prefix mismatch
+        400: Invalid GUID format or prefix mismatch
         404: Result not found
     """
     try:
-        result, is_numeric = service.get_result_by_identifier(identifier)
+        result = service.get_result_by_guid(guid)
 
         if not result:
-            logger.warning(f"Result not found: {identifier}")
+            logger.warning(f"Result not found: {guid}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Result not found: {identifier}"
+                detail=f"Result not found: {guid}"
             )
 
-        # Get full response using internal ID
-        response = service.get_result(result.id)
-
-        # Add deprecation warning for numeric ID usage
-        if is_numeric:
-            return Response(
-                content=response.model_dump_json(),
-                media_type="application/json",
-                headers={
-                    "X-Deprecation-Warning": f"Numeric IDs are deprecated. Use external_id: {result.external_id}"
-                }
-            )
-
-        return response
+        return service.get_result(result.id)
 
     except ValueError as e:
-        # Invalid identifier format or prefix mismatch
-        logger.warning(f"Invalid result identifier: {identifier} - {str(e)}")
+        logger.warning(f"Invalid result GUID: {guid} - {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -195,56 +183,52 @@ def get_result(
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Result {identifier} not found"
+            detail=f"Result {guid} not found"
         )
 
 
 @router.delete(
-    "/{identifier}",
+    "/{guid}",
     response_model=DeleteResponse,
     summary="Delete a result"
 )
 def delete_result(
-    identifier: str,
+    guid: str,
     service: ResultService = Depends(get_result_service)
 ) -> DeleteResponse:
     """
-    Delete an analysis result by numeric ID or external ID.
+    Delete an analysis result by GUID.
 
     Permanently removes the result and its HTML report.
 
-    Supports both formats for backward compatibility:
-    - Numeric ID: DELETE /api/results/123 (deprecated)
-    - External ID: DELETE /api/results/res_01hgw2bbg... (recommended)
-
     Args:
-        identifier: Result ID (numeric) or external ID (res_xxx format)
+        guid: Result GUID (res_xxx format)
 
     Returns:
-        Confirmation with deleted ID
+        Confirmation with deleted GUID
 
     Raises:
-        400 Bad Request: If identifier format is invalid or prefix mismatch
+        400: Invalid GUID format or prefix mismatch
         404: Result not found
     """
     try:
-        result, is_numeric = service.get_result_by_identifier(identifier)
+        result = service.get_result_by_guid(guid)
 
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Result not found: {identifier}"
+                detail=f"Result not found: {guid}"
             )
 
-        deleted_id = service.delete_result(result.id)
-        logger.info(f"Result {identifier} deleted (internal ID: {deleted_id})")
+        deleted_guid = service.delete_result(result.id)
+        logger.info(f"Result {guid} deleted")
         return DeleteResponse(
             message="Result deleted successfully",
-            deleted_id=deleted_id
+            deleted_guid=deleted_guid
         )
 
     except ValueError as e:
-        logger.warning(f"Invalid result identifier: {identifier} - {str(e)}")
+        logger.warning(f"Invalid result GUID: {guid} - {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
@@ -252,54 +236,50 @@ def delete_result(
     except NotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Result {identifier} not found"
+            detail=f"Result {guid} not found"
         )
 
 
 @router.get(
-    "/{identifier}/report",
+    "/{guid}/report",
     summary="Download HTML report",
     responses={
         200: {
             "description": "HTML report file",
             "content": {"text/html": {"schema": {"type": "string"}}}
         },
-        400: {"description": "Invalid identifier format"},
+        400: {"description": "Invalid GUID format"},
         404: {"description": "Result or report not found"}
     }
 )
 def download_report(
-    identifier: str,
+    guid: str,
     service: ResultService = Depends(get_result_service)
 ) -> Response:
     """
-    Download HTML report for a result by numeric ID or external ID.
+    Download HTML report for a result by GUID.
 
     Returns the pre-rendered HTML report as a downloadable file.
     Filename follows CLI tool conventions:
     {tool}_report_{collection_name}_{collection_id}_{timestamp}.html
 
-    Supports both formats for backward compatibility:
-    - Numeric ID: GET /api/results/123/report (deprecated)
-    - External ID: GET /api/results/res_01hgw2bbg.../report (recommended)
-
     Args:
-        identifier: Result ID (numeric) or external ID (res_xxx format)
+        guid: Result GUID (res_xxx format)
 
     Returns:
         HTML report with download headers
 
     Raises:
-        400 Bad Request: If identifier format is invalid or prefix mismatch
+        400: Invalid GUID format or prefix mismatch
         404: Result not found or no report available
     """
     try:
-        result, is_numeric = service.get_result_by_identifier(identifier)
+        result = service.get_result_by_guid(guid)
 
         if not result:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Result not found: {identifier}"
+                detail=f"Result not found: {guid}"
             )
 
         report_data = service.get_report_with_metadata(result.id)
@@ -322,7 +302,7 @@ def download_report(
         )
 
     except ValueError as e:
-        logger.warning(f"Invalid result identifier: {identifier} - {str(e)}")
+        logger.warning(f"Invalid result GUID: {guid} - {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)

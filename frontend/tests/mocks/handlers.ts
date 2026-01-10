@@ -28,8 +28,7 @@ let nextJobId = 1
 
 let pipelines: Pipeline[] = [
   {
-    id: 1,
-    external_id: 'pip_01hgw2bbg0000000000000001',
+    guid: 'pip_01hgw2bbg0000000000000001',
     name: 'Standard RAW Workflow',
     description: 'RAW capture to processed TIFF export',
     nodes: [
@@ -52,8 +51,7 @@ let pipelines: Pipeline[] = [
     updated_at: '2025-01-01T09:00:00Z',
   },
   {
-    id: 2,
-    external_id: 'pip_01hgw2bbg0000000000000002',
+    guid: 'pip_01hgw2bbg0000000000000002',
     name: 'HDR Workflow',
     description: 'HDR processing pipeline',
     nodes: [
@@ -76,8 +74,7 @@ let pipelines: Pipeline[] = [
     updated_at: '2025-01-01T11:00:00Z',
   },
   {
-    id: 3,
-    external_id: 'pip_01hgw2bbg0000000000000003',
+    guid: 'pip_01hgw2bbg0000000000000003',
     name: 'Invalid Pipeline',
     description: 'Pipeline with validation errors',
     nodes: [
@@ -98,30 +95,27 @@ let nextPipelineId = 4
 
 let pipelineHistory: PipelineHistoryEntry[] = [
   {
-    id: 1,
     version: 1,
     change_summary: 'Initial version',
     changed_by: null,
     created_at: '2025-01-01T10:00:00Z',
   },
   {
-    id: 2,
     version: 2,
     change_summary: 'Updated HDR settings',
     changed_by: null,
     created_at: '2025-01-01T11:00:00Z',
   },
 ]
-let nextHistoryId = 3
 
 let results: AnalysisResult[] = [
   {
-    id: 1,
+    guid: 'res_01hgw2bbg0000000000000001',
     external_id: 'res_01hgw2bbg0000000000000001',
-    collection_id: 1,
+    collection_guid: 'col_01hgw2bbg0000000000000001',
     collection_name: 'Test Collection',
     tool: 'photostats',
-    pipeline_id: null,
+    pipeline_guid: null,
     pipeline_version: null,
     pipeline_name: null,
     status: 'COMPLETED',
@@ -142,12 +136,12 @@ let results: AnalysisResult[] = [
     created_at: '2025-01-01T10:00:00Z',
   },
   {
-    id: 2,
+    guid: 'res_01hgw2bbg0000000000000002',
     external_id: 'res_01hgw2bbg0000000000000002',
-    collection_id: 1,
+    collection_guid: 'col_01hgw2bbg0000000000000001',
     collection_name: 'Test Collection',
     tool: 'photo_pairing',
-    pipeline_id: null,
+    pipeline_guid: null,
     pipeline_version: null,
     pipeline_name: null,
     status: 'COMPLETED',
@@ -169,12 +163,12 @@ let results: AnalysisResult[] = [
     created_at: '2025-01-01T11:00:00Z',
   },
   {
-    id: 3,
+    guid: 'res_01hgw2bbg0000000000000003',
     external_id: 'res_01hgw2bbg0000000000000003',
-    collection_id: 2,
+    collection_guid: 'col_01hgw2bbg0000000000000002',
     collection_name: 'Remote S3 Collection',
     tool: 'photostats',
-    pipeline_id: null,
+    pipeline_guid: null,
     pipeline_version: null,
     pipeline_name: null,
     status: 'FAILED',
@@ -195,12 +189,12 @@ let results: AnalysisResult[] = [
     created_at: '2025-01-01T12:00:00Z',
   },
   {
-    id: 4,
+    guid: 'res_01hgw2bbg0000000000000004',
     external_id: 'res_01hgw2bbg0000000000000004',
-    collection_id: 2,
+    collection_guid: 'col_01hgw2bbg0000000000000002',
     collection_name: 'Remote S3 Collection',
     tool: 'pipeline_validation',
-    pipeline_id: 1,
+    pipeline_guid: 'pip_01hgw2bbg0000000000000001',
     pipeline_version: 1,
     pipeline_name: 'Standard RAW Workflow',
     status: 'COMPLETED',
@@ -221,8 +215,7 @@ let nextResultId = 5
 
 let connectors: Connector[] = [
   {
-    id: 1,
-    external_id: 'con_01hgw2bbg0000000000000001',
+    guid: 'con_01hgw2bbg0000000000000001',
     name: 'Test S3 Connector',
     type: 's3',
     is_active: true,
@@ -232,8 +225,7 @@ let connectors: Connector[] = [
     updated_at: '2025-01-01T10:00:00Z',
   },
   {
-    id: 2,
-    external_id: 'con_01hgw2bbg0000000000000002',
+    guid: 'con_01hgw2bbg0000000000000002',
     name: 'Test GCS Connector',
     type: 'gcs',
     is_active: false,
@@ -246,14 +238,13 @@ let connectors: Connector[] = [
 
 let collections: Collection[] = [
   {
-    id: 1,
-    external_id: 'col_01hgw2bbg0000000000000001',
+    guid: 'col_01hgw2bbg0000000000000001',
     name: 'Test Collection',
     type: 'local',
     location: '/photos',
     state: 'live',
-    connector_id: null,
-    pipeline_id: null,
+    connector_guid: null,
+    pipeline_guid: null,
     pipeline_version: null,
     pipeline_name: null,
     cache_ttl: 3600,
@@ -264,14 +255,13 @@ let collections: Collection[] = [
     updated_at: '2025-01-01T09:00:00Z',
   },
   {
-    id: 2,
-    external_id: 'col_01hgw2bbg0000000000000002',
+    guid: 'col_01hgw2bbg0000000000000002',
     name: 'Remote S3 Collection',
     type: 's3',
     location: 'my-bucket/photos',
     state: 'closed',
-    connector_id: 1,
-    pipeline_id: 1,
+    connector_guid: 'con_01hgw2bbg0000000000000001',
+    pipeline_guid: 'pip_01hgw2bbg0000000000000001',
     pipeline_version: 1,
     pipeline_name: 'Standard RAW Workflow',
     cache_ttl: 86400,
@@ -327,8 +317,8 @@ export const handlers = [
     return HttpResponse.json(connectors)
   }),
 
-  http.get(`${BASE_URL}/connectors/:id`, ({ params }) => {
-    const connector = connectors.find((c) => c.id === Number(params.id))
+  http.get(`${BASE_URL}/connectors/:guid`, ({ params }) => {
+    const connector = connectors.find((c) => c.guid === params.guid)
     if (!connector) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -338,8 +328,7 @@ export const handlers = [
   http.post(`${BASE_URL}/connectors`, async ({ request }) => {
     const data = await request.json() as Partial<Connector>
     const newConnector: Connector = {
-      id: nextConnectorId++,
-      external_id: `con_01hgw2bbg000000000000000${nextConnectorId - 1}`,
+      guid: `con_01hgw2bbg000000000000000${nextConnectorId++}`,
       name: data.name!,
       type: data.type!,
       is_active: data.is_active ?? true,
@@ -352,9 +341,9 @@ export const handlers = [
     return HttpResponse.json(newConnector, { status: 201 })
   }),
 
-  http.put(`${BASE_URL}/connectors/:id`, async ({ params, request }) => {
+  http.put(`${BASE_URL}/connectors/:guid`, async ({ params, request }) => {
     const data = await request.json() as Partial<Connector>
-    const index = connectors.findIndex((c) => c.id === Number(params.id))
+    const index = connectors.findIndex((c) => c.guid === params.guid)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -366,17 +355,17 @@ export const handlers = [
     return HttpResponse.json(connectors[index])
   }),
 
-  http.delete(`${BASE_URL}/connectors/:id`, ({ params }) => {
-    const id = Number(params.id)
+  http.delete(`${BASE_URL}/connectors/:guid`, ({ params }) => {
+    const guid = params.guid as string
     // Check if connector is referenced by collections (delete protection)
-    const referencedBy = collections.filter((c) => c.connector_id === id)
+    const referencedBy = collections.filter((c) => c.connector_guid === guid)
     if (referencedBy.length > 0) {
       return HttpResponse.json(
         { detail: `Connector is referenced by ${referencedBy.length} collection(s)` },
         { status: 409 }
       )
     }
-    const index = connectors.findIndex((c) => c.id === id)
+    const index = connectors.findIndex((c) => c.guid === guid)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -384,13 +373,13 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  http.post(`${BASE_URL}/connectors/:id/test`, ({ params }) => {
-    const connector = connectors.find((c) => c.id === Number(params.id))
+  http.post(`${BASE_URL}/connectors/:guid/test`, ({ params }) => {
+    const connector = connectors.find((c) => c.guid === params.guid)
     if (!connector) {
       return new HttpResponse(null, { status: 404 })
     }
     // Update last_validated
-    const index = connectors.findIndex((c) => c.id === Number(params.id))
+    const index = connectors.findIndex((c) => c.guid === params.guid)
     connectors[index] = {
       ...connectors[index],
       last_validated: new Date().toISOString(),
@@ -403,8 +392,8 @@ export const handlers = [
     return HttpResponse.json(collections)
   }),
 
-  http.get(`${BASE_URL}/collections/:id`, ({ params }) => {
-    const collection = collections.find((c) => c.id === Number(params.id))
+  http.get(`${BASE_URL}/collections/:guid`, ({ params }) => {
+    const collection = collections.find((c) => c.guid === params.guid)
     if (!collection) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -414,8 +403,8 @@ export const handlers = [
   http.post(`${BASE_URL}/collections`, async ({ request }) => {
     const data = await request.json() as Partial<Collection>
     // Validate connector exists for remote collections
-    if (['s3', 'gcs', 'smb'].includes(data.type!) && data.connector_id) {
-      const connector = connectors.find((c) => c.id === data.connector_id)
+    if (['s3', 'gcs', 'smb'].includes(data.type!) && data.connector_guid) {
+      const connector = connectors.find((c) => c.guid === data.connector_guid)
       if (!connector) {
         return HttpResponse.json(
           { detail: 'Connector not found' },
@@ -423,27 +412,26 @@ export const handlers = [
         )
       }
     }
-    // Look up pipeline if pipeline_id is provided
-    let pipelineId: number | null = null
+    // Look up pipeline if pipeline_guid is provided
+    let pipelineGuid: string | null = null
     let pipelineVersion: number | null = null
     let pipelineName: string | null = null
-    if (data.pipeline_id) {
-      const pipeline = pipelines.find((p) => p.id === data.pipeline_id)
+    if (data.pipeline_guid) {
+      const pipeline = pipelines.find((p) => p.guid === data.pipeline_guid)
       if (pipeline && pipeline.is_active) {
-        pipelineId = pipeline.id
+        pipelineGuid = pipeline.guid
         pipelineVersion = pipeline.version
         pipelineName = pipeline.name
       }
     }
     const newCollection: Collection = {
-      id: nextCollectionId++,
-      external_id: `col_01hgw2bbg000000000000000${nextCollectionId - 1}`,
+      guid: `col_01hgw2bbg000000000000000${nextCollectionId++}`,
       name: data.name!,
       type: data.type!,
       location: data.location!,
       state: data.state!,
-      connector_id: data.connector_id ?? null,
-      pipeline_id: pipelineId,
+      connector_guid: data.connector_guid ?? null,
+      pipeline_guid: pipelineGuid,
       pipeline_version: pipelineVersion,
       pipeline_name: pipelineName,
       cache_ttl: data.cache_ttl ?? null,
@@ -457,9 +445,9 @@ export const handlers = [
     return HttpResponse.json(newCollection, { status: 201 })
   }),
 
-  http.put(`${BASE_URL}/collections/:id`, async ({ params, request }) => {
+  http.put(`${BASE_URL}/collections/:guid`, async ({ params, request }) => {
     const data = await request.json() as Partial<Collection>
-    const index = collections.findIndex((c) => c.id === Number(params.id))
+    const index = collections.findIndex((c) => c.guid === params.guid)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -471,20 +459,20 @@ export const handlers = [
     return HttpResponse.json(collections[index])
   }),
 
-  http.delete(`${BASE_URL}/collections/:id`, ({ params, request }) => {
+  http.delete(`${BASE_URL}/collections/:guid`, ({ params, request }) => {
     const url = new URL(request.url)
     const forceDelete = url.searchParams.get('force_delete') === 'true'
-    const id = Number(params.id)
+    const guid = params.guid as string
 
-    const index = collections.findIndex((c) => c.id === id)
+    const index = collections.findIndex((c) => c.guid === guid)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
 
     // Simulate delete protection check (would normally check for results/jobs)
     if (!forceDelete) {
-      // For testing, collection ID 2 has results
-      if (id === 2) {
+      // For testing, collection GUID 2 has results
+      if (guid === 'col_01hgw2bbg0000000000000002') {
         return HttpResponse.json(
           {
             has_results: true,
@@ -501,18 +489,18 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 })
   }),
 
-  http.post(`${BASE_URL}/collections/:id/test`, ({ params }) => {
-    const collection = collections.find((c) => c.id === Number(params.id))
+  http.post(`${BASE_URL}/collections/:guid/test`, ({ params }) => {
+    const collection = collections.find((c) => c.guid === params.guid)
     if (!collection) {
       return new HttpResponse(null, { status: 404 })
     }
     return HttpResponse.json({ success: true, message: 'Collection is accessible' })
   }),
 
-  http.post(`${BASE_URL}/collections/:id/refresh`, ({ params, request }) => {
+  http.post(`${BASE_URL}/collections/:guid/refresh`, ({ params, request }) => {
     const url = new URL(request.url)
     const confirm = url.searchParams.get('confirm') === 'true'
-    const collection = collections.find((c) => c.id === Number(params.id))
+    const collection = collections.find((c) => c.guid === params.guid)
     if (!collection) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -522,24 +510,23 @@ export const handlers = [
     })
   }),
 
-  http.post(`${BASE_URL}/collections/:id/assign-pipeline`, ({ params, request }) => {
+  http.post(`${BASE_URL}/collections/:guid/assign-pipeline`, ({ params, request }) => {
     const url = new URL(request.url)
-    const pipelineIdParam = url.searchParams.get('pipeline_id')
-    if (!pipelineIdParam) {
+    const pipelineGuidParam = url.searchParams.get('pipeline_guid')
+    if (!pipelineGuidParam) {
       return HttpResponse.json(
-        { detail: 'pipeline_id query parameter is required' },
+        { detail: 'pipeline_guid query parameter is required' },
         { status: 400 }
       )
     }
-    const pipelineId = Number(pipelineIdParam)
-    const collectionIndex = collections.findIndex((c) => c.id === Number(params.id))
+    const collectionIndex = collections.findIndex((c) => c.guid === params.guid)
     if (collectionIndex === -1) {
       return new HttpResponse(null, { status: 404 })
     }
-    const pipeline = pipelines.find((p) => p.id === pipelineId)
+    const pipeline = pipelines.find((p) => p.guid === pipelineGuidParam)
     if (!pipeline) {
       return HttpResponse.json(
-        { detail: `Pipeline ${pipelineId} not found` },
+        { detail: `Pipeline ${pipelineGuidParam} not found` },
         { status: 404 }
       )
     }
@@ -551,7 +538,7 @@ export const handlers = [
     }
     collections[collectionIndex] = {
       ...collections[collectionIndex],
-      pipeline_id: pipeline.id,
+      pipeline_guid: pipeline.guid,
       pipeline_version: pipeline.version,
       pipeline_name: pipeline.name,
       updated_at: new Date().toISOString(),
@@ -559,14 +546,14 @@ export const handlers = [
     return HttpResponse.json(collections[collectionIndex])
   }),
 
-  http.post(`${BASE_URL}/collections/:id/clear-pipeline`, ({ params }) => {
-    const collectionIndex = collections.findIndex((c) => c.id === Number(params.id))
+  http.post(`${BASE_URL}/collections/:guid/clear-pipeline`, ({ params }) => {
+    const collectionIndex = collections.findIndex((c) => c.guid === params.guid)
     if (collectionIndex === -1) {
       return new HttpResponse(null, { status: 404 })
     }
     collections[collectionIndex] = {
       ...collections[collectionIndex],
-      pipeline_id: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       updated_at: new Date().toISOString(),
@@ -594,23 +581,27 @@ export const handlers = [
 
     // Handle display_graph mode (pipeline validation without collection)
     if (data.mode === 'display_graph') {
-      if (!data.pipeline_id) {
+      if (!data.pipeline_guid) {
         return HttpResponse.json(
-          { detail: 'pipeline_id is required for display_graph mode' },
+          { detail: 'pipeline_guid is required for display_graph mode' },
           { status: 400 }
         )
       }
 
+      // Look up the pipeline to get numeric ID for the Job response
+      const pipeline = pipelines.find((p) => p.guid === data.pipeline_guid)
+      const pipelineId = pipeline ? pipelines.indexOf(pipeline) + 1 : null
+
       // Check for duplicate display_graph job
       const existingJob = jobs.find(
-        (j) => j.pipeline_id === data.pipeline_id && j.mode === 'display_graph' &&
+        (j) => j.pipeline_id === pipelineId && j.mode === 'display_graph' &&
                (j.status === 'queued' || j.status === 'running')
       )
       if (existingJob) {
         return HttpResponse.json(
           {
             detail: {
-              message: `Display graph already running on pipeline ${data.pipeline_id}`,
+              message: `Display graph already running on pipeline ${data.pipeline_guid}`,
               existing_job_id: existingJob.id,
             }
           },
@@ -622,7 +613,7 @@ export const handlers = [
         id: `job-${nextJobId++}`,
         collection_id: null,
         tool: data.tool,
-        pipeline_id: data.pipeline_id,
+        pipeline_id: pipelineId,
         mode: 'display_graph',
         status: 'queued',
         position: jobs.filter((j) => j.status === 'queued').length + 1,
@@ -638,17 +629,17 @@ export const handlers = [
     }
 
     // Collection mode - check if collection exists and is accessible
-    if (!data.collection_id) {
+    if (!data.collection_guid) {
       return HttpResponse.json(
-        { detail: 'collection_id is required for collection mode' },
+        { detail: 'collection_guid is required for collection mode' },
         { status: 400 }
       )
     }
 
-    const collection = collections.find((c) => c.id === data.collection_id)
+    const collection = collections.find((c) => c.guid === data.collection_guid)
     if (!collection) {
       return HttpResponse.json(
-        { detail: `Collection ${data.collection_id} not found` },
+        { detail: `Collection ${data.collection_guid} not found` },
         { status: 400 }
       )
     }
@@ -657,7 +648,7 @@ export const handlers = [
         {
           detail: {
             message: `Collection '${collection.name}' is not accessible.`,
-            collection_id: collection.id,
+            collection_guid: collection.guid,
             collection_name: collection.name,
           }
         },
@@ -665,16 +656,19 @@ export const handlers = [
       )
     }
 
+    // Get numeric ID for Job response
+    const collectionId = collections.indexOf(collection) + 1
+
     // Check for duplicate job
     const existingJob = jobs.find(
-      (j) => j.collection_id === data.collection_id && j.tool === data.tool &&
+      (j) => j.collection_id === collectionId && j.tool === data.tool &&
              (j.status === 'queued' || j.status === 'running')
     )
     if (existingJob) {
       return HttpResponse.json(
         {
           detail: {
-            message: `Tool ${data.tool} is already running on collection ${data.collection_id}`,
+            message: `Tool ${data.tool} is already running on collection ${data.collection_guid}`,
             existing_job_id: existingJob.id,
           }
         },
@@ -682,11 +676,15 @@ export const handlers = [
       )
     }
 
+    // Look up pipeline if provided
+    const pipeline = data.pipeline_guid ? pipelines.find((p) => p.guid === data.pipeline_guid) : null
+    const pipelineId = pipeline ? pipelines.indexOf(pipeline) + 1 : null
+
     const newJob: JobResponse = {
       id: `job-${nextJobId++}`,
-      collection_id: data.collection_id,
+      collection_id: collectionId,
       tool: data.tool,
-      pipeline_id: data.pipeline_id ?? null,
+      pipeline_id: pipelineId,
       mode: data.mode ?? null,
       status: 'queued',
       position: jobs.filter((j) => j.status === 'queued').length + 1,
@@ -754,15 +752,15 @@ export const handlers = [
 
   http.get(`${BASE_URL}/results`, ({ request }) => {
     const url = new URL(request.url)
-    const collectionId = url.searchParams.get('collection_id')
+    const collectionGuid = url.searchParams.get('collection_guid')
     const tool = url.searchParams.get('tool')
     const status = url.searchParams.get('status')
     const limit = parseInt(url.searchParams.get('limit') ?? '50', 10)
     const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
 
     let filteredResults = [...results]
-    if (collectionId) {
-      filteredResults = filteredResults.filter((r) => r.collection_id === Number(collectionId))
+    if (collectionGuid) {
+      filteredResults = filteredResults.filter((r) => r.collection_guid === collectionGuid)
     }
     if (tool) {
       filteredResults = filteredResults.filter((r) => r.tool === tool)
@@ -775,12 +773,12 @@ export const handlers = [
     const items: AnalysisResultSummary[] = filteredResults
       .slice(offset, offset + limit)
       .map((r) => ({
-        id: r.id,
+        guid: r.guid,
         external_id: r.external_id,
-        collection_id: r.collection_id,
+        collection_guid: r.collection_guid,
         collection_name: r.collection_name,
         tool: r.tool,
-        pipeline_id: r.pipeline_id,
+        pipeline_guid: r.pipeline_guid,
         pipeline_version: r.pipeline_version,
         pipeline_name: r.pipeline_name,
         status: r.status,
@@ -811,11 +809,9 @@ export const handlers = [
   }),
 
   http.get(`${BASE_URL}/results/:identifier`, ({ params }) => {
-    // Support both numeric ID and external ID (res_xxx)
+    // Support lookup by external ID (res_xxx) or guid
     const identifier = params.identifier as string
-    const result = identifier.startsWith('res_')
-      ? results.find((r) => r.external_id === identifier)
-      : results.find((r) => r.id === Number(identifier))
+    const result = results.find((r) => r.guid === identifier || r.external_id === identifier)
     if (!result) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -823,25 +819,21 @@ export const handlers = [
   }),
 
   http.delete(`${BASE_URL}/results/:identifier`, ({ params }) => {
-    // Support both numeric ID and external ID (res_xxx)
+    // Support lookup by external ID (res_xxx) or guid
     const identifier = params.identifier as string
-    const index = identifier.startsWith('res_')
-      ? results.findIndex((r) => r.external_id === identifier)
-      : results.findIndex((r) => r.id === Number(identifier))
+    const index = results.findIndex((r) => r.guid === identifier || r.external_id === identifier)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
-    const deletedId = results[index].id
+    const deletedGuid = results[index].guid
     results.splice(index, 1)
-    return HttpResponse.json({ message: 'Result deleted successfully', deleted_id: deletedId })
+    return HttpResponse.json({ message: 'Result deleted successfully', deleted_guid: deletedGuid })
   }),
 
   http.get(`${BASE_URL}/results/:identifier/report`, ({ params }) => {
-    // Support both numeric ID and external ID (res_xxx)
+    // Support lookup by external ID (res_xxx) or guid
     const identifier = params.identifier as string
-    const result = identifier.startsWith('res_')
-      ? results.find((r) => r.external_id === identifier)
-      : results.find((r) => r.id === Number(identifier))
+    const result = results.find((r) => r.guid === identifier || r.external_id === identifier)
     if (!result) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -851,7 +843,7 @@ export const handlers = [
         { status: 404 }
       )
     }
-    const filename = `${result.tool}_report_${result.collection_name}_${result.collection_id}_2025-01-01_10-00-00.html`
+    const filename = `${result.tool}_report_${result.collection_name}_${result.collection_guid}_2025-01-01_10-00-00.html`
     return new HttpResponse('<html><body>Mock Report</body></html>', {
       headers: {
         'Content-Type': 'text/html',
@@ -878,8 +870,7 @@ export const handlers = [
     }
 
     const items: PipelineSummary[] = filteredPipelines.map((p) => ({
-      id: p.id,
-      external_id: p.external_id,
+      guid: p.guid,
       name: p.name,
       description: p.description,
       version: p.version,
@@ -900,14 +891,14 @@ export const handlers = [
       total_pipelines: pipelines.length,
       valid_pipelines: pipelines.filter((p) => p.is_valid).length,
       active_pipeline_count: pipelines.filter((p) => p.is_active).length,
-      default_pipeline_id: defaultPipeline?.id ?? null,
+      default_pipeline_guid: defaultPipeline?.guid ?? null,
       default_pipeline_name: defaultPipeline?.name ?? null,
     }
     return HttpResponse.json(stats)
   }),
 
   http.get(`${BASE_URL}/pipelines/:id`, ({ params }) => {
-    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    const pipeline = pipelines.find((p) => p.guid === params.id)
     if (!pipeline) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -925,9 +916,9 @@ export const handlers = [
       )
     }
 
+    const newPipelineNum = nextPipelineId++
     const newPipeline: Pipeline = {
-      id: nextPipelineId++,
-      external_id: `pip_01hgw2bbg000000000000000${nextPipelineId - 1}`,
+      guid: `pip_01hgw2bbg000000000000000${newPipelineNum}`,
       name: data.name,
       description: data.description ?? null,
       nodes: data.nodes,
@@ -946,13 +937,13 @@ export const handlers = [
 
   http.put(`${BASE_URL}/pipelines/:id`, async ({ params, request }) => {
     const data = await request.json() as { name?: string; description?: string; nodes?: Pipeline['nodes']; edges?: Pipeline['edges']; change_summary?: string }
-    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    const index = pipelines.findIndex((p) => p.guid === params.id)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
 
     // Check for duplicate name (excluding current pipeline)
-    if (data.name && pipelines.some((p) => p.name === data.name && p.id !== Number(params.id))) {
+    if (data.name && pipelines.some((p) => p.name === data.name && p.guid !== params.id)) {
       return HttpResponse.json(
         { detail: `Pipeline with name '${data.name}' already exists` },
         { status: 409 }
@@ -961,7 +952,6 @@ export const handlers = [
 
     // Save to history
     const historyEntry: PipelineHistoryEntry = {
-      id: nextHistoryId++,
       version: pipelines[index].version,
       change_summary: data.change_summary ?? null,
       changed_by: null,
@@ -979,7 +969,7 @@ export const handlers = [
   }),
 
   http.delete(`${BASE_URL}/pipelines/:id`, ({ params }) => {
-    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    const index = pipelines.findIndex((p) => p.guid === params.id)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -989,13 +979,13 @@ export const handlers = [
         { status: 409 }
       )
     }
-    const deletedId = pipelines[index].id
+    const deletedGuid = pipelines[index].guid
     pipelines.splice(index, 1)
-    return HttpResponse.json({ message: 'Pipeline deleted successfully', deleted_id: deletedId })
+    return HttpResponse.json({ message: 'Pipeline deleted successfully', deleted_guid: deletedGuid })
   }),
 
   http.post(`${BASE_URL}/pipelines/:id/activate`, ({ params }) => {
-    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    const index = pipelines.findIndex((p) => p.guid === params.id)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1015,7 +1005,7 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/pipelines/:id/deactivate`, ({ params }) => {
-    const index = pipelines.findIndex((p) => p.id === Number(params.id))
+    const index = pipelines.findIndex((p) => p.guid === params.id)
     if (index === -1) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1027,7 +1017,7 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/pipelines/:id/validate`, ({ params }) => {
-    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    const pipeline = pipelines.find((p) => p.guid === params.id)
     if (!pipeline) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1047,7 +1037,7 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/pipelines/:id/preview`, async ({ params, request }) => {
-    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    const pipeline = pipelines.find((p) => p.guid === params.id)
     if (!pipeline) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1077,7 +1067,7 @@ export const handlers = [
   }),
 
   http.get(`${BASE_URL}/pipelines/:id/history`, ({ params }) => {
-    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    const pipeline = pipelines.find((p) => p.guid === params.id)
     if (!pipeline) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1087,7 +1077,7 @@ export const handlers = [
   }),
 
   http.get(`${BASE_URL}/pipelines/:id/export`, ({ params }) => {
-    const pipeline = pipelines.find((p) => p.id === Number(params.id))
+    const pipeline = pipelines.find((p) => p.guid === params.id)
     if (!pipeline) {
       return new HttpResponse(null, { status: 404 })
     }
@@ -1122,10 +1112,10 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
       )
     }
 
+    const newPipelineNum = nextPipelineId++
     const newPipeline: Pipeline = {
-      id: nextPipelineId++,
-      external_id: `pip_01hgw2bbg000000000000000${nextPipelineId - 1}`,
-      name: `Imported Pipeline ${nextPipelineId - 1}`,
+      guid: `pip_01hgw2bbg000000000000000${newPipelineNum}`,
+      name: `Imported Pipeline ${newPipelineNum}`,
       description: 'Imported from YAML',
       nodes: [
         { id: 'capture', type: 'capture', properties: { camera_id_pattern: '[A-Z0-9]{4}' } },
@@ -1162,10 +1152,9 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
         mode: 'comparison',
         data_points: [],
         collections: parsedIds.map(id => {
-          const collection = collections.find(c => c.id === id)
           return {
             collection_id: id,
-            collection_name: collection?.name ?? `Collection ${id}`,
+            collection_name: `Collection ${id}`,
             data_points: [
               {
                 date: '2025-01-01T10:00:00Z',
@@ -1232,10 +1221,9 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
         mode: 'comparison',
         data_points: [],
         collections: parsedIds.map(id => {
-          const collection = collections.find(c => c.id === id)
           return {
             collection_id: id,
-            collection_name: collection?.name ?? `Collection ${id}`,
+            collection_name: `Collection ${id}`,
             cameras: ['ABC1', 'XYZ2'],
             data_points: [
               {
@@ -1301,10 +1289,9 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
         mode: 'comparison',
         data_points: [],
         collections: parsedIds.map(id => {
-          const collection = collections.find(c => c.id === id)
           return {
             collection_id: id,
-            collection_name: collection?.name ?? `Collection ${id}`,
+            collection_name: `Collection ${id}`,
             data_points: [
               {
                 date: '2025-01-01T13:00:00Z',
@@ -1671,8 +1658,7 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
 export function resetMockData(): void {
   pipelines = [
     {
-      id: 1,
-      external_id: 'pip_01hgw2bbg0000000000000001',
+      guid: 'pip_01hgw2bbg0000000000000001',
       name: 'Standard RAW Workflow',
       description: 'RAW capture to processed TIFF export',
       nodes: [
@@ -1695,8 +1681,7 @@ export function resetMockData(): void {
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
-      id: 2,
-      external_id: 'pip_01hgw2bbg0000000000000002',
+      guid: 'pip_01hgw2bbg0000000000000002',
       name: 'HDR Workflow',
       description: 'HDR processing pipeline',
       nodes: [
@@ -1719,8 +1704,7 @@ export function resetMockData(): void {
       updated_at: '2025-01-01T11:00:00Z',
     },
     {
-      id: 3,
-      external_id: 'pip_01hgw2bbg0000000000000003',
+      guid: 'pip_01hgw2bbg0000000000000003',
       name: 'Invalid Pipeline',
       description: 'Pipeline with validation errors',
       nodes: [
@@ -1740,25 +1724,21 @@ export function resetMockData(): void {
   nextPipelineId = 4
   pipelineHistory = [
     {
-      id: 1,
       version: 1,
       change_summary: 'Initial version',
       changed_by: null,
       created_at: '2025-01-01T10:00:00Z',
     },
     {
-      id: 2,
       version: 2,
       change_summary: 'Updated HDR settings',
       changed_by: null,
       created_at: '2025-01-01T11:00:00Z',
     },
   ]
-  nextHistoryId = 3
   connectors = [
     {
-      id: 1,
-      external_id: 'con_01hgw2bbg0000000000000001',
+      guid: 'con_01hgw2bbg0000000000000001',
       name: 'Test S3 Connector',
       type: 's3',
       is_active: true,
@@ -1768,8 +1748,7 @@ export function resetMockData(): void {
       updated_at: '2025-01-01T10:00:00Z',
     },
     {
-      id: 2,
-      external_id: 'con_01hgw2bbg0000000000000002',
+      guid: 'con_01hgw2bbg0000000000000002',
       name: 'Test GCS Connector',
       type: 'gcs',
       is_active: false,
@@ -1781,14 +1760,13 @@ export function resetMockData(): void {
   ]
   collections = [
     {
-      id: 1,
-      external_id: 'col_01hgw2bbg0000000000000001',
+      guid: 'col_01hgw2bbg0000000000000001',
       name: 'Test Collection',
       type: 'local',
       location: '/photos',
       state: 'live',
-      connector_id: null,
-      pipeline_id: null,
+      connector_guid: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       cache_ttl: 3600,
@@ -1799,14 +1777,13 @@ export function resetMockData(): void {
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
-      id: 2,
-      external_id: 'col_01hgw2bbg0000000000000002',
+      guid: 'col_01hgw2bbg0000000000000002',
       name: 'Remote S3 Collection',
       type: 's3',
       location: 'my-bucket/photos',
       state: 'closed',
-      connector_id: 1,
-      pipeline_id: 1,
+      connector_guid: 'con_01hgw2bbg0000000000000001',
+      pipeline_guid: 'pip_01hgw2bbg0000000000000001',
       pipeline_version: 1,
       pipeline_name: 'Standard RAW Workflow',
       cache_ttl: 86400,
@@ -1820,12 +1797,12 @@ export function resetMockData(): void {
   jobs = []
   results = [
     {
-      id: 1,
+      guid: 'res_01hgw2bbg0000000000000001',
       external_id: 'res_01hgw2bbg0000000000000001',
-      collection_id: 1,
+      collection_guid: 'col_01hgw2bbg0000000000000001',
       collection_name: 'Test Collection',
       tool: 'photostats',
-      pipeline_id: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       status: 'COMPLETED',
@@ -1846,12 +1823,12 @@ export function resetMockData(): void {
       created_at: '2025-01-01T10:00:00Z',
     },
     {
-      id: 2,
+      guid: 'res_01hgw2bbg0000000000000002',
       external_id: 'res_01hgw2bbg0000000000000002',
-      collection_id: 1,
+      collection_guid: 'col_01hgw2bbg0000000000000001',
       collection_name: 'Test Collection',
       tool: 'photo_pairing',
-      pipeline_id: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       status: 'COMPLETED',
@@ -1873,12 +1850,12 @@ export function resetMockData(): void {
       created_at: '2025-01-01T11:00:00Z',
     },
     {
-      id: 3,
+      guid: 'res_01hgw2bbg0000000000000003',
       external_id: 'res_01hgw2bbg0000000000000003',
-      collection_id: 2,
+      collection_guid: 'col_01hgw2bbg0000000000000002',
       collection_name: 'Remote S3 Collection',
       tool: 'photostats',
-      pipeline_id: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       status: 'FAILED',
@@ -1899,12 +1876,12 @@ export function resetMockData(): void {
       created_at: '2025-01-01T12:00:00Z',
     },
     {
-      id: 4,
+      guid: 'res_01hgw2bbg0000000000000004',
       external_id: 'res_01hgw2bbg0000000000000004',
-      collection_id: 2,
+      collection_guid: 'col_01hgw2bbg0000000000000002',
       collection_name: 'Remote S3 Collection',
       tool: 'pipeline_validation',
-      pipeline_id: 1,
+      pipeline_guid: 'pip_01hgw2bbg0000000000000001',
       pipeline_version: 1,
       pipeline_name: 'Standard RAW Workflow',
       status: 'COMPLETED',

@@ -50,7 +50,7 @@ import type {
   ValidationResult,
 } from '@/contracts/api/pipelines-api'
 import { NODE_TYPE_DEFINITIONS } from '@/contracts/api/pipelines-api'
-import { ExternalIdBadge } from '@/components/ExternalIdBadge'
+import { GuidBadge } from '@/components/GuidBadge'
 import { cn } from '@/lib/utils'
 
 // ============================================================================
@@ -903,8 +903,8 @@ export const PipelineEditorPage: React.FC = () => {
                     <p className="text-muted-foreground mt-1">{pipeline.description}</p>
                   )}
                   <div className="flex items-center gap-2 mt-3">
-                    {pipeline.external_id && (
-                      <ExternalIdBadge externalId={pipeline.external_id} />
+                    {pipeline.guid && (
+                      <GuidBadge guid={pipeline.guid} />
                     )}
                     {pipeline.is_active && !isHistoricalVersion && (
                       <Badge variant="default" className="gap-1">
@@ -1107,8 +1107,8 @@ export const PipelineEditorPage: React.FC = () => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div className="flex items-center gap-3">
               <CardTitle>Pipeline Details</CardTitle>
-              {pipeline?.external_id && (
-                <ExternalIdBadge externalId={pipeline.external_id} />
+              {pipeline?.guid && (
+                <GuidBadge guid={pipeline.guid} />
               )}
             </div>
             {/* Real-time validity indicator */}

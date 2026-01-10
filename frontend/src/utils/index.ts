@@ -5,4 +5,4 @@
  * across components and hooks.
  */
 
-export * from './externalId'
+export * from './guid'

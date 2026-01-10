@@ -14,7 +14,7 @@ export type CollectionState = 'live' | 'closed' | 'archived'
 
 export interface Collection {
   id: number
-  external_id: string  // External identifier (col_xxx)
+  guid: string  // External identifier (col_xxx)
   name: string
   type: CollectionType
   state: CollectionState
@@ -106,7 +106,7 @@ export interface CollectionFormData {
 }
 
 export interface CollectionCreate extends Omit<Collection,
-  'id' | 'external_id' | 'is_accessible' | 'accessibility_message' | 'created_at' | 'updated_at' | 'last_scanned_at'
+  'id' | 'guid' | 'is_accessible' | 'accessibility_message' | 'created_at' | 'updated_at' | 'last_scanned_at'
 > {}
 
 export interface CollectionUpdate extends Partial<CollectionCreate> {}

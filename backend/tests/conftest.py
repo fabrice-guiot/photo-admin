@@ -187,14 +187,14 @@ def sample_connector(test_db_session, test_encryptor, sample_connector_data):
 
 @pytest.fixture
 def sample_collection_data():
-    """Factory for creating sample collection data."""
+    """Factory for creating sample collection data for API requests."""
     def _create(
         name='Test Collection',
         collection_type='local',
         type=None,  # Allow 'type' as alias for consistency
         location='/photos',
         state='live',
-        connector_id=None,
+        connector_guid=None,  # API now uses connector_guid
         cache_ttl=None,
         is_accessible=True,
         last_error=None,
@@ -203,25 +203,37 @@ def sample_collection_data():
         # Use 'type' if provided, otherwise use 'collection_type'
         actual_type = type if type is not None else collection_type
 
-        return {
+        data = {
             'name': name,
             'type': actual_type,
             'location': location,
             'state': state,
-            'connector_id': connector_id,
             'cache_ttl': cache_ttl,
             'is_accessible': is_accessible,
             'last_error': last_error,
             'metadata': metadata or {}
         }
+        if connector_guid:
+            data['connector_guid'] = connector_guid
+        return data
     return _create
 
 
 @pytest.fixture
 def sample_collection(test_db_session, sample_collection_data):
     """Factory for creating sample Collection models in the database."""
-    def _create(**kwargs):
+    def _create(connector_guid=None, **kwargs):
         import json
+        from backend.src.services.guid import GuidService
+
+        # Handle connector_guid to connector_id translation for DB model
+        connector_id = None
+        if connector_guid:
+            connector_uuid = GuidService.parse_identifier(connector_guid, expected_prefix="con")
+            connector = test_db_session.query(Connector).filter(Connector.uuid == connector_uuid).first()
+            if connector:
+                connector_id = connector.id
+
         data = sample_collection_data(**kwargs)
 
         collection = Collection(
@@ -229,7 +241,7 @@ def sample_collection(test_db_session, sample_collection_data):
             type=data['type'],
             location=data['location'],
             state=data['state'],
-            connector_id=data['connector_id'],
+            connector_id=connector_id,
             cache_ttl=data['cache_ttl'],
             is_accessible=data['is_accessible'],
             last_error=data['last_error'],

@@ -1,7 +1,7 @@
 /**
- * ExternalIdBadge Component
+ * GuidBadge Component
  *
- * Displays an entity's external ID with copy-to-clipboard functionality.
+ * Displays an entity's GUID with copy-to-clipboard functionality.
  * Shows the full ID with a copy icon. Click to copy.
  */
 
@@ -11,11 +11,11 @@ import { Badge } from '@/components/ui/badge'
 import { useClipboard } from '@/hooks/useClipboard'
 import { cn } from '@/lib/utils'
 
-export interface ExternalIdBadgeProps {
+export interface GuidBadgeProps {
   /**
-   * The full external ID (e.g., "col_01hgw2bbg00000000000000001")
+   * The full GUID (e.g., "col_01hgw2bbg00000000000000001")
    */
-  externalId: string
+  guid: string
 
   /**
    * Optional label to show before the ID
@@ -36,27 +36,27 @@ export interface ExternalIdBadgeProps {
 }
 
 /**
- * ExternalIdBadge displays an external ID with copy functionality
+ * GuidBadge displays a GUID with copy functionality
  *
  * @example
- * <ExternalIdBadge externalId="col_01hgw2bbg00000000000000001" />
+ * <GuidBadge guid="col_01hgw2bbg00000000000000001" />
  *
  * @example With label
- * <ExternalIdBadge externalId="col_01hgw2bbg00000000000000001" showLabel label="Collection ID" />
+ * <GuidBadge guid="col_01hgw2bbg00000000000000001" showLabel label="Collection ID" />
  */
-export function ExternalIdBadge({
-  externalId,
+export function GuidBadge({
+  guid,
   label = 'ID',
   showLabel = false,
   className,
-}: ExternalIdBadgeProps) {
+}: GuidBadgeProps) {
   const { copy, copied } = useClipboard({ resetDelay: 2000 })
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    const success = await copy(externalId)
+    const success = await copy(guid)
     if (success) {
       toast.success('Copied to clipboard', {
         duration: 2000,
@@ -75,7 +75,7 @@ export function ExternalIdBadge({
         'inline-flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-md',
         className
       )}
-      aria-label={`Copy external ID: ${externalId}`}
+      aria-label={`Copy GUID: ${guid}`}
     >
       {showLabel && (
         <span className="text-xs text-muted-foreground">{label}:</span>
@@ -84,7 +84,7 @@ export function ExternalIdBadge({
         variant="outline"
         className="font-mono text-xs cursor-pointer hover:bg-muted transition-colors"
       >
-        {externalId}
+        {guid}
         {copied ? (
           <Check className="ml-1.5 h-3 w-3 text-green-500" />
         ) : (
@@ -95,4 +95,4 @@ export function ExternalIdBadge({
   )
 }
 
-export default ExternalIdBadge
+export default GuidBadge

@@ -76,10 +76,10 @@ class JobAdapter:
 
         return JobResponse(
             id=UUID(job.id),
-            collection_id=job.collection_id,
+            collection_guid=job.collection_guid,
             tool=ToolType(job.tool),
             mode=mode,
-            pipeline_id=job.pipeline_id,
+            pipeline_guid=job.pipeline_guid,
             status=_convert_status(job.status),
             position=position,
             created_at=job.created_at,
@@ -87,7 +87,7 @@ class JobAdapter:
             completed_at=job.completed_at,
             progress=progress,
             error_message=job.error_message,
-            result_id=job.result_id,
+            result_guid=job.result_guid,
         )
 
 
@@ -201,18 +201,30 @@ class ToolService:
         # Determine mode string for job
         mode_str = mode.value if mode else None
 
+        # Get collection GUID from model property
+        collection_guid = collection.guid
+
+        # Get pipeline GUID if we have a pipeline
+        pipeline_guid = None
+        if resolved_pipeline_id:
+            pipeline = self.db.query(Pipeline).filter(Pipeline.id == resolved_pipeline_id).first()
+            if pipeline:
+                pipeline_guid = pipeline.guid
+
         # Create new job
         job = AnalysisJob(
             id=create_job_id(),
             collection_id=collection_id,
+            collection_guid=collection_guid,
             tool=tool.value,
             pipeline_id=resolved_pipeline_id,
+            pipeline_guid=pipeline_guid,
             pipeline_version=pipeline_version,
             mode=mode_str,
         )
         position = self._queue.enqueue(job)
 
-        logger.info(f"Job {job.id} queued for {tool.value} on collection {collection_id}")
+        logger.info(f"Job {job.id} queued for {tool.value} on collection {collection_guid}")
         return JobAdapter.to_response(job, position)
 
     def _run_display_graph_tool(self, pipeline_id: Optional[int]) -> JobResponse:
@@ -259,18 +271,23 @@ class ToolService:
                         position=self._queue.get_position(job.id)
                     )
 
+        # Get pipeline GUID from model property
+        pipeline_guid = pipeline.guid
+
         # Create job without collection_id
         job = AnalysisJob(
             id=create_job_id(),
             collection_id=None,  # No collection for display_graph mode
+            collection_guid=None,
             tool=ToolType.PIPELINE_VALIDATION.value,
             pipeline_id=pipeline.id,
+            pipeline_guid=pipeline_guid,
             pipeline_version=pipeline.version,
             mode=ToolMode.DISPLAY_GRAPH.value,
         )
         position = self._queue.enqueue(job)
 
-        logger.info(f"Job {job.id} queued for pipeline_validation (display_graph) on pipeline {pipeline_id}")
+        logger.info(f"Job {job.id} queued for pipeline_validation (display_graph) on pipeline {pipeline_guid}")
         return JobAdapter.to_response(job, position)
 
     def get_job(self, job_id: UUID) -> Optional[JobResponse]:
@@ -452,6 +469,8 @@ class ToolService:
                 job.status = QueueJobStatus.COMPLETED
                 job.completed_at = datetime.utcnow()
                 job.result_id = result.id
+                # Set result GUID from model property
+                job.result_guid = result.guid
 
                 # Update collection statistics (best effort, don't fail job if this fails)
                 # Skip for display_graph mode (no collection)
@@ -473,7 +492,8 @@ class ToolService:
                 try:
                     failed_result = self._store_failed_result(job, str(e), db)
                     job.result_id = failed_result.id
-                    logger.info(f"Stored failed result {failed_result.id} for job {job.id}")
+                    job.result_guid = failed_result.guid
+                    logger.info(f"Stored failed result {failed_result.guid} for job {job.id}")
                 except Exception as store_error:
                     logger.error(f"Failed to store error result for job {job.id}: {store_error}")
 
@@ -501,7 +521,8 @@ class ToolService:
             try:
                 failed_result = self._store_failed_result(job, str(outer_error), db)
                 job.result_id = failed_result.id
-                logger.info(f"Stored failed result {failed_result.id} for job {job.id} (outer exception)")
+                job.result_guid = failed_result.guid
+                logger.info(f"Stored failed result {failed_result.guid} for job {job.id} (outer exception)")
             except Exception as store_error:
                 logger.error(f"Failed to store error result for job {job.id}: {store_error}")
 
@@ -2716,7 +2737,7 @@ class ToolService:
                 "status": job.status.value,
                 "progress": job.progress,  # Already a dict
                 "error_message": job.error_message,
-                "result_id": job.result_id,
+                "result_guid": job.result_guid,
             }
 
             # Broadcast to job-specific channel

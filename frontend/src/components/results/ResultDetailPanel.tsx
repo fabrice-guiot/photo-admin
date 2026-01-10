@@ -678,7 +678,7 @@ export function ResultDetailPanel({
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => onDownloadReport(result.external_id)}
+              onClick={() => onDownloadReport(result.guid)}
             >
               <Download className="mr-2 h-4 w-4" />
               Download HTML Report

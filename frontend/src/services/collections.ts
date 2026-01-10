@@ -32,11 +32,11 @@ export const listCollections = async (filters: CollectionListQueryParams = {}): 
 }
 
 /**
- * Get a single collection by ID or external ID
- * @param identifier - Numeric ID or external ID (col_xxx)
+ * Get a single collection by GUID
+ * @param guid - External ID (col_xxx format)
  */
-export const getCollection = async (identifier: number | string): Promise<Collection> => {
-  const response = await api.get<Collection>(`/collections/${identifier}`)
+export const getCollection = async (guid: string): Promise<Collection> => {
+  const response = await api.get<Collection>(`/collections/${guid}`)
   return response.data
 }
 
@@ -50,23 +50,25 @@ export const createCollection = async (data: CollectionCreateRequest): Promise<C
 
 /**
  * Update an existing collection
+ * @param guid - External ID (col_xxx format)
  */
-export const updateCollection = async (id: number, data: CollectionUpdateRequest): Promise<Collection> => {
-  const response = await api.put<Collection>(`/collections/${id}`, data)
+export const updateCollection = async (guid: string, data: CollectionUpdateRequest): Promise<Collection> => {
+  const response = await api.put<Collection>(`/collections/${guid}`, data)
   return response.data
 }
 
 /**
  * Delete a collection
+ * @param guid - External ID (col_xxx format)
  * @returns Returns result info if collection has data, void if deleted
  * @throws Error 409 if results/jobs exist and force=false
  */
 export const deleteCollection = async (
-  id: number,
+  guid: string,
   force = false
 ): Promise<CollectionDeleteResponse | void> => {
   const params = force ? { force_delete: force } : {}
-  const response = await api.delete<CollectionDeleteResponse>(`/collections/${id}`, { params })
+  const response = await api.delete<CollectionDeleteResponse>(`/collections/${guid}`, { params })
   // If status is 200, return the result/job info
   if (response.status === 200) {
     return response.data
@@ -76,18 +78,20 @@ export const deleteCollection = async (
 
 /**
  * Test collection accessibility
+ * @param guid - External ID (col_xxx format)
  */
-export const testCollection = async (id: number): Promise<CollectionTestResponse> => {
-  const response = await api.post<CollectionTestResponse>(`/collections/${id}/test`)
+export const testCollection = async (guid: string): Promise<CollectionTestResponse> => {
+  const response = await api.post<CollectionTestResponse>(`/collections/${guid}/test`)
   return response.data
 }
 
 /**
  * Refresh collection cache
+ * @param guid - External ID (col_xxx format)
  */
-export const refreshCollection = async (id: number, confirm = false): Promise<any> => {
+export const refreshCollection = async (guid: string, confirm = false): Promise<any> => {
   const params = confirm ? { confirm: true } : {}
-  const response = await api.post(`/collections/${id}/refresh`, null, { params })
+  const response = await api.post(`/collections/${guid}/refresh`, null, { params })
   return response.data
 }
 
@@ -103,12 +107,14 @@ export const getCollectionStats = async (): Promise<CollectionStatsResponse> => 
 /**
  * Assign a pipeline to a collection
  * Stores the pipeline's current version as the pinned version
+ * @param collectionGuid - Collection GUID (col_xxx format)
+ * @param pipelineGuid - Pipeline GUID (pip_xxx format)
  */
-export const assignPipeline = async (collectionId: number, pipelineId: number): Promise<Collection> => {
+export const assignPipeline = async (collectionGuid: string, pipelineGuid: string): Promise<Collection> => {
   const response = await api.post<Collection>(
-    `/collections/${collectionId}/assign-pipeline`,
+    `/collections/${collectionGuid}/assign-pipeline`,
     null,
-    { params: { pipeline_id: pipelineId } }
+    { params: { pipeline_guid: pipelineGuid } }
   )
   return response.data
 }
@@ -116,8 +122,9 @@ export const assignPipeline = async (collectionId: number, pipelineId: number): 
 /**
  * Clear pipeline assignment from a collection
  * Collection will use default pipeline at runtime
+ * @param collectionGuid - Collection GUID (col_xxx format)
  */
-export const clearPipeline = async (collectionId: number): Promise<Collection> => {
-  const response = await api.post<Collection>(`/collections/${collectionId}/clear-pipeline`)
+export const clearPipeline = async (collectionGuid: string): Promise<Collection> => {
+  const response = await api.post<Collection>(`/collections/${collectionGuid}/clear-pipeline`)
   return response.data
 }

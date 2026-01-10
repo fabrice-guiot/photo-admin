@@ -23,46 +23,46 @@ export const listResults = async (params: ResultListQueryParams = {}): Promise<R
 
 /**
  * Get analysis result details
- * @param identifier - Result external ID (res_xxx) or numeric ID (deprecated)
+ * @param guid - External ID (res_xxx format)
  */
-export const getResult = async (identifier: string): Promise<AnalysisResult> => {
-  const response = await api.get<AnalysisResult>(`/results/${identifier}`)
+export const getResult = async (guid: string): Promise<AnalysisResult> => {
+  const response = await api.get<AnalysisResult>(`/results/${guid}`)
   return response.data
 }
 
 /**
  * Delete an analysis result
- * @param identifier - Result external ID (res_xxx) or numeric ID (deprecated)
+ * @param guid - External ID (res_xxx format)
  */
-export const deleteResult = async (identifier: string): Promise<ResultDeleteResponse> => {
-  const response = await api.delete<ResultDeleteResponse>(`/results/${identifier}`)
+export const deleteResult = async (guid: string): Promise<ResultDeleteResponse> => {
+  const response = await api.delete<ResultDeleteResponse>(`/results/${guid}`)
   return response.data
 }
 
 /**
  * Get URL for downloading HTML report
  * Returns the full URL that can be used for downloading
- * @param identifier - Result external ID (res_xxx) or numeric ID (deprecated)
+ * @param guid - External ID (res_xxx format)
  */
-export const getReportUrl = (identifier: string): string => {
+export const getReportUrl = (guid: string): string => {
   const baseUrl = api.defaults.baseURL || 'http://localhost:8000/api'
-  return `${baseUrl}/results/${identifier}/report`
+  return `${baseUrl}/results/${guid}/report`
 }
 
 /**
  * Download HTML report as blob with filename from Content-Disposition header
  * Returns both the blob and the server-provided filename
- * @param identifier - Result external ID (res_xxx) or numeric ID (deprecated)
+ * @param guid - External ID (res_xxx format)
  */
-export const downloadReport = async (identifier: string): Promise<{ blob: Blob; filename: string }> => {
-  const response = await api.get(`/results/${identifier}/report`, {
+export const downloadReport = async (guid: string): Promise<{ blob: Blob; filename: string }> => {
+  const response = await api.get(`/results/${guid}/report`, {
     responseType: 'blob'
   })
 
   // Extract filename from Content-Disposition header
   // Format: attachment; filename="photostats_report_collection_1_2024-01-15_10-30-00.html"
   const contentDisposition = response.headers['content-disposition']
-  let filename = `report_${identifier}.html` // Fallback
+  let filename = `report_${guid}.html` // Fallback
 
   if (contentDisposition) {
     const filenameMatch = contentDisposition.match(/filename="?([^";\n]+)"?/)

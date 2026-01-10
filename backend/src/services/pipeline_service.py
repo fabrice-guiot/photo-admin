@@ -33,7 +33,7 @@ from backend.src.schemas.pipelines import (
     PipelineHistoryEntry, PipelineStatsResponse, PipelineNode, PipelineEdge
 )
 from backend.src.services.exceptions import NotFoundError, ConflictError, ValidationError as ServiceValidationError
-from backend.src.services.external_id import ExternalIdService
+from backend.src.services.guid import GuidService
 from backend.src.utils.logging_config import get_logger
 
 
@@ -136,39 +136,28 @@ class PipelineService:
         pipeline = self._get_pipeline(pipeline_id)
         return self._to_response(pipeline)
 
-    def get_by_identifier(self, identifier: str) -> Tuple[PipelineResponse, bool]:
+    def get_by_guid(self, guid: str) -> PipelineResponse:
         """
-        Get pipeline by numeric ID or external ID.
-
-        Supports both numeric IDs (backward compatible) and external IDs
-        (new URL-safe format). Used by API endpoints that accept either format.
+        Get pipeline by GUID.
 
         Args:
-            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "pip_01hgw...")
+            guid: Pipeline GUID (e.g., "pip_01hgw2bbg...")
 
         Returns:
-            Tuple of (PipelineResponse, is_numeric_id: bool)
-            - Pipeline response
-            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+            Pipeline response
 
         Raises:
-            ValueError: If identifier format is invalid or prefix doesn't match "pip"
+            ValueError: If GUID format is invalid or prefix doesn't match "pip"
             NotFoundError: If pipeline doesn't exist
 
         Example:
-            >>> pipeline, is_numeric = service.get_by_identifier("pip_01hgw2bbg...")
+            >>> pipeline = service.get_by_guid("pip_01hgw2bbg...")
         """
-        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="pip")
-
-        if id_type == "numeric":
-            pipeline = self._get_pipeline(value)
-            return self._to_response(pipeline), True
-        else:
-            # External ID - value is a UUID
-            pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == value).first()
-            if not pipeline:
-                raise NotFoundError("Pipeline", identifier)
-            return self._to_response(pipeline), False
+        uuid_value = GuidService.parse_identifier(guid, expected_prefix="pip")
+        pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == uuid_value).first()
+        if not pipeline:
+            raise NotFoundError("Pipeline", guid)
+        return self._to_response(pipeline)
 
     def list(
         self,
@@ -275,7 +264,7 @@ class PipelineService:
         logger.info(f"Updated pipeline {pipeline_id} to version {pipeline.version}")
         return self._to_response(pipeline)
 
-    def delete(self, pipeline_id: int) -> int:
+    def delete(self, pipeline_id: int) -> str:
         """
         Delete a pipeline.
 
@@ -283,7 +272,7 @@ class PipelineService:
             pipeline_id: Pipeline ID to delete
 
         Returns:
-            ID of deleted pipeline
+            GUID of deleted pipeline
 
         Raises:
             NotFoundError: If pipeline doesn't exist
@@ -296,11 +285,12 @@ class PipelineService:
         if pipeline.is_active:
             raise ConflictError("Cannot delete active pipeline. Deactivate it first.")
 
+        deleted_guid = pipeline.guid
         self.db.delete(pipeline)
         self.db.commit()
 
-        logger.info(f"Deleted pipeline {pipeline_id}")
-        return pipeline_id
+        logger.info(f"Deleted pipeline {deleted_guid}")
+        return deleted_guid
 
     # =========================================================================
     # Validation
@@ -732,7 +722,6 @@ class PipelineService:
 
         return [
             PipelineHistoryEntry(
-                id=h.id,
                 version=h.version,
                 change_summary=h.change_summary,
                 changed_by=h.changed_by,
@@ -776,7 +765,7 @@ class PipelineService:
         edges = history_entry.edges_json or []
 
         return PipelineResponse(
-            id=pipeline.id,
+            guid=pipeline.guid,
             name=pipeline.name,
             description=pipeline.description,
             nodes=[PipelineNode(**n) for n in nodes],
@@ -937,7 +926,7 @@ class PipelineService:
             total_pipelines=total,
             valid_pipelines=valid,
             active_pipeline_count=active_count,
-            default_pipeline_id=default.id if default else None,
+            default_pipeline_guid=default.guid if default else None,
             default_pipeline_name=default.name if default else None
         )
 
@@ -963,38 +952,25 @@ class PipelineService:
             raise NotFoundError("Pipeline", pipeline_id)
         return pipeline
 
-    def _get_pipeline_by_identifier(self, identifier: str) -> Tuple[Pipeline, bool]:
+    def _get_pipeline_by_guid(self, guid: str) -> Pipeline:
         """
-        Get pipeline by numeric ID or external ID.
-
-        Supports both numeric IDs (backward compatible) and external IDs
-        (new URL-safe format). Used internally by service methods.
+        Get pipeline by GUID.
 
         Args:
-            identifier: Numeric ID string (e.g., "123") or external ID (e.g., "pip_01hgw...")
+            guid: Pipeline GUID (e.g., "pip_01hgw...")
 
         Returns:
-            Tuple of (Pipeline model, is_numeric_id: bool)
-            - Pipeline model
-            - Boolean indicating if a numeric ID was used (for deprecation warnings)
+            Pipeline model
 
         Raises:
-            ValueError: If identifier format is invalid or prefix doesn't match "pip"
+            ValueError: If GUID format is invalid or prefix doesn't match "pip"
             NotFoundError: If pipeline doesn't exist
         """
-        id_type, value = ExternalIdService.parse_identifier(identifier, expected_prefix="pip")
-
-        if id_type == "numeric":
-            pipeline = self.db.query(Pipeline).filter(Pipeline.id == value).first()
-            if not pipeline:
-                raise NotFoundError("Pipeline", value)
-            return pipeline, True
-        else:
-            # External ID - value is a UUID
-            pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == value).first()
-            if not pipeline:
-                raise NotFoundError("Pipeline", identifier)
-            return pipeline, False
+        uuid_value = GuidService.parse_identifier(guid, expected_prefix="pip")
+        pipeline = self.db.query(Pipeline).filter(Pipeline.uuid == uuid_value).first()
+        if not pipeline:
+            raise NotFoundError("Pipeline", guid)
+        return pipeline
 
     def _convert_edges_to_json(
         self,
@@ -1045,8 +1021,7 @@ class PipelineService:
         ]
 
         return PipelineResponse(
-            id=pipeline.id,
-            external_id=pipeline.external_id,
+            guid=pipeline.guid,
             name=pipeline.name,
             description=pipeline.description,
             nodes=nodes,
@@ -1071,8 +1046,7 @@ class PipelineService:
             Pipeline summary schema
         """
         return PipelineSummary(
-            id=pipeline.id,
-            external_id=pipeline.external_id,
+            guid=pipeline.guid,
             name=pipeline.name,
             description=pipeline.description,
             version=pipeline.version,

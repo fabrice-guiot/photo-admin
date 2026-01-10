@@ -1,11 +1,11 @@
 """
-External ID mixin for SQLAlchemy models.
+GUID mixin for SQLAlchemy models.
 
-Provides UUID-based external identifiers for user-facing entities.
+Provides UUID-based Global Unique Identifiers for user-facing entities.
 Uses UUIDv7 (time-ordered) with Crockford's Base32 encoding for URL-safe,
 human-readable identifiers.
 
-External ID Format: {prefix}_{base32_uuid}
+GUID Format: {prefix}_{base32_uuid}
 Examples:
     - col_01HGW2BBG0000000000000000 (Collection)
     - con_01HGW2BBG0000000000000001 (Connector)
@@ -66,22 +66,22 @@ class UUIDType(TypeDecorator):
             return uuid_module.UUID(str(value))
 
 
-class ExternalIdMixin:
+class GuidMixin:
     """
-    Mixin providing external ID (UUID) support for entities.
+    Mixin providing GUID (Global Unique Identifier) support for entities.
 
     Adds:
     - uuid: Binary UUID column (UUIDv7, time-ordered)
-    - external_id: Property returning prefixed Base32 string
-    - parse_external_id: Class method to decode external ID strings
+    - guid: Property returning prefixed Base32 string
+    - parse_guid: Class method to decode GUID strings
 
     Usage:
-        class MyEntity(Base, ExternalIdMixin):
-            EXTERNAL_ID_PREFIX = "mye"
+        class MyEntity(Base, GuidMixin):
+            GUID_PREFIX = "mye"
             # ... other columns
 
         entity = MyEntity()
-        print(entity.external_id)  # mye_01HGW2BBG...
+        print(entity.guid)  # mye_01HGW2BBG...
 
     Entity Prefixes:
         - col: Collection
@@ -91,7 +91,7 @@ class ExternalIdMixin:
     """
 
     # Abstract: Subclasses must define their 3-character prefix
-    EXTERNAL_ID_PREFIX: ClassVar[str]
+    GUID_PREFIX: ClassVar[str]
 
     # UUID column definition using platform-agnostic UUIDType
     # PostgreSQL: Uses native UUID type
@@ -105,12 +105,12 @@ class ExternalIdMixin:
     )
 
     @property
-    def external_id(self) -> str:
+    def guid(self) -> str:
         """
-        Get the full external ID with prefix.
+        Get the full GUID with prefix.
 
         Returns:
-            External ID in format {prefix}_{base32_uuid}
+            GUID in format {prefix}_{base32_uuid}
             Example: col_01HGW2BBG0000000000000000
 
         Note:
@@ -131,38 +131,38 @@ class ExternalIdMixin:
         encoded = base32_crockford.encode(int.from_bytes(uuid_bytes, "big"))
         # Pad to 26 characters (full UUIDv7 encoding)
         encoded = encoded.zfill(26)
-        return f"{self.EXTERNAL_ID_PREFIX}_{encoded.lower()}"
+        return f"{self.GUID_PREFIX}_{encoded.lower()}"
 
     @classmethod
-    def parse_external_id(cls, external_id: str) -> uuid_module.UUID:
+    def parse_guid(cls, guid: str) -> uuid_module.UUID:
         """
-        Parse an external ID string to a UUID object.
+        Parse a GUID string to a UUID object.
 
         Args:
-            external_id: External ID string (e.g., "col_01HGW2BBG...")
+            guid: GUID string (e.g., "col_01HGW2BBG...")
 
         Returns:
             UUID object
 
         Raises:
-            ValueError: If the external ID format is invalid or prefix doesn't match
+            ValueError: If the GUID format is invalid or prefix doesn't match
         """
-        if not external_id:
-            raise ValueError("External ID cannot be empty")
+        if not guid:
+            raise ValueError("GUID cannot be empty")
 
-        expected_prefix = f"{cls.EXTERNAL_ID_PREFIX}_"
-        if not external_id.lower().startswith(expected_prefix.lower()):
+        expected_prefix = f"{cls.GUID_PREFIX}_"
+        if not guid.lower().startswith(expected_prefix.lower()):
             raise ValueError(
                 f"Invalid prefix for {cls.__name__}. "
-                f"Expected '{cls.EXTERNAL_ID_PREFIX}', got '{external_id.split('_')[0]}'"
+                f"Expected '{cls.GUID_PREFIX}', got '{guid.split('_')[0]}'"
             )
 
         # Extract the encoded part after the prefix
-        encoded_part = external_id[len(expected_prefix):]
+        encoded_part = guid[len(expected_prefix):]
 
         if len(encoded_part) != 26:
             raise ValueError(
-                f"Invalid external ID length. Expected 26 characters after prefix, "
+                f"Invalid GUID length. Expected 26 characters after prefix, "
                 f"got {len(encoded_part)}"
             )
 
@@ -172,17 +172,17 @@ class ExternalIdMixin:
             uuid_bytes = uuid_int.to_bytes(16, "big")
             return uuid_module.UUID(bytes=uuid_bytes)
         except (ValueError, OverflowError) as e:
-            raise ValueError(f"Invalid external ID encoding: {e}")
+            raise ValueError(f"Invalid GUID encoding: {e}")
 
     @classmethod
-    def get_uuid_from_external_id(cls, external_id: str) -> uuid_module.UUID:
+    def get_uuid_from_guid(cls, guid: str) -> uuid_module.UUID:
         """
-        Alias for parse_external_id for backward compatibility.
+        Alias for parse_guid for backward compatibility.
 
         Args:
-            external_id: External ID string
+            guid: GUID string
 
         Returns:
             UUID object
         """
-        return cls.parse_external_id(external_id)
+        return cls.parse_guid(guid)

@@ -53,35 +53,35 @@ class ToolRunRequest(BaseModel):
 
     Fields:
         tool: Tool to run (required)
-        collection_id: ID of the collection to analyze (required for collection mode)
-        pipeline_id: Pipeline ID (required for display_graph mode)
+        collection_guid: GUID of the collection to analyze (required for collection mode)
+        pipeline_guid: Pipeline GUID (required for display_graph mode)
         mode: Execution mode for pipeline_validation (optional, defaults to collection)
 
     Mode-specific requirements:
-        - PhotoStats/Photo Pairing: collection_id required, mode ignored
-        - Pipeline Validation (collection): collection_id required, pipeline resolved from collection
-        - Pipeline Validation (display_graph): pipeline_id required, no collection needed
+        - PhotoStats/Photo Pairing: collection_guid required, mode ignored
+        - Pipeline Validation (collection): collection_guid required, pipeline resolved from collection
+        - Pipeline Validation (display_graph): pipeline_guid required, no collection needed
 
     Example (PhotoStats):
-        >>> request = ToolRunRequest(collection_id=1, tool=ToolType.PHOTOSTATS)
+        >>> request = ToolRunRequest(collection_guid="col_xxx", tool=ToolType.PHOTOSTATS)
 
     Example (Pipeline Validation - display_graph):
         >>> request = ToolRunRequest(
         ...     tool=ToolType.PIPELINE_VALIDATION,
         ...     mode=ToolMode.DISPLAY_GRAPH,
-        ...     pipeline_id=1
+        ...     pipeline_guid="pip_xxx"
         ... )
     """
     tool: ToolType = Field(..., description="Tool to run")
-    collection_id: Optional[int] = Field(
+    collection_guid: Optional[str] = Field(
         None,
-        gt=0,
-        description="ID of the collection to analyze (required for collection mode)"
+        pattern=r"^col_[0-9a-hjkmnp-tv-z]{26}$",
+        description="GUID of the collection to analyze (col_xxx format, required for collection mode)"
     )
-    pipeline_id: Optional[int] = Field(
+    pipeline_guid: Optional[str] = Field(
         None,
-        gt=0,
-        description="Pipeline ID (required for display_graph mode)"
+        pattern=r"^pip_[0-9a-hjkmnp-tv-z]{26}$",
+        description="Pipeline GUID (pip_xxx format, required for display_graph mode)"
     )
     mode: Optional[ToolMode] = Field(
         None,
@@ -93,12 +93,12 @@ class ToolRunRequest(BaseModel):
             "examples": [
                 {
                     "tool": "photostats",
-                    "collection_id": 1
+                    "collection_guid": "col_01hgw2bbg0000000000000001"
                 },
                 {
                     "tool": "pipeline_validation",
                     "mode": "display_graph",
-                    "pipeline_id": 1
+                    "pipeline_guid": "pip_01hgw2bbg0000000000000001"
                 }
             ]
         }
@@ -132,13 +132,13 @@ class JobResponse(BaseModel):
     Job status response.
 
     Contains full job state including progress for running jobs
-    and result_id for completed jobs.
+    and result_guid for completed jobs.
     """
     id: UUID = Field(..., description="Unique job identifier")
-    collection_id: Optional[int] = Field(None, description="Collection being analyzed (null for display_graph)")
+    collection_guid: Optional[str] = Field(None, description="Collection GUID being analyzed (null for display_graph)")
     tool: ToolType = Field(..., description="Tool being run")
     mode: Optional[ToolMode] = Field(None, description="Execution mode (for pipeline_validation)")
-    pipeline_id: Optional[int] = Field(None, description="Pipeline ID if applicable")
+    pipeline_guid: Optional[str] = Field(None, description="Pipeline GUID if applicable")
     status: JobStatus = Field(..., description="Current job status")
     position: Optional[int] = Field(None, ge=1, description="Queue position if queued")
     created_at: datetime = Field(..., description="Job creation time")
@@ -146,14 +146,14 @@ class JobResponse(BaseModel):
     completed_at: Optional[datetime] = Field(None, description="Execution end time")
     progress: Optional[ProgressData] = Field(None, description="Progress data if running")
     error_message: Optional[str] = Field(None, description="Error details if failed")
-    result_id: Optional[int] = Field(None, description="Analysis result ID when completed")
+    result_guid: Optional[str] = Field(None, description="Analysis result GUID when completed")
 
     model_config = {
         "from_attributes": True,
         "json_schema_extra": {
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                "collection_id": 1,
+                "collection_guid": "col_01hgw2bbg0000000000000001",
                 "tool": "photostats",
                 "status": "running",
                 "created_at": "2024-01-15T10:30:00Z",
@@ -233,7 +233,7 @@ class RunAllToolsResponse(BaseModel):
                 "jobs": [
                     {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "collection_id": 1,
+                        "collection_guid": "col_01hgw2bbg0000000000000001",
                         "tool": "photostats",
                         "status": "queued",
                         "position": 1,

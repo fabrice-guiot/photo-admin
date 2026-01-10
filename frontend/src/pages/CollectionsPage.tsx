@@ -17,7 +17,7 @@ import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { CollectionList } from '../components/collections/CollectionList'
 import { FiltersSection } from '../components/collections/FiltersSection'
 import CollectionForm from '../components/collections/CollectionForm'
-import { ExternalIdBadge } from '@/components/ExternalIdBadge'
+import { GuidBadge } from '@/components/GuidBadge'
 import type { Collection, CollectionState, CollectionType } from '@/contracts/api/collection-api'
 
 export default function CollectionsPage() {
@@ -92,7 +92,7 @@ export default function CollectionsPage() {
     setFormError(null)
     try {
       if (editingCollection) {
-        await updateCollection(editingCollection.id, formData)
+        await updateCollection(editingCollection.guid, formData)
       } else {
         await createCollection(formData)
         // Refresh KPI stats after creating a new collection
@@ -105,7 +105,7 @@ export default function CollectionsPage() {
   }
 
   const handleDelete = (collection: Collection) => {
-    deleteCollection(collection.id, false)
+    deleteCollection(collection.guid, false)
       .then(() => {
         // Refresh KPI stats after deleting a collection
         refetchStats()
@@ -116,13 +116,13 @@ export default function CollectionsPage() {
   }
 
   const handleInfo = (collection: Collection) => {
-    testCollection(collection.id).catch(() => {
+    testCollection(collection.guid).catch(() => {
       // Error handled by hook
     })
   }
 
   const handleRefresh = (collection: Collection) => {
-    runAllTools(collection.id).catch(() => {
+    runAllTools(collection.guid).catch(() => {
       // Error handled by hook with toast notifications
     })
   }
@@ -178,7 +178,7 @@ export default function CollectionsPage() {
             {editingCollection && (
               <DialogDescription asChild>
                 <div className="pt-1">
-                  <ExternalIdBadge externalId={editingCollection.external_id} />
+                  <GuidBadge guid={editingCollection.guid} />
                 </div>
               </DialogDescription>
             )}

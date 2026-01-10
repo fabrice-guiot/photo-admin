@@ -1,10 +1,10 @@
 """
-Integration tests for external ID migration and UUID functionality.
+Integration tests for GUID migration and UUID functionality.
 
 Tests verify:
 - UUID columns are properly added to all entities
 - Existing records receive valid UUIDs
-- External ID generation works correctly
+- GUID generation works correctly
 - No data loss during migration
 """
 
@@ -12,17 +12,17 @@ import pytest
 from uuid import UUID
 
 
-class TestExternalIdMigration:
+class TestGuidMigration:
     """Integration tests for UUID migration - Issue #42"""
 
-    def test_collection_has_uuid_and_external_id(self, test_client):
+    def test_collection_has_uuid_and_guid(self, test_client):
         """
-        Test that created collections have UUID and external_id.
+        Test that created collections have UUID and guid.
 
         Verifies:
-        - Collection response includes external_id field
-        - External ID format is col_{26-char base32}
-        - External ID is unique per collection
+        - Collection response includes guid field
+        - GUID format is col_{26-char base32}
+        - GUID is unique per collection
         """
         # Create a collection
         collection_data = {
@@ -37,27 +37,27 @@ class TestExternalIdMigration:
 
         collection = response.json()
 
-        # Verify external_id exists and has correct format
-        assert "external_id" in collection
-        external_id = collection["external_id"]
-        assert external_id.startswith("col_")
-        assert len(external_id) == 30  # col_ + 26 chars
+        # Verify guid exists and has correct format
+        assert "guid" in collection
+        guid = collection["guid"]
+        assert guid.startswith("col_")
+        assert len(guid) == 30  # col_ + 26 chars
 
-        # Verify we can fetch by the external ID
-        fetch_response = test_client.get(f"/api/collections/{external_id}")
+        # Verify we can fetch by the GUID
+        fetch_response = test_client.get(f"/api/collections/{guid}")
         assert fetch_response.status_code == 200
-        assert fetch_response.json()["external_id"] == external_id
+        assert fetch_response.json()["guid"] == guid
 
         # Clean up
         test_client.delete(f"/api/collections/{collection['id']}")
 
-    def test_connector_has_uuid_and_external_id(self, test_client):
+    def test_connector_has_uuid_and_guid(self, test_client):
         """
-        Test that created connectors have UUID and external_id.
+        Test that created connectors have UUID and guid.
 
         Verifies:
-        - Connector response includes external_id field
-        - External ID format is con_{26-char base32}
+        - Connector response includes guid field
+        - GUID format is con_{26-char base32}
         """
         connector_data = {
             "name": "UUID Test Connector",
@@ -74,27 +74,27 @@ class TestExternalIdMigration:
 
         connector = response.json()
 
-        # Verify external_id exists and has correct format
-        assert "external_id" in connector
-        external_id = connector["external_id"]
-        assert external_id.startswith("con_")
-        assert len(external_id) == 30  # con_ + 26 chars
+        # Verify guid exists and has correct format
+        assert "guid" in connector
+        guid = connector["guid"]
+        assert guid.startswith("con_")
+        assert len(guid) == 30  # con_ + 26 chars
 
-        # Verify we can fetch by the external ID
-        fetch_response = test_client.get(f"/api/connectors/{external_id}")
+        # Verify we can fetch by the GUID
+        fetch_response = test_client.get(f"/api/connectors/{guid}")
         assert fetch_response.status_code == 200
-        assert fetch_response.json()["external_id"] == external_id
+        assert fetch_response.json()["guid"] == guid
 
         # Clean up
         test_client.delete(f"/api/connectors/{connector['id']}")
 
-    def test_pipeline_has_uuid_and_external_id(self, test_client):
+    def test_pipeline_has_uuid_and_guid(self, test_client):
         """
-        Test that created pipelines have UUID and external_id.
+        Test that created pipelines have UUID and guid.
 
         Verifies:
-        - Pipeline response includes external_id field
-        - External ID format is pip_{26-char base32}
+        - Pipeline response includes guid field
+        - GUID format is pip_{26-char base32}
         """
         pipeline_data = {
             "name": "UUID Test Pipeline",
@@ -113,27 +113,27 @@ class TestExternalIdMigration:
 
         pipeline = response.json()
 
-        # Verify external_id exists and has correct format
-        assert "external_id" in pipeline
-        external_id = pipeline["external_id"]
-        assert external_id.startswith("pip_")
-        assert len(external_id) == 30  # pip_ + 26 chars
+        # Verify guid exists and has correct format
+        assert "guid" in pipeline
+        guid = pipeline["guid"]
+        assert guid.startswith("pip_")
+        assert len(guid) == 30  # pip_ + 26 chars
 
-        # Verify we can fetch by the external ID
-        fetch_response = test_client.get(f"/api/pipelines/{external_id}")
+        # Verify we can fetch by the GUID
+        fetch_response = test_client.get(f"/api/pipelines/{guid}")
         assert fetch_response.status_code == 200
-        assert fetch_response.json()["external_id"] == external_id
+        assert fetch_response.json()["guid"] == guid
 
         # Clean up
         test_client.delete(f"/api/pipelines/{pipeline['id']}")
 
-    def test_external_ids_are_unique(self, test_client):
+    def test_guids_are_unique(self, test_client):
         """
-        Test that each entity gets a unique external ID.
+        Test that each entity gets a unique GUID.
 
-        Creates multiple entities and verifies all external IDs are distinct.
+        Creates multiple entities and verifies all GUIDs are distinct.
         """
-        external_ids = set()
+        guids = set()
 
         # Create multiple collections
         for i in range(3):
@@ -144,19 +144,19 @@ class TestExternalIdMigration:
                 "state": "live"
             })
             assert response.status_code == 201
-            external_ids.add(response.json()["external_id"])
+            guids.add(response.json()["guid"])
 
-        # All external IDs should be unique
-        assert len(external_ids) == 3
+        # All GUIDs should be unique
+        assert len(guids) == 3
 
         # Clean up
         for collection in test_client.get("/api/collections").json():
             if collection["name"].startswith("Unique Test Collection"):
                 test_client.delete(f"/api/collections/{collection['id']}")
 
-    def test_list_endpoint_includes_external_id(self, test_client):
+    def test_list_endpoint_includes_guid(self, test_client):
         """
-        Test that list endpoints include external_id for all items.
+        Test that list endpoints include guid for all items.
         """
         # Create a test collection
         test_client.post("/api/collections", json={
@@ -173,19 +173,19 @@ class TestExternalIdMigration:
         collections = response.json()
         assert len(collections) > 0
 
-        # Verify all collections have external_id
+        # Verify all collections have guid
         for collection in collections:
-            assert "external_id" in collection
-            assert collection["external_id"].startswith("col_")
+            assert "guid" in collection
+            assert collection["guid"].startswith("col_")
 
         # Clean up
         for collection in collections:
             if collection["name"] == "List Test Collection":
                 test_client.delete(f"/api/collections/{collection['id']}")
 
-    def test_external_id_case_insensitive_lookup(self, test_client):
+    def test_guid_case_insensitive_lookup(self, test_client):
         """
-        Test that external ID lookups are case-insensitive.
+        Test that GUID lookups are case-insensitive.
 
         Crockford Base32 is case-insensitive, so lookups should work
         regardless of case.
@@ -198,14 +198,14 @@ class TestExternalIdMigration:
             "state": "live"
         })
         collection = response.json()
-        external_id = collection["external_id"]
+        guid = collection["guid"]
 
         # Test uppercase lookup
-        upper_response = test_client.get(f"/api/collections/{external_id.upper()}")
+        upper_response = test_client.get(f"/api/collections/{guid.upper()}")
         assert upper_response.status_code == 200
 
         # Test mixed case lookup
-        mixed_id = external_id[:5] + external_id[5:].upper()
+        mixed_id = guid[:5] + guid[5:].upper()
         mixed_response = test_client.get(f"/api/collections/{mixed_id}")
         assert mixed_response.status_code == 200
 
@@ -213,12 +213,12 @@ class TestExternalIdMigration:
         test_client.delete(f"/api/collections/{collection['id']}")
 
 
-class TestExternalIdErrorHandling:
-    """Tests for external ID error handling - Issue #42"""
+class TestGuidErrorHandling:
+    """Tests for GUID error handling - Issue #42"""
 
-    def test_invalid_external_id_format_returns_400(self, test_client):
+    def test_invalid_guid_format_returns_400(self, test_client):
         """
-        Test that invalid external ID format returns 400.
+        Test that invalid GUID format returns 400.
         """
         invalid_ids = [
             "col_123",  # Too short
@@ -237,7 +237,7 @@ class TestExternalIdErrorHandling:
 
         E.g., using con_ prefix at /collections/ endpoint.
         """
-        # Create a connector to get a valid con_ external ID
+        # Create a connector to get a valid con_ GUID
         response = test_client.post("/api/connectors", json={
             "name": "Wrong Prefix Test Connector",
             "type": "s3",
@@ -248,11 +248,11 @@ class TestExternalIdErrorHandling:
             }
         })
         connector = response.json()
-        connector_external_id = connector["external_id"]
+        connector_guid = connector["guid"]
 
-        # Try to use connector's external ID at collections endpoint
+        # Try to use connector's GUID at collections endpoint
         wrong_prefix_response = test_client.get(
-            f"/api/collections/{connector_external_id}"
+            f"/api/collections/{connector_guid}"
         )
         # Should return 400 (prefix mismatch) or 404 (not found)
         assert wrong_prefix_response.status_code in [400, 404]
@@ -260,13 +260,13 @@ class TestExternalIdErrorHandling:
         # Clean up
         test_client.delete(f"/api/connectors/{connector['id']}")
 
-    def test_nonexistent_external_id_returns_404(self, test_client):
+    def test_nonexistent_guid_returns_404(self, test_client):
         """
-        Test that nonexistent external ID returns 404.
+        Test that nonexistent GUID returns 404.
         """
         # Valid format but doesn't exist
-        fake_external_id = "col_00000000000000000000000000"
-        response = test_client.get(f"/api/collections/{fake_external_id}")
+        fake_guid = "col_00000000000000000000000000"
+        response = test_client.get(f"/api/collections/{fake_guid}")
         assert response.status_code == 404
 
 
@@ -297,7 +297,7 @@ class TestBackwardCompatibility:
 
     def test_both_id_types_return_same_entity(self, test_client):
         """
-        Test that numeric and external IDs return the same entity.
+        Test that numeric and GUID types return the same entity.
         """
         # Create a collection
         response = test_client.post("/api/collections", json={
@@ -308,17 +308,17 @@ class TestBackwardCompatibility:
         })
         collection = response.json()
         numeric_id = collection["id"]
-        external_id = collection["external_id"]
+        guid = collection["guid"]
 
         # Fetch by both ID types
         numeric_response = test_client.get(f"/api/collections/{numeric_id}")
-        external_response = test_client.get(f"/api/collections/{external_id}")
+        external_response = test_client.get(f"/api/collections/{guid}")
 
         # Both should return the same entity
         assert numeric_response.status_code == 200
         assert external_response.status_code == 200
         assert numeric_response.json()["id"] == external_response.json()["id"]
-        assert numeric_response.json()["external_id"] == external_response.json()["external_id"]
+        assert numeric_response.json()["guid"] == external_response.json()["guid"]
 
         # Clean up
         test_client.delete(f"/api/collections/{numeric_id}")

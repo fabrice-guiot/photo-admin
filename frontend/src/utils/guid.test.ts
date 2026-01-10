@@ -1,8 +1,8 @@
 /**
- * Tests for external ID utilities.
+ * Tests for GUID utilities.
  *
  * Tests cover:
- * - External ID validation
+ * - GUID validation
  * - Entity type extraction
  * - Identifier type detection
  * - Format utilities
@@ -10,70 +10,70 @@
 
 import { describe, test, expect, vi } from 'vitest'
 import {
-  isValidExternalId,
+  isValidGuid,
   getEntityType,
   getPrefix,
   isNumericId,
-  isExternalId,
+  isGuid,
   getIdentifierType,
-  formatExternalId,
-  copyExternalId,
+  formatGuid,
+  copyGuid,
   ENTITY_PREFIXES,
-} from './externalId'
+} from './guid'
 
-describe('isValidExternalId', () => {
-  test('validates correct external IDs', () => {
-    expect(isValidExternalId('col_01234567890abcdefghjkmnpqr')).toBe(true)
-    expect(isValidExternalId('con_ABCDEFGHJKMNPQRSTVWXYZ0123')).toBe(true)
-    expect(isValidExternalId('pip_01hgw2bbg00000000000000002')).toBe(true) // 26 chars after prefix
-    expect(isValidExternalId('res_01HGW2BBG00000000000000003')).toBe(true) // 26 chars after prefix
+describe('isValidGuid', () => {
+  test('validates correct GUIDs', () => {
+    expect(isValidGuid('col_01234567890abcdefghjkmnpqr')).toBe(true)
+    expect(isValidGuid('con_ABCDEFGHJKMNPQRSTVWXYZ0123')).toBe(true)
+    expect(isValidGuid('pip_01hgw2bbg00000000000000002')).toBe(true) // 26 chars after prefix
+    expect(isValidGuid('res_01HGW2BBG00000000000000003')).toBe(true) // 26 chars after prefix
   })
 
   test('validates case-insensitively', () => {
-    expect(isValidExternalId('COL_01234567890ABCDEFGHJKMNPQR')).toBe(true)
-    expect(isValidExternalId('Col_01234567890abcdefghjkmnpqr')).toBe(true)
+    expect(isValidGuid('COL_01234567890ABCDEFGHJKMNPQR')).toBe(true)
+    expect(isValidGuid('Col_01234567890abcdefghjkmnpqr')).toBe(true)
   })
 
   test('validates with expected prefix', () => {
-    expect(isValidExternalId('col_01234567890abcdefghjkmnpqr', 'col')).toBe(true)
-    expect(isValidExternalId('col_01234567890abcdefghjkmnpqr', 'con')).toBe(false)
+    expect(isValidGuid('col_01234567890abcdefghjkmnpqr', 'col')).toBe(true)
+    expect(isValidGuid('col_01234567890abcdefghjkmnpqr', 'con')).toBe(false)
   })
 
-  test('rejects invalid external IDs', () => {
+  test('rejects invalid GUIDs', () => {
     // Empty or null
-    expect(isValidExternalId('')).toBe(false)
-    expect(isValidExternalId(null as any)).toBe(false)
-    expect(isValidExternalId(undefined as any)).toBe(false)
+    expect(isValidGuid('')).toBe(false)
+    expect(isValidGuid(null as any)).toBe(false)
+    expect(isValidGuid(undefined as any)).toBe(false)
 
     // Wrong prefix
-    expect(isValidExternalId('xxx_01234567890abcdefghjkmnpqr')).toBe(false)
+    expect(isValidGuid('xxx_01234567890abcdefghjkmnpqr')).toBe(false)
 
     // Too short
-    expect(isValidExternalId('col_123')).toBe(false)
+    expect(isValidGuid('col_123')).toBe(false)
 
     // Too long
-    expect(isValidExternalId('col_01234567890abcdefghjkmnpqrs')).toBe(false)
+    expect(isValidGuid('col_01234567890abcdefghjkmnpqrs')).toBe(false)
 
     // Wrong separator
-    expect(isValidExternalId('col-01234567890abcdefghjkmnpqr')).toBe(false)
+    expect(isValidGuid('col-01234567890abcdefghjkmnpqr')).toBe(false)
 
     // Contains invalid Crockford characters (I, L, O, U)
-    expect(isValidExternalId('col_IIIIIIIIIIIIIIIIIIIIIIIIII')).toBe(false)
-    expect(isValidExternalId('col_LLLLLLLLLLLLLLLLLLLLLLLLLL')).toBe(false)
-    expect(isValidExternalId('col_OOOOOOOOOOOOOOOOOOOOOOOOOO')).toBe(false)
-    expect(isValidExternalId('col_UUUUUUUUUUUUUUUUUUUUUUUUUU')).toBe(false)
+    expect(isValidGuid('col_IIIIIIIIIIIIIIIIIIIIIIIIII')).toBe(false)
+    expect(isValidGuid('col_LLLLLLLLLLLLLLLLLLLLLLLLLL')).toBe(false)
+    expect(isValidGuid('col_OOOOOOOOOOOOOOOOOOOOOOOOOO')).toBe(false)
+    expect(isValidGuid('col_UUUUUUUUUUUUUUUUUUUUUUUUUU')).toBe(false)
   })
 })
 
 describe('getEntityType', () => {
-  test('returns entity type for valid external IDs', () => {
+  test('returns entity type for valid GUIDs', () => {
     expect(getEntityType('col_01234567890abcdefghjkmnpqr')).toBe('Collection')
     expect(getEntityType('con_01234567890abcdefghjkmnpqr')).toBe('Connector')
     expect(getEntityType('pip_01234567890abcdefghjkmnpqr')).toBe('Pipeline')
     expect(getEntityType('res_01234567890abcdefghjkmnpqr')).toBe('AnalysisResult')
   })
 
-  test('returns null for invalid external IDs', () => {
+  test('returns null for invalid GUIDs', () => {
     expect(getEntityType('')).toBe(null)
     expect(getEntityType('xy')).toBe(null)
     expect(getEntityType('xyz_123')).toBe(null)
@@ -82,14 +82,14 @@ describe('getEntityType', () => {
 })
 
 describe('getPrefix', () => {
-  test('returns prefix for valid external IDs', () => {
+  test('returns prefix for valid GUIDs', () => {
     expect(getPrefix('col_01234567890abcdefghjkmnpqr')).toBe('col')
     expect(getPrefix('con_01234567890abcdefghjkmnpqr')).toBe('con')
     expect(getPrefix('pip_01234567890abcdefghjkmnpqr')).toBe('pip')
     expect(getPrefix('res_01234567890abcdefghjkmnpqr')).toBe('res')
   })
 
-  test('returns null for invalid external IDs', () => {
+  test('returns null for invalid GUIDs', () => {
     expect(getPrefix('')).toBe(null)
     expect(getPrefix('invalid')).toBe(null)
     expect(getPrefix('123')).toBe(null)
@@ -113,16 +113,16 @@ describe('isNumericId', () => {
   })
 })
 
-describe('isExternalId', () => {
-  test('identifies external IDs', () => {
-    expect(isExternalId('col_01234567890abcdefghjkmnpqr')).toBe(true)
-    expect(isExternalId('con_01234567890abcdefghjkmnpqr')).toBe(true)
+describe('isGuid', () => {
+  test('identifies GUIDs', () => {
+    expect(isGuid('col_01234567890abcdefghjkmnpqr')).toBe(true)
+    expect(isGuid('con_01234567890abcdefghjkmnpqr')).toBe(true)
   })
 
-  test('rejects non-external IDs', () => {
-    expect(isExternalId('123')).toBe(false)
-    expect(isExternalId('invalid')).toBe(false)
-    expect(isExternalId('')).toBe(false)
+  test('rejects non-GUIDs', () => {
+    expect(isGuid('123')).toBe(false)
+    expect(isGuid('invalid')).toBe(false)
+    expect(isGuid('')).toBe(false)
   })
 })
 
@@ -132,9 +132,9 @@ describe('getIdentifierType', () => {
     expect(getIdentifierType('999')).toBe('numeric')
   })
 
-  test('identifies external type', () => {
-    expect(getIdentifierType('col_01234567890abcdefghjkmnpqr')).toBe('external')
-    expect(getIdentifierType('con_01234567890abcdefghjkmnpqr')).toBe('external')
+  test('identifies guid type', () => {
+    expect(getIdentifierType('col_01234567890abcdefghjkmnpqr')).toBe('guid')
+    expect(getIdentifierType('con_01234567890abcdefghjkmnpqr')).toBe('guid')
   })
 
   test('identifies invalid type', () => {
@@ -144,31 +144,31 @@ describe('getIdentifierType', () => {
   })
 })
 
-describe('formatExternalId', () => {
+describe('formatGuid', () => {
   test('formats with prefix', () => {
-    const result = formatExternalId('col_01234567890abcdefghjkmnpqr')
+    const result = formatGuid('col_01234567890abcdefghjkmnpqr')
     expect(result).toBe('col_01234567...')
   })
 
   test('formats without prefix', () => {
-    const result = formatExternalId('col_01234567890abcdefghjkmnpqr', false)
+    const result = formatGuid('col_01234567890abcdefghjkmnpqr', false)
     expect(result).toBe('01234567...')
   })
 
   test('returns original for invalid ID', () => {
-    expect(formatExternalId('invalid')).toBe('invalid')
-    expect(formatExternalId('')).toBe('')
+    expect(formatGuid('invalid')).toBe('invalid')
+    expect(formatGuid('')).toBe('')
   })
 })
 
-describe('copyExternalId', () => {
+describe('copyGuid', () => {
   test('copies to clipboard using Clipboard API', async () => {
     const writeTextMock = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, {
       clipboard: { writeText: writeTextMock },
     })
 
-    await copyExternalId('col_01234567890abcdefghjkmnpqr')
+    await copyGuid('col_01234567890abcdefghjkmnpqr')
 
     expect(writeTextMock).toHaveBeenCalledWith('col_01234567890abcdefghjkmnpqr')
   })

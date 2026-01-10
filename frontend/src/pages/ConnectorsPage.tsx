@@ -19,7 +19,7 @@ import { useConnectors, useConnectorStats } from '../hooks/useConnectors'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { ConnectorList } from '../components/connectors/ConnectorList'
 import ConnectorForm from '../components/connectors/ConnectorForm'
-import { ExternalIdBadge } from '@/components/ExternalIdBadge'
+import { GuidBadge } from '@/components/GuidBadge'
 import type { Connector } from '@/contracts/api/connector-api'
 
 export default function ConnectorsPage() {
@@ -68,7 +68,7 @@ export default function ConnectorsPage() {
     setFormError(null)
     try {
       if (editingConnector) {
-        await updateConnector(editingConnector.id, formData)
+        await updateConnector(editingConnector.guid, formData)
       } else {
         await createConnector(formData)
         // Refresh KPI stats after creating a new connector
@@ -81,7 +81,7 @@ export default function ConnectorsPage() {
   }
 
   const handleDelete = (connector: Connector) => {
-    deleteConnector(connector.id)
+    deleteConnector(connector.guid)
       .then(() => {
         // Refresh KPI stats after deleting a connector
         refetchStats()
@@ -92,7 +92,7 @@ export default function ConnectorsPage() {
   }
 
   const handleTest = (connector: Connector) => {
-    testConnector(connector.id).catch(() => {
+    testConnector(connector.guid).catch(() => {
       // Error handled by hook
     })
   }
@@ -134,7 +134,7 @@ export default function ConnectorsPage() {
             {editingConnector && (
               <DialogDescription asChild>
                 <div className="pt-1">
-                  <ExternalIdBadge externalId={editingConnector.external_id} />
+                  <GuidBadge guid={editingConnector.guid} />
                 </div>
               </DialogDescription>
             )}

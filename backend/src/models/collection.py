@@ -20,7 +20,7 @@ from sqlalchemy import Column, Integer, BigInteger, String, DateTime, Enum, Text
 from sqlalchemy.orm import relationship
 
 from backend.src.models import Base
-from backend.src.models.mixins import ExternalIdMixin
+from backend.src.models.mixins import GuidMixin
 from backend.src.utils.cache import COLLECTION_STATE_TTL
 
 
@@ -54,7 +54,7 @@ class CollectionState(enum.Enum):
     ARCHIVED = "archived"
 
 
-class Collection(Base, ExternalIdMixin):
+class Collection(Base, GuidMixin):
     """
     Photo collection model.
 
@@ -63,8 +63,8 @@ class Collection(Base, ExternalIdMixin):
 
     Attributes:
         id: Primary key
-        uuid: UUIDv7 for external identification (inherited from ExternalIdMixin)
-        external_id: External ID string property (col_xxx, inherited from ExternalIdMixin)
+        uuid: UUIDv7 for external identification (inherited from GuidMixin)
+        guid: GUID string property (col_xxx, inherited from GuidMixin)
         connector_id: Foreign key to Connector (NULL for local, required for remote)
         pipeline_id: Foreign key to Pipeline (NULL = use default, SET NULL on delete)
         pipeline_version: Pinned pipeline version (NULL if using current/default)
@@ -100,7 +100,7 @@ class Collection(Base, ExternalIdMixin):
 
     Indexes:
         - name (unique)
-        - uuid (unique, for external ID lookups)
+        - uuid (unique, for GUID lookups)
         - state (for filtering by state)
         - type (for filtering by type)
         - is_accessible (for filtering accessible collections)
@@ -113,8 +113,8 @@ class Collection(Base, ExternalIdMixin):
 
     __tablename__ = "collections"
 
-    # External ID prefix for Collection entities
-    EXTERNAL_ID_PREFIX = "col"
+    # GUID prefix for Collection entities
+    GUID_PREFIX = "col"
 
     # Primary key
     id = Column(Integer, primary_key=True, autoincrement=True)

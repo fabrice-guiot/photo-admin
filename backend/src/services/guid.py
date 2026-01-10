@@ -1,10 +1,10 @@
 """
-External ID service for entity identification.
+GUID service for entity identification.
 
 Provides utilities for generating, encoding, decoding, and validating
-external identifiers used in URLs and API responses.
+Global Unique Identifiers used in URLs and API responses.
 
-External ID Format: {prefix}_{base32_uuid}
+GUID Format: {prefix}_{base32_uuid}
 - prefix: 3-character entity type identifier (col, con, pip, res)
 - base32_uuid: 26-character Crockford Base32 encoded UUIDv7
 """
@@ -26,24 +26,24 @@ ENTITY_PREFIXES = {
 # Crockford Base32 alphabet (excludes I, L, O, U to avoid confusion)
 CROCKFORD_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
-# Pattern for validating external IDs
+# Pattern for validating GUIDs
 # Format: {3-char prefix}_{26-char Crockford Base32}
-EXTERNAL_ID_PATTERN = re.compile(
+GUID_PATTERN = re.compile(
     r"^(col|con|pip|res)_[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$",
     re.IGNORECASE
 )
 
 
-class ExternalIdService:
+class GuidService:
     """
-    Service for external ID operations.
+    Service for GUID operations.
 
     Provides static methods for:
     - Generating new UUIDv7 values
-    - Encoding UUIDs to external ID strings
-    - Decoding external ID strings to UUIDs
-    - Validating external ID format
-    - Parsing identifiers (distinguishing external vs numeric IDs)
+    - Encoding UUIDs to GUID strings
+    - Decoding GUID strings to UUIDs
+    - Validating GUID format
+    - Parsing identifiers (distinguishing GUID vs numeric IDs)
     """
 
     @staticmethod
@@ -61,14 +61,14 @@ class ExternalIdService:
     @staticmethod
     def encode_uuid(uuid_value: uuid.UUID, prefix: str) -> str:
         """
-        Encode a UUID to an external ID string.
+        Encode a UUID to a GUID string.
 
         Args:
             uuid_value: UUID to encode
             prefix: Entity type prefix (col, con, pip, res)
 
         Returns:
-            External ID string (e.g., "col_01HGW2BBG...")
+            GUID string (e.g., "col_01HGW2BBG...")
 
         Raises:
             ValueError: If prefix is invalid
@@ -91,77 +91,77 @@ class ExternalIdService:
         return f"{prefix}_{encoded.lower()}"
 
     @staticmethod
-    def decode_external_id(external_id: str) -> tuple[str, uuid.UUID]:
+    def decode_guid(guid: str) -> tuple[str, uuid.UUID]:
         """
-        Decode an external ID string to its components.
+        Decode a GUID string to its components.
 
         Args:
-            external_id: External ID string (e.g., "col_01HGW2BBG...")
+            guid: GUID string (e.g., "col_01HGW2BBG...")
 
         Returns:
             Tuple of (prefix, UUID)
 
         Raises:
-            ValueError: If the external ID format is invalid
+            ValueError: If the GUID format is invalid
         """
-        if not external_id:
-            raise ValueError("External ID cannot be empty")
+        if not guid:
+            raise ValueError("GUID cannot be empty")
 
-        if not EXTERNAL_ID_PATTERN.match(external_id):
+        if not GUID_PATTERN.match(guid):
             raise ValueError(
-                f"Invalid external ID format: {external_id}. "
+                f"Invalid GUID format: {guid}. "
                 f"Expected format: {{prefix}}_{{26-char base32}}"
             )
 
-        prefix = external_id[:3].lower()
-        encoded_part = external_id[4:]  # Skip "xxx_"
+        prefix = guid[:3].lower()
+        encoded_part = guid[4:]  # Skip "xxx_"
 
         try:
             uuid_int = base32_crockford.decode(encoded_part.upper())
             uuid_bytes = uuid_int.to_bytes(16, "big")
             return prefix, uuid.UUID(bytes=uuid_bytes)
         except (ValueError, OverflowError) as e:
-            raise ValueError(f"Invalid external ID encoding: {e}")
+            raise ValueError(f"Invalid GUID encoding: {e}")
 
     @staticmethod
-    def validate_external_id(external_id: str, expected_prefix: str = None) -> bool:
+    def validate_guid(guid: str, expected_prefix: str = None) -> bool:
         """
-        Validate an external ID format.
+        Validate a GUID format.
 
         Args:
-            external_id: External ID string to validate
+            guid: GUID string to validate
             expected_prefix: Optional expected prefix for type checking
 
         Returns:
             True if valid, False otherwise
         """
-        if not external_id:
+        if not guid:
             return False
 
-        if not EXTERNAL_ID_PATTERN.match(external_id):
+        if not GUID_PATTERN.match(guid):
             return False
 
         if expected_prefix:
-            prefix = external_id[:3].lower()
+            prefix = guid[:3].lower()
             return prefix == expected_prefix.lower()
 
         return True
 
     @staticmethod
-    def get_entity_type(external_id: str) -> str | None:
+    def get_entity_type(guid: str) -> str | None:
         """
-        Get the entity type name from an external ID.
+        Get the entity type name from a GUID.
 
         Args:
-            external_id: External ID string
+            guid: GUID string
 
         Returns:
             Entity type name (Collection, Connector, etc.) or None if invalid
         """
-        if not external_id or len(external_id) < 3:
+        if not guid or len(guid) < 3:
             return None
 
-        prefix = external_id[:3].lower()
+        prefix = guid[:3].lower()
         return ENTITY_PREFIXES.get(prefix)
 
     @staticmethod
@@ -180,72 +180,73 @@ class ExternalIdService:
         return identifier.isdigit()
 
     @staticmethod
-    def is_external_id(identifier: str) -> bool:
+    def is_guid(identifier: str) -> bool:
         """
-        Check if an identifier is an external ID.
+        Check if an identifier is a GUID.
 
         Args:
             identifier: ID string to check
 
         Returns:
-            True if the identifier matches external ID format
+            True if the identifier matches GUID format
         """
-        return ExternalIdService.validate_external_id(identifier)
+        return GuidService.validate_guid(identifier)
 
     @staticmethod
-    def parse_identifier(identifier: str, expected_prefix: str = None) -> tuple[str, int | uuid.UUID]:
+    def parse_identifier(identifier: str, expected_prefix: str = None) -> uuid.UUID:
         """
-        Parse an identifier to determine its type and value.
+        Parse a GUID identifier and return the UUID.
 
-        This method handles both numeric IDs (backward compatibility) and
-        external IDs (new format). Useful for API endpoints that accept both.
+        Only accepts GUID format identifiers (numeric IDs are no longer supported).
 
         Args:
-            identifier: ID string (numeric or external)
-            expected_prefix: Expected prefix for external IDs (for validation)
+            identifier: GUID string (e.g., "col_01HGW2BBG...")
+            expected_prefix: Expected prefix for validation (col, con, pip, res)
 
         Returns:
-            Tuple of (id_type, value) where:
-            - id_type: "numeric" or "external"
-            - value: int for numeric, UUID for external
+            UUID object extracted from the GUID
 
         Raises:
-            ValueError: If the identifier format is invalid
+            ValueError: If the identifier format is invalid or prefix doesn't match
         """
         if not identifier:
             raise ValueError("Identifier cannot be empty")
 
-        # Check if numeric ID
-        if identifier.isdigit():
-            return ("numeric", int(identifier))
-
-        # Check if external ID
-        if EXTERNAL_ID_PATTERN.match(identifier):
+        # Check if GUID
+        if GUID_PATTERN.match(identifier):
             if expected_prefix:
                 prefix = identifier[:3].lower()
                 if prefix != expected_prefix.lower():
                     raise ValueError(
-                        f"External ID prefix mismatch. "
+                        f"GUID prefix mismatch. "
                         f"Expected '{expected_prefix}', got '{prefix}'"
                     )
 
-            prefix, uuid_value = ExternalIdService.decode_external_id(identifier)
-            return ("external", uuid_value)
+            _prefix, uuid_value = GuidService.decode_guid(identifier)
+            return uuid_value
+
+        # Provide helpful error for numeric IDs
+        if identifier.isdigit():
+            raise ValueError(
+                f"Numeric IDs are no longer supported. "
+                f"Please use GUID format ({{prefix}}_{{base32}})"
+            )
 
         raise ValueError(
             f"Invalid identifier format: {identifier}. "
-            f"Expected numeric ID or external ID ({{prefix}}_{{base32}})"
+            f"Expected GUID format ({{prefix}}_{{base32}})"
         )
 
     @staticmethod
-    def parse_external_id(external_id: str, expected_prefix: str) -> uuid.UUID:
+    def parse_guid(guid: str, expected_prefix: str) -> uuid.UUID:
         """
-        Parse an external ID string to UUID, validating the prefix.
+        Parse a GUID string to UUID, validating the prefix.
 
         Convenience method for service layer lookups.
+        Alias for parse_identifier with required prefix.
 
         Args:
-            external_id: External ID string
+            guid: GUID string
             expected_prefix: Expected entity prefix
 
         Returns:
@@ -254,11 +255,8 @@ class ExternalIdService:
         Raises:
             ValueError: If format invalid or prefix doesn't match
         """
-        id_type, value = ExternalIdService.parse_identifier(
-            external_id, expected_prefix
-        )
+        return GuidService.parse_identifier(guid, expected_prefix)
 
-        if id_type != "external":
-            raise ValueError(f"Expected external ID, got numeric: {external_id}")
 
-        return value
+# Backward compatibility alias
+ExternalIdService = GuidService

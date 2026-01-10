@@ -10,8 +10,7 @@ import type { CollectionFormData } from '@/types/schemas/collection'
 describe('CollectionForm', () => {
   const mockConnectors: Connector[] = [
     {
-      id: 1,
-      external_id: 'con_01hgw2bbg0000000000000001',
+      guid: 'con_01hgw2bbg0000000000000001',
       name: 'S3 Connector 1',
       type: 's3',
       is_active: true,
@@ -20,8 +19,7 @@ describe('CollectionForm', () => {
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
-      id: 2,
-      external_id: 'con_01hgw2bbg0000000000000002',
+      guid: 'con_01hgw2bbg0000000000000002',
       name: 'S3 Connector 2',
       type: 's3',
       is_active: true,
@@ -30,8 +28,7 @@ describe('CollectionForm', () => {
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
-      id: 3,
-      external_id: 'con_01hgw2bbg0000000000000003',
+      guid: 'con_01hgw2bbg0000000000000003',
       name: 'GCS Connector',
       type: 'gcs',
       is_active: true,
@@ -40,8 +37,7 @@ describe('CollectionForm', () => {
       updated_at: '2025-01-01T09:00:00Z',
     },
     {
-      id: 4,
-      external_id: 'con_01hgw2bbg0000000000000004',
+      guid: 'con_01hgw2bbg0000000000000004',
       name: 'Inactive S3',
       type: 's3',
       is_active: false,
@@ -129,14 +125,13 @@ describe('CollectionForm', () => {
 
   it('should show Update button when editing existing collection', () => {
     const existingCollection: Collection = {
-      id: 1,
-      external_id: 'col_01hgw2bbg0000000000000001',
+      guid: 'col_01hgw2bbg0000000000000001',
       name: 'Existing Collection',
       type: 'local',
       location: '/photos',
       state: 'live',
-      connector_id: null,
-      pipeline_id: null,
+      connector_guid: null,
+      pipeline_guid: null,
       pipeline_version: null,
       pipeline_name: null,
       cache_ttl: null,

@@ -78,8 +78,9 @@ export const getGlobalJobsWebSocketUrl = (): string => {
 /**
  * Run all analysis tools on a collection
  * Queues photostats and photo_pairing tools for execution
+ * @param collectionGuid - External ID (col_xxx format)
  */
-export const runAllTools = async (collectionId: number): Promise<RunAllToolsResponse> => {
-  const response = await api.post<RunAllToolsResponse>(`/tools/run-all/${collectionId}`)
+export const runAllTools = async (collectionGuid: string): Promise<RunAllToolsResponse> => {
+  const response = await api.post<RunAllToolsResponse>(`/tools/run-all/${collectionGuid}`)
   return response.data
 }
