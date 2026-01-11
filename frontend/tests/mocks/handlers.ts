@@ -298,7 +298,7 @@ let categories: Category[] = [
     name: 'Airshow',
     icon: 'plane',
     color: '#3B82F6',
-    sort_order: 0,
+    display_order: 0,
     is_active: true,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
@@ -308,7 +308,7 @@ let categories: Category[] = [
     name: 'Wildlife',
     icon: 'bird',
     color: '#22C55E',
-    sort_order: 1,
+    display_order: 1,
     is_active: true,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
@@ -318,7 +318,7 @@ let categories: Category[] = [
     name: 'Wedding',
     icon: 'heart',
     color: '#EC4899',
-    sort_order: 2,
+    display_order: 2,
     is_active: false,
     created_at: '2025-01-01T09:00:00Z',
     updated_at: '2025-01-01T09:00:00Z',
@@ -1716,8 +1716,8 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
       filteredCategories = filteredCategories.filter((c) => c.is_active === (isActive === 'true'))
     }
 
-    // Sort by sort_order
-    filteredCategories.sort((a, b) => a.sort_order - b.sort_order)
+    // Sort by display_order
+    filteredCategories.sort((a, b) => a.display_order - b.display_order)
 
     return HttpResponse.json(filteredCategories)
   }),
@@ -1758,7 +1758,7 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
       name: data.name,
       icon: data.icon ?? null,
       color: data.color ?? null,
-      sort_order: categories.length,
+      display_order: categories.length,
       is_active: data.is_active ?? true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1813,7 +1813,7 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
     data.ordered_guids.forEach((guid, index) => {
       const category = categories.find((c) => c.guid === guid)
       if (category) {
-        category.sort_order = index
+        category.display_order = index
         category.updated_at = new Date().toISOString()
         reorderedCategories.push(category)
       }
@@ -1822,7 +1822,7 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
     // Add any categories not in the list at the end
     categories.forEach((c) => {
       if (!data.ordered_guids.includes(c.guid)) {
-        c.sort_order = reorderedCategories.length
+        c.display_order = reorderedCategories.length
         reorderedCategories.push(c)
       }
     })
@@ -2105,7 +2105,7 @@ export function resetMockData(): void {
       name: 'Airshow',
       icon: 'plane',
       color: '#3B82F6',
-      sort_order: 0,
+      display_order: 0,
       is_active: true,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
@@ -2115,7 +2115,7 @@ export function resetMockData(): void {
       name: 'Wildlife',
       icon: 'bird',
       color: '#22C55E',
-      sort_order: 1,
+      display_order: 1,
       is_active: true,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
@@ -2125,7 +2125,7 @@ export function resetMockData(): void {
       name: 'Wedding',
       icon: 'heart',
       color: '#EC4899',
-      sort_order: 2,
+      display_order: 2,
       is_active: false,
       created_at: '2025-01-01T09:00:00Z',
       updated_at: '2025-01-01T09:00:00Z',
