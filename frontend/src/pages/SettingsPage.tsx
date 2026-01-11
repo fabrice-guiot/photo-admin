@@ -13,6 +13,7 @@ import { Settings, Plug, Cog, Tag } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConnectorsTab } from '@/components/settings/ConnectorsTab'
 import { ConfigTab } from '@/components/settings/ConfigTab'
+import { CategoriesTab } from '@/components/settings/CategoriesTab'
 
 // Tab configuration - order: Config, Categories, Connectors
 const TABS = [
@@ -36,20 +37,6 @@ const TABS = [
 type TabId = typeof TABS[number]['id']
 
 const DEFAULT_TAB: TabId = 'config'
-
-// Placeholder component for Categories tab (not yet implemented)
-function CategoriesPlaceholder() {
-  return (
-    <div className="flex h-64 items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-xl font-semibold text-foreground mb-2">Categories</h2>
-        <p className="text-muted-foreground max-w-md">
-          Manage event categories. Categories will be implemented in Phase 3.
-        </p>
-      </div>
-    </div>
-  )
-}
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -104,7 +91,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="categories" className="mt-6">
-          <CategoriesPlaceholder />
+          <CategoriesTab />
         </TabsContent>
 
         <TabsContent value="connectors" className="mt-6">

@@ -21,6 +21,12 @@ import type {
   ConfigCategory,
   ConfigItem
 } from '@/contracts/api/config-api'
+import type {
+  Category,
+  CategoryCreateRequest,
+  CategoryUpdateRequest,
+  CategoryStatsResponse
+} from '@/contracts/api/category-api'
 
 // Mock data
 let jobs: JobResponse[] = []
@@ -284,6 +290,41 @@ let collections: Collection[] = [
 
 let nextConnectorId = 3
 let nextCollectionId = 3
+
+// Category mock data
+let categories: Category[] = [
+  {
+    guid: 'cat_01hgw2bbg00000000000000001',
+    name: 'Airshow',
+    icon: 'plane',
+    color: '#3B82F6',
+    sort_order: 0,
+    is_active: true,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+  {
+    guid: 'cat_01hgw2bbg00000000000000002',
+    name: 'Wildlife',
+    icon: 'bird',
+    color: '#22C55E',
+    sort_order: 1,
+    is_active: true,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+  {
+    guid: 'cat_01hgw2bbg00000000000000003',
+    name: 'Wedding',
+    icon: 'heart',
+    color: '#EC4899',
+    sort_order: 2,
+    is_active: false,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+]
+let nextCategoryNum = 4
 
 // Config mock data
 let configData = {
@@ -1661,6 +1702,134 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
 
     return HttpResponse.json({ message: 'Configuration deleted successfully' })
   }),
+
+  // ============================================================================
+  // Categories API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/categories`, ({ request }) => {
+    const url = new URL(request.url)
+    const isActive = url.searchParams.get('is_active')
+
+    let filteredCategories = [...categories]
+    if (isActive !== null) {
+      filteredCategories = filteredCategories.filter((c) => c.is_active === (isActive === 'true'))
+    }
+
+    // Sort by sort_order
+    filteredCategories.sort((a, b) => a.sort_order - b.sort_order)
+
+    return HttpResponse.json(filteredCategories)
+  }),
+
+  http.get(`${BASE_URL}/categories/stats`, () => {
+    const stats: CategoryStatsResponse = {
+      total_count: categories.length,
+      active_count: categories.filter((c) => c.is_active).length,
+      inactive_count: categories.filter((c) => !c.is_active).length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/categories/:guid`, ({ params }) => {
+    const category = categories.find((c) => c.guid === params.guid)
+    if (!category) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    return HttpResponse.json(category)
+  }),
+
+  http.post(`${BASE_URL}/categories`, async ({ request }) => {
+    const data = await request.json() as CategoryCreateRequest
+
+    // Check for duplicate name
+    if (categories.some((c) => c.name.toLowerCase() === data.name.toLowerCase())) {
+      return HttpResponse.json(
+        { detail: `Category with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    const newCategory: Category = {
+      guid: `cat_01hgw2bbg000000000000000${nextCategoryNum++}`,
+      name: data.name,
+      icon: data.icon ?? null,
+      color: data.color ?? null,
+      sort_order: categories.length,
+      is_active: data.is_active ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    categories.push(newCategory)
+    return HttpResponse.json(newCategory, { status: 201 })
+  }),
+
+  http.patch(`${BASE_URL}/categories/:guid`, async ({ params, request }) => {
+    const data = await request.json() as CategoryUpdateRequest
+    const index = categories.findIndex((c) => c.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // Check for duplicate name (excluding current category)
+    if (data.name && categories.some((c) => c.name.toLowerCase() === data.name!.toLowerCase() && c.guid !== params.guid)) {
+      return HttpResponse.json(
+        { detail: `Category with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    categories[index] = {
+      ...categories[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(categories[index])
+  }),
+
+  http.delete(`${BASE_URL}/categories/:guid`, ({ params }) => {
+    const index = categories.findIndex((c) => c.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    categories.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post(`${BASE_URL}/categories/reorder`, async ({ request }) => {
+    const data = await request.json() as { ordered_guids: string[] }
+
+    // Reorder categories based on the provided order
+    const reorderedCategories: Category[] = []
+    data.ordered_guids.forEach((guid, index) => {
+      const category = categories.find((c) => c.guid === guid)
+      if (category) {
+        category.sort_order = index
+        category.updated_at = new Date().toISOString()
+        reorderedCategories.push(category)
+      }
+    })
+
+    // Add any categories not in the list at the end
+    categories.forEach((c) => {
+      if (!data.ordered_guids.includes(c.guid)) {
+        c.sort_order = reorderedCategories.length
+        reorderedCategories.push(c)
+      }
+    })
+
+    categories = reorderedCategories
+    return HttpResponse.json(categories)
+  }),
 ]
 
 // Helper to reset mock data (useful for tests)
@@ -1929,4 +2098,38 @@ export function resetMockData(): void {
     importSessions: {},
     lastImport: null,
   }
+  // Reset categories
+  categories = [
+    {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+      sort_order: 0,
+      is_active: true,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+      sort_order: 1,
+      is_active: true,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      guid: 'cat_01hgw2bbg00000000000000003',
+      name: 'Wedding',
+      icon: 'heart',
+      color: '#EC4899',
+      sort_order: 2,
+      is_active: false,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+  ]
+  nextCategoryNum = 4
 }

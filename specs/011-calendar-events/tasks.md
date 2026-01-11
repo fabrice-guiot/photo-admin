@@ -86,14 +86,14 @@
 
 ### Implementation for User Story 9
 
-- [ ] T029 [US9] Implement Categories API endpoints in backend/src/api/categories.py (list, create, get, update, delete, reorder)
-- [ ] T030 [US9] Register categories router in backend/src/main.py
-- [ ] T030a [P] [US9] Write API integration tests for Categories endpoints in backend/tests/integration/test_categories_api.py
-- [ ] T031 [P] [US9] Create category API service in frontend/src/services/categories.ts
-- [ ] T032 [P] [US9] Create useCategories hook in frontend/src/hooks/useCategories.ts
-- [ ] T033 [US9] Create CategoriesTab component in frontend/src/components/settings/CategoriesTab.tsx
-- [ ] T034 [US9] Create CategoryForm dialog component in frontend/src/components/settings/CategoryForm.tsx
-- [ ] T035 [US9] Wire CategoriesTab into SettingsPage.tsx
+- [x] T029 [US9] Implement Categories API endpoints in backend/src/api/categories.py (list, create, get, update, delete, reorder)
+- [x] T030 [US9] Register categories router in backend/src/main.py
+- [x] T030a [P] [US9] Write API integration tests for Categories endpoints in backend/tests/integration/test_categories_api.py
+- [x] T031 [P] [US9] Create category API service in frontend/src/services/categories.ts
+- [x] T032 [P] [US9] Create useCategories hook in frontend/src/hooks/useCategories.ts
+- [x] T033 [US9] Create CategoriesTab component in frontend/src/components/settings/CategoriesTab.tsx
+- [x] T034 [US9] Create CategoryForm dialog component in frontend/src/components/settings/CategoryForm.tsx
+- [x] T035 [US9] Wire CategoriesTab into SettingsPage.tsx
 
 **Checkpoint**: Categories system is complete and usable
 

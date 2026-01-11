@@ -137,12 +137,13 @@ class CategoryService:
             raise NotFoundError("Category", guid)
 
         # Extract UUID from GUID
-        uuid = GuidService.guid_to_uuid(guid)
-        if uuid is None:
+        try:
+            uuid_value = GuidService.parse_guid(guid, "cat")
+        except ValueError:
             raise NotFoundError("Category", guid)
 
         category = (
-            self.db.query(Category).filter(Category.uuid == uuid).first()
+            self.db.query(Category).filter(Category.uuid == uuid_value).first()
         )
         if not category:
             raise NotFoundError("Category", guid)

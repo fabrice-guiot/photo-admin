@@ -280,7 +280,7 @@ describe('Routing Integration - T028a', () => {
       })
     })
 
-    it('shows categories placeholder when categories tab is active', async () => {
+    it('shows categories content when categories tab is active', async () => {
       renderWithRouter(
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
@@ -289,7 +289,7 @@ describe('Routing Integration - T028a', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText(/manage event categories/i)).toBeInTheDocument()
+        expect(screen.getByText('Event Categories')).toBeInTheDocument()
       })
     })
 
