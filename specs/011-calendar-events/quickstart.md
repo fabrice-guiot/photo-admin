@@ -144,15 +144,34 @@ curl -X POST http://localhost:8000/api/locations/geocode \
 }
 ```
 
-## Frontend Pages
+## Frontend Navigation
+
+### Sidebar Structure
+```
+Dashboard
+Collections
+Pipelines
+Events                    # NEW - Calendar view
+Directory                 # NEW - Tabbed page
+  ├── Locations (tab)
+  ├── Organizers (tab)
+  └── Performers (tab)
+Analytics                 # Existing
+Settings                  # NEW - Tabbed page
+  └── Categories (tab)
+```
+
+### Routes
 
 | Page | Route | Description |
 |------|-------|-------------|
 | Events | `/events` | Calendar view with TopHeader KPIs |
-| Locations | `/locations` | Manage known locations |
-| Organizers | `/organizers` | Manage event organizers |
-| Performers | `/performers` | Manage performers |
-| Categories | `/settings/categories` | Manage event categories |
+| Directory | `/directory` | Tabbed page for Locations, Organizers, Performers |
+| Directory/Locations | `/directory?tab=locations` | Manage known locations |
+| Directory/Organizers | `/directory?tab=organizers` | Manage event organizers |
+| Directory/Performers | `/directory?tab=performers` | Manage performers |
+| Settings | `/settings` | Tabbed settings page |
+| Settings/Categories | `/settings?tab=categories` | Manage event categories |
 
 ## Key Components
 
@@ -163,10 +182,13 @@ curl -X POST http://localhost:8000/api/locations/geocode \
 - `backend/src/api/events.py` - Event API router
 
 ### Frontend
+- `frontend/src/pages/EventsPage.tsx` - Calendar page with TopHeader KPIs
+- `frontend/src/pages/DirectoryPage.tsx` - Tabbed page (Locations | Organizers | Performers)
+- `frontend/src/pages/SettingsPage.tsx` - Tabbed settings (Categories + future tabs)
 - `frontend/src/components/events/EventCalendar.tsx` - Month view calendar
+- `frontend/src/components/directory/LocationsTab.tsx` - Locations management
 - `frontend/src/hooks/useEvents.ts` - Events CRUD hook
 - `frontend/src/hooks/useEventStats.ts` - TopHeader KPIs
-- `frontend/src/pages/EventsPage.tsx` - Main events page
 
 ## Attendance Status Colors
 

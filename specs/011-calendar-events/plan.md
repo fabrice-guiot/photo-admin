@@ -59,6 +59,66 @@ Verify compliance with `.specify/memory/constitution.md`:
 
 **Violations/Exceptions**: None identified. Feature follows all constitution principles.
 
+## Navigation Structure
+
+This feature introduces new sidebar entries and reorganizes existing ones to prevent menu sprawl.
+
+### Proposed Sidebar Structure
+
+```
+Dashboard
+Collections
+Pipelines
+Events                    # NEW - Calendar view
+Directory                 # NEW - Tabbed page
+  ├── Locations (tab)
+  ├── Organizers (tab)
+  └── Performers (tab)
+Analytics                 # Existing - already tabbed
+  ├── Trends (tab)
+  ├── Reports (tab)
+  └── Runs (tab)
+Settings                  # NEW section - consolidates config
+  ├── Categories (tab)    # NEW - event categories
+  ├── Connectors (tab)    # MOVE from top-level (future)
+  └── Config (tab)        # MOVE from top-level (future)
+```
+
+### Implementation Notes
+
+| Item | Route | Implementation |
+|------|-------|----------------|
+| Events | `/events` | New page - EventsPage.tsx |
+| Directory | `/directory` | New tabbed page - DirectoryPage.tsx |
+| Directory/Locations | `/directory?tab=locations` | Tab within DirectoryPage |
+| Directory/Organizers | `/directory?tab=organizers` | Tab within DirectoryPage |
+| Directory/Performers | `/directory?tab=performers` | Tab within DirectoryPage |
+| Settings | `/settings` | New tabbed page - SettingsPage.tsx |
+| Settings/Categories | `/settings?tab=categories` | Tab within SettingsPage |
+
+### Future Refactoring (Out of Scope)
+
+The following moves are recommended but **not part of this feature**:
+- Move Connectors from `/connectors` to `/settings?tab=connectors`
+- Move Config from `/config` to `/settings?tab=config`
+- Future additions: Cameras, Equipment under Settings
+
+### Tab Pattern
+
+Follow the existing Analytics page pattern using Radix UI Tabs:
+```tsx
+<Tabs defaultValue="locations">
+  <TabsList>
+    <TabsTrigger value="locations">Locations</TabsTrigger>
+    <TabsTrigger value="organizers">Organizers</TabsTrigger>
+    <TabsTrigger value="performers">Performers</TabsTrigger>
+  </TabsList>
+  <TabsContent value="locations"><LocationsTab /></TabsContent>
+  <TabsContent value="organizers"><OrganizersTab /></TabsContent>
+  <TabsContent value="performers"><PerformersTab /></TabsContent>
+</Tabs>
+```
+
 ## Project Structure
 
 ### Documentation (this feature)
@@ -127,18 +187,20 @@ frontend/
 │   │   │   ├── EventDetails.tsx       # Event detail view/tooltip
 │   │   │   ├── LogisticsSection.tsx   # Ticket/travel/time-off tracking
 │   │   │   └── SeriesIndicator.tsx    # "x/n" notation display
-│   │   ├── locations/
-│   │   │   ├── LocationForm.tsx
-│   │   │   └── LocationPicker.tsx     # Address resolution UI
-│   │   ├── organizers/
-│   │   │   └── OrganizerForm.tsx
-│   │   └── performers/
-│   │       └── PerformerForm.tsx
+│   │   ├── directory/
+│   │   │   ├── LocationsTab.tsx       # Locations list and management
+│   │   │   ├── LocationForm.tsx       # Create/edit location dialog
+│   │   │   ├── LocationPicker.tsx     # Address resolution UI
+│   │   │   ├── OrganizersTab.tsx      # Organizers list and management
+│   │   │   ├── OrganizerForm.tsx      # Create/edit organizer dialog
+│   │   │   ├── PerformersTab.tsx      # Performers list and management
+│   │   │   └── PerformerForm.tsx      # Create/edit performer dialog
+│   │   └── settings/
+│   │       └── CategoriesTab.tsx      # Categories list and management
 │   ├── pages/
 │   │   ├── EventsPage.tsx             # Calendar page with TopHeader KPIs
-│   │   ├── LocationsPage.tsx          # Manage known locations
-│   │   ├── OrganizersPage.tsx
-│   │   └── PerformersPage.tsx
+│   │   ├── DirectoryPage.tsx          # Tabbed: Locations | Organizers | Performers
+│   │   └── SettingsPage.tsx           # Tabbed: Categories (+ future tabs)
 │   ├── hooks/
 │   │   ├── useEvents.ts               # Events CRUD hook
 │   │   ├── useEventStats.ts           # KPI stats hook
