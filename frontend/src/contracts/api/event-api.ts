@@ -168,6 +168,10 @@ export interface EventSeriesCreateRequest {
   ticket_required?: boolean
   timeoff_required?: boolean
   travel_required?: boolean
+
+  // Initial status/attendance for all events in series
+  status?: EventStatus
+  attendance?: AttendanceStatus
 }
 
 export interface EventUpdateRequest {

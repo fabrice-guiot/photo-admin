@@ -197,6 +197,8 @@ export const EventForm = ({
         ticket_required: false,
         timeoff_required: false,
         travel_required: false,
+        status: values.status,
+        attendance: values.attendance,
       }
 
       if (onSubmitSeries) {
@@ -461,9 +463,8 @@ export const EventForm = ({
           </div>
         )}
 
-        {/* Status and Attendance (only for single events, not series creation) */}
-        {(mode === 'single' || isEditMode) && (
-          <div className="grid grid-cols-2 gap-4">
+        {/* Status and Attendance */}
+        <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="status"
@@ -510,8 +511,7 @@ export const EventForm = ({
                 </FormItem>
               )}
             />
-          </div>
-        )}
+        </div>
 
         {/* Form Actions */}
         <div className="flex justify-end gap-2 pt-4">

@@ -186,6 +186,10 @@ class EventSeriesCreate(BaseModel):
     timeoff_required: bool = Field(default=False)
     travel_required: bool = Field(default=False)
 
+    # Initial status/attendance for all events in series
+    status: EventStatus = Field(default=EventStatus.FUTURE)
+    attendance: AttendanceStatus = Field(default=AttendanceStatus.PLANNED)
+
     @field_validator("title")
     @classmethod
     def validate_title_not_whitespace(cls, v: str) -> str:

@@ -622,6 +622,8 @@ class EventService:
         ticket_required: bool = False,
         timeoff_required: bool = False,
         travel_required: bool = False,
+        status: str = "future",
+        attendance: str = "planned",
     ) -> EventSeries:
         """
         Create a new event series with individual events.
@@ -640,6 +642,8 @@ class EventService:
             ticket_required: Default ticket requirement
             timeoff_required: Default time-off requirement
             travel_required: Default travel requirement
+            status: Initial status for all events (default: future)
+            attendance: Initial attendance for all events (default: planned)
 
         Returns:
             Created EventSeries instance with events
@@ -694,8 +698,8 @@ class EventService:
                 end_time=end_time,
                 is_all_day=is_all_day,
                 input_timezone=input_timezone,
-                status="future",
-                attendance="planned",
+                status=status,
+                attendance=attendance,
                 # Logistics inherit from series
                 ticket_required=None,
                 timeoff_required=None,
