@@ -27,8 +27,8 @@
 
 **Purpose**: Verify existing infrastructure and prepare for changes
 
-- [ ] T001 Audit current design tokens in `frontend/src/globals.css` to confirm all needed tokens exist
-- [ ] T002 [P] Run grep search for hardcoded colors in `frontend/src/components/` to establish baseline of violations
+- [X] T001 Audit current design tokens in `frontend/src/globals.css` to confirm all needed tokens exist
+- [X] T002 [P] Run grep search for hardcoded colors in `frontend/src/components/` to establish baseline of violations
 
 ---
 
@@ -38,9 +38,9 @@
 
 **⚠️ CRITICAL**: Scrollbar and base token work must complete before story-specific implementations
 
-- [ ] T003 Add scrollbar design tokens to `:root` in `frontend/src/globals.css` (--scrollbar-thumb, --scrollbar-track)
-- [ ] T004 Add success/info color tokens to `:root` in `frontend/src/globals.css` if not already present (--success, --success-foreground, --info, --info-foreground)
-- [ ] T005 Create error components directory structure at `frontend/src/components/error/`
+- [X] T003 Add scrollbar design tokens to `:root` in `frontend/src/globals.css` (--scrollbar-thumb, --scrollbar-track)
+- [X] T004 Add success/info color tokens to `:root` in `frontend/src/globals.css` if not already present (--success, --success-foreground, --info, --info-foreground)
+- [X] T005 Create error components directory structure at `frontend/src/components/error/`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -54,10 +54,10 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Add Firefox scrollbar styles (scrollbar-color, scrollbar-width) to `frontend/src/globals.css`
-- [ ] T007 [US1] Add WebKit scrollbar pseudo-elements (::-webkit-scrollbar, track, thumb, corner) to `frontend/src/globals.css`
-- [ ] T008 [US1] Add scrollbar thumb hover state styles to `frontend/src/globals.css`
-- [ ] T009 [US1] Verify scrollbar styling on main content area in `frontend/src/components/layout/MainLayout.tsx`
+- [X] T006 [US1] Add Firefox scrollbar styles (scrollbar-color, scrollbar-width) to `frontend/src/globals.css`
+- [X] T007 [US1] Add WebKit scrollbar pseudo-elements (::-webkit-scrollbar, track, thumb, corner) to `frontend/src/globals.css`
+- [X] T008 [US1] Add scrollbar thumb hover state styles to `frontend/src/globals.css`
+- [X] T009 [US1] Verify scrollbar styling on main content area in `frontend/src/components/layout/MainLayout.tsx`
 - [ ] T010 [US1] Cross-browser visual test: Chrome, Firefox, Safari, Edge (manual verification)
 
 **Checkpoint**: Scrollbars should now blend with dark theme across all browsers
