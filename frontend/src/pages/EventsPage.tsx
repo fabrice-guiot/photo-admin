@@ -33,7 +33,7 @@ import { useCalendar, useEventStats, useEventMutations } from '@/hooks/useEvents
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
 import { EventCalendar, EventList, EventForm } from '@/components/events'
 import { useCategories } from '@/hooks/useCategories'
-import type { Event, EventDetail, EventCreateRequest, EventUpdateRequest } from '@/contracts/api/event-api'
+import type { Event, EventDetail, EventCreateRequest, EventUpdateRequest, EventSeriesCreateRequest } from '@/contracts/api/event-api'
 
 export default function EventsPage() {
   // Calendar state and navigation
@@ -129,6 +129,14 @@ export default function EventsPage() {
   // Handle create submit
   const handleCreateSubmit = async (data: EventCreateRequest | EventUpdateRequest) => {
     await mutations.createEvent(data as EventCreateRequest)
+    setCreateDialogOpen(false)
+    await refetch()
+    await refetchStats()
+  }
+
+  // Handle series create submit
+  const handleCreateSeriesSubmit = async (data: EventSeriesCreateRequest) => {
+    await mutations.createEventSeries(data)
     setCreateDialogOpen(false)
     await refetch()
     await refetchStats()
@@ -360,6 +368,7 @@ export default function EventsPage() {
           <EventForm
             categories={categories}
             onSubmit={handleCreateSubmit}
+            onSubmitSeries={handleCreateSeriesSubmit}
             onCancel={() => setCreateDialogOpen(false)}
             isSubmitting={mutations.loading}
             defaultDate={createDefaultDate}
