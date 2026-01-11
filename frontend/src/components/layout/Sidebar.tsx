@@ -11,12 +11,13 @@ import {
   Workflow,
   FolderOpen,
   Archive,
-  Plug,
   Settings,
   X,
   ChevronLeft,
   Pin,
   ChartNoAxesCombined,
+  Calendar,
+  BookOpen,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -60,11 +61,12 @@ export interface SidebarProps {
 
 const MENU_ITEMS: Omit<MenuItem, 'active'>[] = [
   { id: 'dashboard', icon: LayoutGrid, label: 'Dashboard', href: '/' },
+  { id: 'events', icon: Calendar, label: 'Events', href: '/events' },
   { id: 'collections', icon: FolderOpen, label: 'Collections', href: '/collections' },
-  { id: 'connectors', icon: Plug, label: 'Connectors', href: '/connectors' },
   { id: 'pipelines', icon: Workflow, label: 'Pipelines', href: '/pipelines' },
   { id: 'analytics', icon: ChartNoAxesCombined, label: 'Analytics', href: '/analytics' },
-  { id: 'config', icon: Settings, label: 'Config', href: '/config' },
+  { id: 'directory', icon: BookOpen, label: 'Directory', href: '/directory' },
+  { id: 'settings', icon: Settings, label: 'Settings', href: '/settings' },
 ]
 
 // ============================================================================

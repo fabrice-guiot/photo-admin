@@ -36,40 +36,40 @@
 
 ### Database Migrations (Must be sequential)
 
-- [ ] T004 Create Category model in backend/src/models/category.py with GuidMixin
-- [ ] T005 Create migration 001_create_categories.py for categories table
-- [ ] T006 Create Location model in backend/src/models/location.py with GuidMixin
-- [ ] T007 Create migration 002_create_locations.py for locations table
-- [ ] T008 Create Organizer model in backend/src/models/organizer.py with GuidMixin
-- [ ] T009 Create migration 003_create_organizers.py for organizers table
-- [ ] T010 Create Performer model in backend/src/models/performer.py with GuidMixin
-- [ ] T011 Create migration 004_create_performers.py for performers table
-- [ ] T012 Create EventSeries model in backend/src/models/event_series.py with GuidMixin
-- [ ] T013 Create migration 005_create_event_series.py for event_series table
-- [ ] T014 Create Event model in backend/src/models/event.py with GuidMixin and soft delete
-- [ ] T015 Create migration 006_create_events.py for events table
-- [ ] T016 Create EventPerformer junction model in backend/src/models/event_performer.py
-- [ ] T017 Create migration 007_create_event_performers.py for junction table
-- [ ] T017a Export all new models (Category, Location, Organizer, Performer, EventSeries, Event, EventPerformer) from backend/src/models/__init__.py
-- [ ] T018 Create migration 008_seed_default_categories.py using icons/colors from data-model.md "Default Category Seed Data" table
+- [x] T004 Create Category model in backend/src/models/category.py with GuidMixin
+- [x] T005 Create migration 011_create_categories.py for categories table
+- [x] T006 Create Location model in backend/src/models/location.py with GuidMixin
+- [x] T007 Create migration 012_create_locations.py for locations table
+- [x] T008 Create Organizer model in backend/src/models/organizer.py with GuidMixin
+- [x] T009 Create migration 013_create_organizers.py for organizers table
+- [x] T010 Create Performer model in backend/src/models/performer.py with GuidMixin
+- [x] T011 Create migration 014_create_performers.py for performers table
+- [x] T012 Create EventSeries model in backend/src/models/event_series.py with GuidMixin
+- [x] T013 Create migration 015_create_event_series.py for event_series table
+- [x] T014 Create Event model in backend/src/models/event.py with GuidMixin and soft delete
+- [x] T015 Create migration 016_create_events.py for events table
+- [x] T016 Create EventPerformer junction model in backend/src/models/event_performer.py
+- [x] T017 Create migration 017_create_event_performers.py for junction table
+- [x] T017a Export all new models (Category, Location, Organizer, Performer, EventSeries, Event, EventPerformer) from backend/src/models/__init__.py
+- [x] T018 Create migration 018_seed_default_categories.py using icons/colors from data-model.md "Default Category Seed Data" table
 
 ### Backend Services (Can be parallel after models exist)
 
-- [ ] T019 [P] Implement GeocodingService using Nominatim + timezonefinder in backend/src/services/geocoding_service.py
-- [ ] T019a [P] Write unit tests for GeocodingService in backend/tests/unit/test_geocoding_service.py
-- [ ] T020 [P] Implement CategoryService CRUD operations in backend/src/services/category_service.py
-- [ ] T020a [P] Write unit tests for CategoryService in backend/tests/unit/test_category_service.py
-- [ ] T021 [P] Create Pydantic schemas for Category in backend/src/schemas/category.py
+- [x] T019 [P] Implement GeocodingService using Nominatim + timezonefinder in backend/src/services/geocoding_service.py
+- [x] T019a [P] Write unit tests for GeocodingService in backend/tests/unit/test_geocoding_service.py
+- [x] T020 [P] Implement CategoryService CRUD operations in backend/src/services/category_service.py
+- [x] T020a [P] Write unit tests for CategoryService in backend/tests/unit/test_category_service.py
+- [x] T021 [P] Create Pydantic schemas for Category in backend/src/schemas/category.py
 
 ### Navigation Structure (Frontend Foundation)
 
-- [ ] T022 [P] Create SettingsPage.tsx with Tabs structure in frontend/src/pages/SettingsPage.tsx
-- [ ] T023 Refactor ConnectorsPage.tsx content into ConnectorsTab.tsx in frontend/src/components/settings/ConnectorsTab.tsx
-- [ ] T024 Refactor ConfigPage.tsx content into ConfigTab.tsx in frontend/src/components/settings/ConfigTab.tsx
-- [ ] T025 [P] Create DirectoryPage.tsx with Tabs structure in frontend/src/pages/DirectoryPage.tsx
-- [ ] T026 Update sidebar navigation in frontend/src/components/layout/Sidebar.tsx (add Events, Directory, Settings; remove Connectors, Config)
-- [ ] T027 Add route redirects from /connectors to /settings?tab=connectors and /config to /settings?tab=config in frontend/src/App.tsx
-- [ ] T028 Update frontend router with new routes (/events, /directory, /settings) in frontend/src/App.tsx
+- [x] T022 [P] Create SettingsPage.tsx with Tabs structure in frontend/src/pages/SettingsPage.tsx
+- [x] T023 Refactor ConnectorsPage.tsx content into ConnectorsTab.tsx in frontend/src/components/settings/ConnectorsTab.tsx
+- [x] T024 Refactor ConfigPage.tsx content into ConfigTab.tsx in frontend/src/components/settings/ConfigTab.tsx
+- [x] T025 [P] Create DirectoryPage.tsx with Tabs structure in frontend/src/pages/DirectoryPage.tsx
+- [x] T026 Update sidebar navigation in frontend/src/components/layout/Sidebar.tsx (add Events, Directory, Settings; remove Connectors, Config)
+- [x] T027 Add route redirects from /connectors to /settings?tab=connectors and /config to /settings?tab=config in frontend/src/App.tsx
+- [x] T028 Update frontend router with new routes (/events, /directory, /settings) in frontend/src/App.tsx
 - [ ] T028a [P] Write integration tests for route redirects, navigation structure, and tab URL sync (?tab= query params) in frontend/tests/integration/routing.test.tsx
 
 **Checkpoint**: Foundation ready - user story implementation can now begin

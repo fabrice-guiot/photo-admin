@@ -52,8 +52,10 @@ describe('Sidebar', () => {
 
       expect(screen.getByText('Photo Admin')).toBeInTheDocument()
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
+      expect(screen.getByText('Events')).toBeInTheDocument()
       expect(screen.getByText('Collections')).toBeInTheDocument()
-      expect(screen.getByText('Connectors')).toBeInTheDocument()
+      expect(screen.getByText('Directory')).toBeInTheDocument()
+      expect(screen.getByText('Settings')).toBeInTheDocument()
     })
 
     it('renders version in footer', async () => {

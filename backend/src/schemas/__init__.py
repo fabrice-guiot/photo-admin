@@ -52,6 +52,14 @@ from backend.src.schemas.config import (
     ImportResultResponse,
     ConfigStatsResponse,
 )
+from backend.src.schemas.category import (
+    CategoryCreate,
+    CategoryUpdate,
+    CategoryReorderRequest,
+    CategoryResponse,
+    CategoryListResponse,
+    CategoryStatsResponse,
+)
 
 __all__ = [
     # Collection schemas
@@ -98,4 +106,11 @@ __all__ = [
     "ImportSessionResponse",
     "ImportResultResponse",
     "ConfigStatsResponse",
+    # Category schemas (Calendar Events)
+    "CategoryCreate",
+    "CategoryUpdate",
+    "CategoryReorderRequest",
+    "CategoryResponse",
+    "CategoryListResponse",
+    "CategoryStatsResponse",
 ]

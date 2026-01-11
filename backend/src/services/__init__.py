@@ -14,6 +14,9 @@ from backend.src.services.exceptions import (
     ConflictError,
     ValidationError,
 )
+# Calendar Events services (Issue #39)
+from backend.src.services.geocoding_service import GeocodingService, GeocodingResult
+from backend.src.services.category_service import CategoryService
 
 __all__ = [
     "CollectionService",
@@ -24,4 +27,8 @@ __all__ = [
     "NotFoundError",
     "ConflictError",
     "ValidationError",
+    # Calendar Events (Issue #39)
+    "GeocodingService",
+    "GeocodingResult",
+    "CategoryService",
 ]
