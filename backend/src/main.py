@@ -438,7 +438,7 @@ async def get_version() -> Dict[str, str]:
 
 
 # API routers
-from backend.src.api import collections, connectors, tools, results, pipelines, trends, config, categories
+from backend.src.api import collections, connectors, tools, results, pipelines, trends, config, categories, events
 
 app.include_router(collections.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
@@ -448,6 +448,7 @@ app.include_router(pipelines.router, prefix="/api")
 app.include_router(trends.router, prefix="/api")
 app.include_router(config.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(events.router, prefix="/api")
 
 
 # Root endpoint

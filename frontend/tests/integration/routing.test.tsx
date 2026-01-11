@@ -78,7 +78,7 @@ describe('Routing Integration - T028a', () => {
   })
 
   describe('New Route Rendering', () => {
-    it('renders EventsPage at /events', () => {
+    it('renders EventsPage at /events', async () => {
       renderWithRouter(
         <Routes>
           <Route path="/events" element={<EventsPage />} />
@@ -86,7 +86,11 @@ describe('Routing Integration - T028a', () => {
         { initialEntries: ['/events'] }
       )
 
-      expect(screen.getByText('Events Calendar')).toBeInTheDocument()
+      // Calendar view renders with weekday headers
+      await waitFor(() => {
+        expect(screen.getByText('Sun')).toBeInTheDocument()
+        expect(screen.getByText('Mon')).toBeInTheDocument()
+      })
     })
 
     it('renders DirectoryPage at /directory', () => {

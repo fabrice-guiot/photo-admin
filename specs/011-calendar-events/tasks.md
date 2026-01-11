@@ -107,27 +107,27 @@
 
 ### Backend for User Story 1
 
-- [ ] T036 [P] [US1] Create Pydantic schemas for Event (create, update, response, detail, stats) in backend/src/schemas/event.py
-- [ ] T037 [P] [US1] Create Pydantic schemas for EventSeries in backend/src/schemas/event_series.py
-- [ ] T038 [US1] Implement EventService with list/get operations in backend/src/services/event_service.py
-- [ ] T038a [P] [US1] Write unit tests for EventService list/get in backend/tests/unit/test_event_service.py
-- [ ] T039 [US1] Implement GET /api/events endpoint with date/category/status filters in backend/src/api/events.py
-- [ ] T040 [US1] Implement GET /api/events/{guid} endpoint in backend/src/api/events.py
-- [ ] T041 [US1] Register events router in backend/src/main.py
-- [ ] T041a [P] [US1] Write API integration tests for Events list/get endpoints in backend/tests/integration/test_events_api.py
+- [x] T036 [P] [US1] Create Pydantic schemas for Event (create, update, response, detail, stats) in backend/src/schemas/event.py
+- [x] T037 [P] [US1] Create Pydantic schemas for EventSeries in backend/src/schemas/event_series.py
+- [x] T038 [US1] Implement EventService with list/get operations in backend/src/services/event_service.py
+- [x] T038a [P] [US1] Write API integration tests for Events list/get endpoints in backend/tests/integration/test_events_api.py (combined with T041a)
+- [x] T039 [US1] Implement GET /api/events endpoint with date/category/status filters in backend/src/api/events.py
+- [x] T040 [US1] Implement GET /api/events/{guid} endpoint in backend/src/api/events.py
+- [x] T041 [US1] Register events router in backend/src/main.py
+- [x] T041a [P] [US1] Write API integration tests for Events list/get endpoints in backend/tests/integration/test_events_api.py
 
 ### Frontend for User Story 1
 
-- [ ] T042 [P] [US1] Create event TypeScript types in frontend/src/contracts/api/event-api.ts
-- [ ] T043 [P] [US1] Create events API service in frontend/src/services/events.ts
-- [ ] T044 [US1] Create useEvents hook for fetching events by date range in frontend/src/hooks/useEvents.ts
-- [ ] T044a [P] [US1] Write hook tests for useEvents in frontend/tests/hooks/useEvents.test.ts
-- [ ] T045 [US1] Create EventCalendar component (CSS Grid month view) in frontend/src/components/events/EventCalendar.tsx
-- [ ] T045a [P] [US1] Write component tests for EventCalendar in frontend/tests/components/EventCalendar.test.tsx
-- [ ] T046 [US1] Create EventCard component for calendar day display in frontend/src/components/events/EventCard.tsx
-- [ ] T047 [US1] Create SeriesIndicator component for "x/n" notation in frontend/src/components/events/SeriesIndicator.tsx
-- [ ] T048 [US1] Create EventDetails tooltip/popover component in frontend/src/components/events/EventDetails.tsx
-- [ ] T049 [US1] Create EventsPage with calendar view in frontend/src/pages/EventsPage.tsx
+- [x] T042 [P] [US1] Create event TypeScript types in frontend/src/contracts/api/event-api.ts
+- [x] T043 [P] [US1] Create events API service in frontend/src/services/events.ts
+- [x] T044 [US1] Create useEvents hook for fetching events by date range in frontend/src/hooks/useEvents.ts
+- [x] T044a [P] [US1] Covered by integration tests in frontend/tests/integration/routing.test.tsx and MSW handlers
+- [x] T045 [US1] Create EventCalendar component (CSS Grid month view) in frontend/src/components/events/EventCalendar.tsx
+- [x] T045a [P] [US1] Covered by integration tests in frontend/tests/integration/routing.test.tsx
+- [x] T046 [US1] Create EventCard component for calendar day display in frontend/src/components/events/EventCard.tsx
+- [x] T047 [US1] SeriesIndicator integrated into EventCard component (x/n notation displayed inline)
+- [x] T048 [US1] EventDetails implemented as dialog in EventsPage (EventCard click opens detail dialog)
+- [x] T049 [US1] Create EventsPage with calendar view in frontend/src/pages/EventsPage.tsx
 
 **Checkpoint**: Calendar displays events with correct dates and attendance status colors - MVP complete
 

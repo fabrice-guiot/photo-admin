@@ -27,6 +27,11 @@ import type {
   CategoryUpdateRequest,
   CategoryStatsResponse
 } from '@/contracts/api/category-api'
+import type {
+  Event,
+  EventDetail,
+  EventStatsResponse
+} from '@/contracts/api/event-api'
 
 // Mock data
 let jobs: JobResponse[] = []
@@ -325,6 +330,77 @@ let categories: Category[] = [
   },
 ]
 let nextCategoryNum = 4
+
+// Events mock data
+let events: Event[] = [
+  {
+    guid: 'evt_01hgw2bbg00000000000000001',
+    title: 'Oshkosh Airshow Day 1',
+    event_date: '2026-07-27',
+    start_time: '08:00:00',
+    end_time: '18:00:00',
+    is_all_day: false,
+    input_timezone: 'America/Chicago',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    series_guid: 'ser_01hgw2bbg00000000000000001',
+    sequence_number: 1,
+    series_total: 3,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'evt_01hgw2bbg00000000000000002',
+    title: 'Oshkosh Airshow Day 2',
+    event_date: '2026-07-28',
+    start_time: '08:00:00',
+    end_time: '18:00:00',
+    is_all_day: false,
+    input_timezone: 'America/Chicago',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    series_guid: 'ser_01hgw2bbg00000000000000001',
+    sequence_number: 2,
+    series_total: 3,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'evt_01hgw2bbg00000000000000003',
+    title: 'Wildlife Photography Workshop',
+    event_date: '2026-03-15',
+    start_time: '10:00:00',
+    end_time: '16:00:00',
+    is_all_day: false,
+    input_timezone: 'America/New_York',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+    },
+    series_guid: null,
+    sequence_number: null,
+    series_total: null,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+]
+let nextEventNum = 4
 
 // Config mock data
 let configData = {
@@ -1830,6 +1906,92 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
     categories = reorderedCategories
     return HttpResponse.json(categories)
   }),
+
+  // ============================================================================
+  // Events API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/events`, ({ request }) => {
+    const url = new URL(request.url)
+    const startDate = url.searchParams.get('start_date')
+    const endDate = url.searchParams.get('end_date')
+    const categoryGuid = url.searchParams.get('category_guid')
+    const status = url.searchParams.get('status')
+    const attendance = url.searchParams.get('attendance')
+
+    let filteredEvents = [...events]
+
+    if (startDate) {
+      filteredEvents = filteredEvents.filter((e) => e.event_date >= startDate)
+    }
+    if (endDate) {
+      filteredEvents = filteredEvents.filter((e) => e.event_date <= endDate)
+    }
+    if (categoryGuid) {
+      filteredEvents = filteredEvents.filter((e) => e.category?.guid === categoryGuid)
+    }
+    if (status) {
+      filteredEvents = filteredEvents.filter((e) => e.status === status)
+    }
+    if (attendance) {
+      filteredEvents = filteredEvents.filter((e) => e.attendance === attendance)
+    }
+
+    // Sort by date
+    filteredEvents.sort((a, b) => a.event_date.localeCompare(b.event_date))
+
+    return HttpResponse.json(filteredEvents)
+  }),
+
+  http.get(`${BASE_URL}/events/stats`, () => {
+    const today = new Date().toISOString().split('T')[0]
+    const currentMonth = today.slice(0, 7)
+
+    const stats: EventStatsResponse = {
+      total_count: events.length,
+      upcoming_count: events.filter((e) => e.event_date >= today && (e.status === 'future' || e.status === 'confirmed')).length,
+      this_month_count: events.filter((e) => e.event_date.startsWith(currentMonth)).length,
+      attended_count: events.filter((e) => e.attendance === 'attended').length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/events/:guid`, ({ params }) => {
+    const event = events.find((e) => e.guid === params.guid)
+    if (!event) {
+      return HttpResponse.json(
+        { detail: `Event ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // Build detail response
+    const detailResponse: EventDetail = {
+      ...event,
+      description: 'Event description goes here',
+      location: null,
+      organizer: null,
+      performers: [],
+      series: event.series_guid ? {
+        guid: event.series_guid,
+        title: 'Oshkosh Airshow 2026',
+        total_events: event.series_total || 3,
+      } : null,
+      ticket_required: true,
+      ticket_status: 'purchased',
+      ticket_purchase_date: '2026-01-15',
+      timeoff_required: true,
+      timeoff_status: 'approved',
+      timeoff_booking_date: '2026-01-10',
+      travel_required: true,
+      travel_status: 'booked',
+      travel_booking_date: '2026-02-01',
+      deadline_date: null,
+      deleted_at: null,
+    }
+
+    return HttpResponse.json(detailResponse)
+  }),
 ]
 
 // Helper to reset mock data (useful for tests)
@@ -2132,4 +2294,74 @@ export function resetMockData(): void {
     },
   ]
   nextCategoryNum = 4
+  // Reset events
+  events = [
+    {
+      guid: 'evt_01hgw2bbg00000000000000001',
+      title: 'Oshkosh Airshow Day 1',
+      event_date: '2026-07-27',
+      start_time: '08:00:00',
+      end_time: '18:00:00',
+      is_all_day: false,
+      input_timezone: 'America/Chicago',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      series_guid: 'ser_01hgw2bbg00000000000000001',
+      sequence_number: 1,
+      series_total: 3,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'evt_01hgw2bbg00000000000000002',
+      title: 'Oshkosh Airshow Day 2',
+      event_date: '2026-07-28',
+      start_time: '08:00:00',
+      end_time: '18:00:00',
+      is_all_day: false,
+      input_timezone: 'America/Chicago',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      series_guid: 'ser_01hgw2bbg00000000000000001',
+      sequence_number: 2,
+      series_total: 3,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'evt_01hgw2bbg00000000000000003',
+      title: 'Wildlife Photography Workshop',
+      event_date: '2026-03-15',
+      start_time: '10:00:00',
+      end_time: '16:00:00',
+      is_all_day: false,
+      input_timezone: 'America/New_York',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000002',
+        name: 'Wildlife',
+        icon: 'bird',
+        color: '#22C55E',
+      },
+      series_guid: null,
+      sequence_number: null,
+      series_total: null,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+  ]
+  nextEventNum = 4
 }
