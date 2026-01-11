@@ -43,17 +43,19 @@ Based on the [domain model](../domain-model.md), the application offers:
 
 ---
 
-## Top 3 Recommendations
+## Preferred Options
 
-| Rank | Name | Rationale | Domain Status |
-|------|------|-----------|---------------|
-| 1 | **ShutterForge** | Strong, professional; "forge" suggests powerful workflow building and craftsmanship | **TAKEN** - Active photography hosting platform |
-| 2 | **LensFlow** | Clean, intuitive; immediately communicates photography + workflow/pipeline | **LIKELY TAKEN** - lensflow.app exists (CRM for photographers) |
-| 3 | **PhotoOps** | DevOps-inspired; suggests operational excellence; professional feel; appeals to tech-savvy photographers | **PARKED** - Shows "Coming Soon" page; may be acquirable |
+| Name | Category | Rationale | Domain Status |
+|------|----------|-----------|---------------|
+| **PhotoOps** | Ops/Operations | DevOps-inspired; suggests operational excellence; professional feel; appeals to tech-savvy photographers | **PARKED** - Shows "Coming Soon" page; may be acquirable |
+| **ShutterSense** | AI/Insights | "Sense" suggests AI/ML understanding and intuition; clean sound; evokes intelligent awareness of your photo workflow | Unknown |
+| **ShutterForge** | Forge/Craft | Strong, professional; "forge" suggests powerful workflow building and craftsmanship | **TAKEN** - Active photography hosting platform |
+| **LensFlow** | Workflow/Flow | Clean, intuitive; immediately communicates photography + workflow/pipeline | **LIKELY TAKEN** - lensflow.app exists (CRM for photographers) |
 
-### Notes on Top 3
+### Notes on Preferred Options
 
 - **PhotoOps** resonates with users from software development backgrounds (DevOps, GitOps, MLOps pattern)
+- **ShutterSense** balances the AI/insights ambition with an approachable, intuitive feel
 - **ShutterForge** and **LensFlow** have strong brand potential but face domain challenges
 - Consider alternative TLDs (.io, .app, .photo) for any taken .com domains
 
@@ -177,11 +179,120 @@ When making final decision, consider:
 
 ---
 
+## Implementation Roadmap (Draft)
+
+Once a name is selected, the following actions will be required to complete the rebrand.
+
+### Phase 1: Pre-Launch Preparation
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Domain acquisition** | Purchase primary domain (.com, .io, or .app) and defensive variants | Low |
+| **Trademark search** | Verify no conflicts in software/photography space (USPTO, EUIPO) | Low |
+| **Logo & branding** | Design logo, color palette, typography guidelines | Medium |
+| **Social media handles** | Reserve accounts on GitHub, Twitter/X, LinkedIn, etc. | Low |
+
+### Phase 2: Repository & Infrastructure
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| **GitHub repository rename** | Rename `fabrice-guiot/photo-admin` to new name | Low |
+| **Update GitHub settings** | Description, topics, social preview image | Low |
+| **CI/CD pipelines** | Update any hardcoded references in workflows | Low |
+| **Docker images** | Rename container images and registries | Low |
+| **PyPI package name** | Reserve package name if publishing to PyPI | Low |
+| **npm package name** | Reserve package name for frontend if applicable | Low |
+
+### Phase 3: Codebase Updates
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Python package rename** | Rename modules, update imports | Medium |
+| **Configuration files** | Update `pyproject.toml`, `package.json`, etc. | Low |
+| **Environment variables** | Rename `PHOTO_ADMIN_*` env vars to new prefix | Medium |
+| **Database references** | Check for hardcoded app name in schemas/migrations | Low |
+| **API endpoints** | Review `/api/` paths for any app-name references | Low |
+| **Frontend branding** | Update app title, favicon, meta tags, sidebar | Low |
+| **CLI tool names** | Decide if tools keep names (photostats) or rebrand | Medium |
+
+### Phase 4: Documentation Updates
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| **README.md** | Complete rewrite with new branding | Medium |
+| **CLAUDE.md** | Update project overview and references | Low |
+| **docs/*.md** | Search/replace "photo-admin" and "PhotoAdmin" | Medium |
+| **Code comments** | Update references in docstrings and comments | Low |
+| **API documentation** | Update OpenAPI/Swagger descriptions | Low |
+| **User guides** | Update installation, configuration guides | Medium |
+
+### Phase 5: External References
+
+| Task | Description | Effort |
+|------|-------------|--------|
+| **Git history** | Note: Historical commits will retain old name (acceptable) | - |
+| **Redirect setup** | Configure old GitHub URL to redirect to new repo | Low |
+| **Announcement** | Prepare changelog/release notes for rebrand | Low |
+
+### Codebase Search Patterns
+
+The following patterns should be searched and updated:
+
+```bash
+# Case-sensitive searches to perform
+grep -r "photo-admin" .
+grep -r "photo_admin" .
+grep -r "PhotoAdmin" .
+grep -r "PHOTO_ADMIN" .
+grep -r "photoAdmin" .
+```
+
+### Files Likely Requiring Updates
+
+| File/Directory | Type of Change |
+|----------------|----------------|
+| `README.md` | Full rebrand |
+| `CLAUDE.md` | Project name references |
+| `pyproject.toml` | Package name, metadata |
+| `frontend/package.json` | Package name |
+| `frontend/index.html` | Title, meta tags |
+| `frontend/src/App.tsx` | App title |
+| `frontend/src/components/layout/Sidebar.tsx` | Brand name display |
+| `backend/src/main.py` | FastAPI app title |
+| `version.py` | App name in version string |
+| `docs/**/*.md` | All documentation |
+| `.github/workflows/*.yml` | CI/CD references |
+| `docker-compose.yml` | Service names |
+| `Dockerfile` | Image names |
+
+### Risk Considerations
+
+| Risk | Mitigation |
+|------|------------|
+| **Broken links** | Set up GitHub redirects; update any external references |
+| **Import errors** | Comprehensive test suite run after rename |
+| **User confusion** | Clear announcement with migration guide |
+| **SEO impact** | Minimal for internal tool; redirect old URLs |
+
+### Estimated Total Effort
+
+| Phase | Effort |
+|-------|--------|
+| Phase 1: Pre-Launch | 1-2 days |
+| Phase 2: Repository | 0.5 days |
+| Phase 3: Codebase | 1-2 days |
+| Phase 4: Documentation | 1-2 days |
+| Phase 5: External | 0.5 days |
+| **Total** | **4-7 days** |
+
+---
+
 ## Decision Log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-01-11 | Document created | Initial brainstorming session |
+| 2026-01-11 | Added ShutterSense to preferred options | Balances AI/insights focus with approachable feel |
 | - | - | - |
 
 ---
