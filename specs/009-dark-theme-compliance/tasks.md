@@ -150,10 +150,10 @@
 
 **Purpose**: Documentation updates and final verification
 
-- [ ] T038 [P] Update design-system.md with scrollbar styling guidelines in `frontend/docs/design-system.md`
-- [ ] T039 [P] Document known exceptions (native browser controls) in `frontend/docs/design-system.md`
-- [ ] T040 Run full quickstart.md verification checklist from `specs/009-dark-theme-compliance/quickstart.md`
-- [ ] T041 Final cross-browser visual inspection (Chrome, Firefox, Safari, Edge)
+- [X] T038 [P] Update design-system.md with scrollbar styling guidelines in `frontend/docs/design-system.md`
+- [X] T039 [P] Document known exceptions (native browser controls) in `frontend/docs/design-system.md`
+- [X] T040 Run full quickstart.md verification checklist from `specs/009-dark-theme-compliance/quickstart.md`
+- [X] T041 Final cross-browser visual inspection (Chrome, Firefox, Safari, Edge)
 
 ---
 
