@@ -1,0 +1,237 @@
+openapi: 3.1.0
+info:
+  title: Categories API
+  description: Event category management (Settings)
+  version: 1.0.0
+
+paths:
+  /api/categories:
+    get:
+      summary: List categories
+      description: Retrieve all event categories
+      operationId: listCategories
+      tags: [Categories]
+      parameters:
+        - name: is_active
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+    post:
+      summary: Create category
+      operationId: createCategory
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Validation error (e.g., duplicate name)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/categories/{guid}:
+    get:
+      summary: Get category by GUID
+      operationId: getCategory
+      tags: [Categories]
+      parameters:
+        - $ref: '#/components/parameters/CategoryGuid'
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '404':
+          description: Category not found
+    patch:
+      summary: Update category
+      operationId: updateCategory
+      tags: [Categories]
+      parameters:
+        - $ref: '#/components/parameters/CategoryGuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdateRequest'
+      responses:
+        '200':
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Category not found
+    delete:
+      summary: Delete category
+      description: Delete category (fails if referenced by any entity)
+      operationId: deleteCategory
+      tags: [Categories]
+      parameters:
+        - $ref: '#/components/parameters/CategoryGuid'
+      responses:
+        '204':
+          description: Category deleted
+        '404':
+          description: Category not found
+        '409':
+          description: Category is referenced by events, locations, organizers, or performers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/categories/reorder:
+    post:
+      summary: Reorder categories
+      description: Update display order of categories
+      operationId: reorderCategories
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category_guids]
+              properties:
+                category_guids:
+                  type: array
+                  items:
+                    type: string
+                  description: Category GUIDs in desired display order
+      responses:
+        '200':
+          description: Categories reordered
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryResponse'
+        '400':
+          description: Invalid GUIDs provided
+
+components:
+  parameters:
+    CategoryGuid:
+      name: guid
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^cat_[a-z0-9]{26}$'
+      description: Category GUID (cat_xxx)
+
+  schemas:
+    CategoryCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+          description: Hex color code (e.g., "#FF5733")
+        icon:
+          type: string
+          maxLength: 50
+          nullable: true
+          description: Lucide icon name (e.g., "plane", "camera")
+        is_active:
+          type: boolean
+          default: true
+
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          nullable: true
+        icon:
+          type: string
+          maxLength: 50
+          nullable: true
+        is_active:
+          type: boolean
+
+    CategoryResponse:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: Category GUID (cat_xxx)
+        name:
+          type: string
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        display_order:
+          type: integer
+        event_count:
+          type: integer
+          description: Number of events in this category
+        location_count:
+          type: integer
+          description: Number of locations in this category
+        organizer_count:
+          type: integer
+          description: Number of organizers in this category
+        performer_count:
+          type: integer
+          description: Number of performers in this category
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          nullable: true

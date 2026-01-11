@@ -1,0 +1,578 @@
+openapi: 3.1.0
+info:
+  title: Events API
+  description: Calendar events management endpoints
+  version: 1.0.0
+
+paths:
+  /api/events:
+    get:
+      summary: List events
+      description: Retrieve events with optional filtering
+      operationId: listEvents
+      tags: [Events]
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter events from this date (inclusive)
+        - name: end_date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter events until this date (inclusive)
+        - name: category_guid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by category GUID
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [future, confirmed, completed, cancelled]
+          description: Filter by event status
+        - name: attendance
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [planned, attended, skipped]
+          description: Filter by attendance status
+        - name: include_deleted
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include soft-deleted events
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventResponse'
+    post:
+      summary: Create event
+      description: Create a single event or multi-day series
+      operationId: createEvent
+      tags: [Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventCreateRequest'
+      responses:
+        '201':
+          description: Event created (or array of events for series)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/EventResponse'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/stats:
+    get:
+      summary: Get event statistics
+      description: Retrieve KPI statistics for TopHeader display
+      operationId: getEventStats
+      tags: [Events]
+      responses:
+        '200':
+          description: Event statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventStatsResponse'
+
+  /api/events/{guid}:
+    get:
+      summary: Get event by GUID
+      operationId: getEvent
+      tags: [Events]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+      responses:
+        '200':
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventDetailResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Update event
+      description: Update a single event (use scope=series to update entire series)
+      operationId: updateEvent
+      tags: [Events]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [single, series]
+            default: single
+          description: Whether to update single event or entire series
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventUpdateRequest'
+      responses:
+        '200':
+          description: Updated event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Event not found
+    delete:
+      summary: Delete event
+      description: Soft delete event (use scope=series to delete entire series)
+      operationId: deleteEvent
+      tags: [Events]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [single, series]
+            default: single
+          description: Whether to delete single event or entire series
+      responses:
+        '204':
+          description: Event deleted
+        '404':
+          description: Event not found
+
+  /api/events/{guid}/performers:
+    get:
+      summary: List performers for event
+      operationId: listEventPerformers
+      tags: [Events, Performers]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+      responses:
+        '200':
+          description: List of performers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventPerformerResponse'
+    post:
+      summary: Add performer to event
+      operationId: addEventPerformer
+      tags: [Events, Performers]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [performer_guid]
+              properties:
+                performer_guid:
+                  type: string
+                  description: Performer GUID (prf_xxx)
+      responses:
+        '201':
+          description: Performer added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventPerformerResponse'
+        '400':
+          description: Category mismatch or already added
+        '404':
+          description: Event or performer not found
+
+  /api/events/{guid}/performers/{performer_guid}:
+    patch:
+      summary: Update performer status on event
+      operationId: updateEventPerformer
+      tags: [Events, Performers]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+        - name: performer_guid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [confirmed, cancelled]
+      responses:
+        '200':
+          description: Performer status updated
+    delete:
+      summary: Remove performer from event
+      operationId: removeEventPerformer
+      tags: [Events, Performers]
+      parameters:
+        - $ref: '#/components/parameters/EventGuid'
+        - name: performer_guid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Performer removed
+
+components:
+  parameters:
+    EventGuid:
+      name: guid
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^evt_[a-z0-9]{26}$'
+      description: Event GUID (evt_xxx)
+
+  schemas:
+    EventCreateRequest:
+      type: object
+      required: [title, event_date, category_guid]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        category_guid:
+          type: string
+          description: Category GUID (cat_xxx)
+        location_guid:
+          type: string
+          nullable: true
+          description: Location GUID (loc_xxx)
+        organizer_guid:
+          type: string
+          nullable: true
+          description: Organizer GUID (org_xxx)
+        event_date:
+          type: string
+          format: date
+          description: Start date (for series, this is first day)
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: End date (if different from event_date, creates series)
+        start_time:
+          type: string
+          format: time
+          nullable: true
+          description: Start time (null for all-day)
+        end_time:
+          type: string
+          format: time
+          nullable: true
+          description: End time
+        is_all_day:
+          type: boolean
+          default: false
+        input_timezone:
+          type: string
+          nullable: true
+          description: IANA timezone for input (e.g., "America/New_York")
+        ticket_required:
+          type: boolean
+          default: false
+        timeoff_required:
+          type: boolean
+          default: false
+        travel_required:
+          type: boolean
+          default: false
+
+    EventUpdateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        location_guid:
+          type: string
+          nullable: true
+        organizer_guid:
+          type: string
+          nullable: true
+        event_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          format: time
+          nullable: true
+        end_time:
+          type: string
+          format: time
+          nullable: true
+        is_all_day:
+          type: boolean
+        input_timezone:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [future, confirmed, completed, cancelled]
+        attendance:
+          type: string
+          enum: [planned, attended, skipped]
+        ticket_required:
+          type: boolean
+        ticket_status:
+          type: string
+          enum: [not_purchased, purchased, ready]
+          nullable: true
+        ticket_purchase_date:
+          type: string
+          format: date
+          nullable: true
+        timeoff_required:
+          type: boolean
+        timeoff_status:
+          type: string
+          enum: [planned, booked, approved]
+          nullable: true
+        timeoff_booking_date:
+          type: string
+          format: date
+          nullable: true
+        travel_required:
+          type: boolean
+        travel_status:
+          type: string
+          enum: [planned, booked]
+          nullable: true
+        travel_booking_date:
+          type: string
+          format: date
+          nullable: true
+        deadline_date:
+          type: string
+          format: date
+          nullable: true
+
+    EventResponse:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: Event GUID (evt_xxx)
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        category_guid:
+          type: string
+        category_name:
+          type: string
+        location_guid:
+          type: string
+          nullable: true
+        location_name:
+          type: string
+          nullable: true
+        organizer_guid:
+          type: string
+          nullable: true
+        organizer_name:
+          type: string
+          nullable: true
+        event_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          format: time
+          nullable: true
+        end_time:
+          type: string
+          format: time
+          nullable: true
+        is_all_day:
+          type: boolean
+        input_timezone:
+          type: string
+          nullable: true
+        status:
+          type: string
+        attendance:
+          type: string
+        series_guid:
+          type: string
+          nullable: true
+          description: Series GUID if part of series (ser_xxx)
+        series_indicator:
+          type: string
+          nullable: true
+          description: "x/n" notation (e.g., "1/3")
+        ticket_required:
+          type: boolean
+        ticket_status:
+          type: string
+          nullable: true
+        timeoff_required:
+          type: boolean
+        timeoff_status:
+          type: string
+          nullable: true
+        travel_required:
+          type: boolean
+        travel_status:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/EventResponse'
+        - type: object
+          properties:
+            ticket_purchase_date:
+              type: string
+              format: date
+              nullable: true
+            timeoff_booking_date:
+              type: string
+              format: date
+              nullable: true
+            travel_booking_date:
+              type: string
+              format: date
+              nullable: true
+            deadline_date:
+              type: string
+              format: date
+              nullable: true
+            performers:
+              type: array
+              items:
+                $ref: '#/components/schemas/EventPerformerResponse'
+            location:
+              $ref: '#/components/schemas/LocationSummary'
+              nullable: true
+            organizer:
+              $ref: '#/components/schemas/OrganizerSummary'
+              nullable: true
+
+    EventStatsResponse:
+      type: object
+      properties:
+        total_events:
+          type: integer
+          description: Total active events
+        upcoming_events:
+          type: integer
+          description: Events in the future
+        this_month:
+          type: integer
+          description: Events this month
+        needs_preparation:
+          type: integer
+          description: Events with incomplete logistics
+
+    EventPerformerResponse:
+      type: object
+      properties:
+        performer_guid:
+          type: string
+        performer_name:
+          type: string
+        status:
+          type: string
+          enum: [confirmed, cancelled]
+
+    LocationSummary:
+      type: object
+      properties:
+        guid:
+          type: string
+        name:
+          type: string
+        city:
+          type: string
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+        rating:
+          type: integer
+          nullable: true
+
+    OrganizerSummary:
+      type: object
+      properties:
+        guid:
+          type: string
+        name:
+          type: string
+        rating:
+          type: integer
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          nullable: true

@@ -1,0 +1,219 @@
+openapi: 3.1.0
+info:
+  title: Organizers API
+  description: Event organizer management
+  version: 1.0.0
+
+paths:
+  /api/organizers:
+    get:
+      summary: List organizers
+      description: Retrieve organizers with optional filtering
+      operationId: listOrganizers
+      tags: [Organizers]
+      parameters:
+        - name: category_guid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by category GUID
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name
+      responses:
+        '200':
+          description: List of organizers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizerResponse'
+    post:
+      summary: Create organizer
+      operationId: createOrganizer
+      tags: [Organizers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizerCreateRequest'
+      responses:
+        '201':
+          description: Organizer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizerResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/organizers/{guid}:
+    get:
+      summary: Get organizer by GUID
+      operationId: getOrganizer
+      tags: [Organizers]
+      parameters:
+        - $ref: '#/components/parameters/OrganizerGuid'
+      responses:
+        '200':
+          description: Organizer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizerResponse'
+        '404':
+          description: Organizer not found
+    patch:
+      summary: Update organizer
+      operationId: updateOrganizer
+      tags: [Organizers]
+      parameters:
+        - $ref: '#/components/parameters/OrganizerGuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizerUpdateRequest'
+      responses:
+        '200':
+          description: Updated organizer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizerResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Organizer not found
+    delete:
+      summary: Delete organizer
+      description: Delete organizer (fails if referenced by events)
+      operationId: deleteOrganizer
+      tags: [Organizers]
+      parameters:
+        - $ref: '#/components/parameters/OrganizerGuid'
+      responses:
+        '204':
+          description: Organizer deleted
+        '404':
+          description: Organizer not found
+        '409':
+          description: Organizer is referenced by events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    OrganizerGuid:
+      name: guid
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^org_[a-z0-9]{26}$'
+      description: Organizer GUID (org_xxx)
+
+  schemas:
+    OrganizerCreateRequest:
+      type: object
+      required: [name, category_guid]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        website:
+          type: string
+          format: uri
+          maxLength: 500
+          nullable: true
+        category_guid:
+          type: string
+          description: Category GUID (cat_xxx)
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        ticket_required_default:
+          type: boolean
+          default: false
+        notes:
+          type: string
+          nullable: true
+
+    OrganizerUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        website:
+          type: string
+          format: uri
+          maxLength: 500
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        ticket_required_default:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+
+    OrganizerResponse:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: Organizer GUID (org_xxx)
+        name:
+          type: string
+        website:
+          type: string
+          nullable: true
+        category_guid:
+          type: string
+        category_name:
+          type: string
+        rating:
+          type: integer
+          nullable: true
+        ticket_required_default:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        event_count:
+          type: integer
+          description: Number of events by this organizer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          nullable: true
