@@ -70,7 +70,7 @@
 - [x] T026 Update sidebar navigation in frontend/src/components/layout/Sidebar.tsx (add Events, Directory, Settings; remove Connectors, Config)
 - [x] T027 Add route redirects from /connectors to /settings?tab=connectors and /config to /settings?tab=config in frontend/src/App.tsx
 - [x] T028 Update frontend router with new routes (/events, /directory, /settings) in frontend/src/App.tsx
-- [ ] T028a [P] Write integration tests for route redirects, navigation structure, and tab URL sync (?tab= query params) in frontend/tests/integration/routing.test.tsx
+- [x] T028a [P] Write integration tests for route redirects, navigation structure, and tab URL sync (?tab= query params) in frontend/tests/integration/routing.test.tsx
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
