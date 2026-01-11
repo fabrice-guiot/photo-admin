@@ -53,7 +53,7 @@ import type {
   ResultListQueryParams
 } from '@/contracts/api/results-api'
 import { cn } from '@/lib/utils'
-import { formatDateTime } from '@/utils/dateFormat'
+import { formatRelativeTime } from '@/utils/dateFormat'
 
 // ============================================================================
 // Types
@@ -259,7 +259,7 @@ export function ResultsTable({
                   <TableCell>{result.files_scanned ?? '-'}</TableCell>
                   <TableCell>{result.issues_found ?? '-'}</TableCell>
                   <TableCell>{formatDuration(result.duration_seconds)}</TableCell>
-                  <TableCell>{formatDateTime(result.completed_at)}</TableCell>
+                  <TableCell>{formatRelativeTime(result.completed_at)}</TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
                       <TooltipProvider>

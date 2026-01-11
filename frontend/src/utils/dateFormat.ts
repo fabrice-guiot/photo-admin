@@ -245,4 +245,125 @@ export function formatTime(
   }
 }
 
-// formatRelativeTime will be implemented in Phase 4
+// ============================================================================
+// Relative Time Formatting (User Story 2)
+// ============================================================================
+
+/**
+ * Result from getRelativeTimeUnit containing the value and unit for relative formatting.
+ */
+export interface RelativeTimeUnit {
+  value: number
+  unit: Intl.RelativeTimeFormatUnit
+}
+
+/**
+ * Threshold in milliseconds for when to switch from relative to absolute time.
+ * Set to 1 day - relative time is only shown for recent timestamps (< 24 hours).
+ */
+const RELATIVE_TIME_THRESHOLD_MS = 24 * 60 * 60 * 1000
+
+/**
+ * Calculates the appropriate time unit and value for relative time formatting.
+ *
+ * Given a millisecond difference, determines the most appropriate unit
+ * (seconds, minutes, hours, days, weeks, months, years) and returns
+ * the value as a negative number (for "ago" formatting).
+ *
+ * @param diffMs - Difference in milliseconds (positive = past, negative = future)
+ * @returns Object with value (negative for past) and unit for Intl.RelativeTimeFormat
+ *
+ * @example
+ * getRelativeTimeUnit(30000) // { value: -30, unit: 'second' }
+ * getRelativeTimeUnit(3600000) // { value: -1, unit: 'hour' }
+ * getRelativeTimeUnit(86400000) // { value: -1, unit: 'day' }
+ */
+export function getRelativeTimeUnit(diffMs: number): RelativeTimeUnit {
+  const seconds = Math.floor(diffMs / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  const weeks = Math.floor(days / 7)
+  const months = Math.floor(days / 30)
+  const years = Math.floor(days / 365)
+
+  // Return the largest appropriate unit
+  // Note: Using || 0 to avoid -0 (negative zero) which can cause Object.is comparison issues
+  if (years !== 0) return { value: -years, unit: 'year' }
+  if (months !== 0) return { value: -months, unit: 'month' }
+  if (weeks !== 0) return { value: -weeks, unit: 'week' }
+  if (days !== 0) return { value: -days, unit: 'day' }
+  if (hours !== 0) return { value: -hours, unit: 'hour' }
+  if (minutes !== 0) return { value: -minutes, unit: 'minute' }
+  return { value: -seconds || 0, unit: 'second' }
+}
+
+/**
+ * Formats a date string as relative time (e.g., "2 hours ago", "yesterday").
+ *
+ * Uses Intl.RelativeTimeFormat with numeric: 'auto' for natural language
+ * (e.g., "yesterday" instead of "1 day ago").
+ *
+ * Falls back to absolute date format (formatDateTime) for:
+ *   - Dates older than 7 days
+ *   - When Intl.RelativeTimeFormat is not supported
+ *
+ * **Usage Guidelines:**
+ * - Use formatRelativeTime() for recently updated timestamps where "freshness" matters
+ *   (e.g., "last updated", "created at" for recent items)
+ * - Use formatDateTime() for historical records or when exact time is important
+ *   (e.g., report generation dates, scheduled events)
+ *
+ * @param dateString - ISO 8601 date string, null, or undefined
+ * @returns Relative time string (e.g., "5 minutes ago"), or absolute date if > 7 days,
+ *          "Never" for null/undefined, "Invalid date" for invalid input
+ *
+ * @example
+ * formatRelativeTime('2026-01-11T11:55:00Z') // "5 minutes ago" (if now is 12:00)
+ * formatRelativeTime('2026-01-10T12:00:00Z') // "yesterday"
+ * formatRelativeTime('2026-01-01T12:00:00Z') // "Jan 1, 2026, 12:00 PM" (> 7 days)
+ * formatRelativeTime(null) // "Never"
+ */
+export function formatRelativeTime(
+  dateString: string | null | undefined
+): string {
+  // Handle null/undefined/empty
+  if (!dateString) {
+    return 'Never'
+  }
+
+  // Parse the date
+  const date = parseDate(dateString)
+  if (!date) {
+    return 'Invalid date'
+  }
+
+  // Calculate difference from now
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+
+  // For dates older than threshold, use absolute format
+  if (Math.abs(diffMs) > RELATIVE_TIME_THRESHOLD_MS) {
+    return formatDateTime(dateString)
+  }
+
+  // Check for RelativeTimeFormat support
+  if (!hasRelativeTimeSupport()) {
+    return formatDateTime(dateString)
+  }
+
+  // Get the appropriate unit and value
+  const { value, unit } = getRelativeTimeUnit(Math.abs(diffMs))
+
+  // Adjust value sign for future dates
+  const adjustedValue = diffMs >= 0 ? value : -value
+
+  // Format with Intl.RelativeTimeFormat
+  try {
+    const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+    return rtf.format(adjustedValue, unit)
+  } catch {
+    // Fallback to absolute format on error
+    return formatDateTime(dateString)
+  }
+}

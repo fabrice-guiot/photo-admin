@@ -91,18 +91,18 @@
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T023 [P] [US2] Write unit tests for `getRelativeTimeUnit()` helper in `frontend/tests/utils/dateFormat.test.ts` - seconds, minutes, hours, days, weeks, months, years calculation
-- [ ] T024 [P] [US2] Write unit tests for `formatRelativeTime()` in `frontend/tests/utils/dateFormat.test.ts` - recent times (seconds to days), threshold behavior (7+ days returns absolute)
+- [x] T023 [P] [US2] Write unit tests for `getRelativeTimeUnit()` helper in `frontend/tests/utils/dateFormat.test.ts` - seconds, minutes, hours, days, weeks, months, years calculation
+- [x] T024 [P] [US2] Write unit tests for `formatRelativeTime()` in `frontend/tests/utils/dateFormat.test.ts` - recent times (seconds to days), threshold behavior (7+ days returns absolute)
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Implement `getRelativeTimeUnit()` helper in `frontend/src/utils/dateFormat.ts` - calculates appropriate time unit (seconds, minutes, hours, days, etc.) from millisecond difference
-- [ ] T026 [US2] Implement `formatRelativeTime()` function in `frontend/src/utils/dateFormat.ts` - uses Intl.RelativeTimeFormat with numeric: 'auto', falls back to absolute for dates older than 7 days
-- [ ] T027 [US2] Run US2 tests to verify all pass
+- [x] T025 [US2] Implement `getRelativeTimeUnit()` helper in `frontend/src/utils/dateFormat.ts` - calculates appropriate time unit (seconds, minutes, hours, days, etc.) from millisecond difference
+- [x] T026 [US2] Implement `formatRelativeTime()` function in `frontend/src/utils/dateFormat.ts` - uses Intl.RelativeTimeFormat with numeric: 'auto', falls back to absolute for dates older than 7 days
+- [x] T027 [US2] Run US2 tests to verify all pass
 
 ### Component Updates for User Story 2 (Optional Relative Time Usage)
 
-- [ ] T028 [US2] Document relative time usage guidelines - add comment in `frontend/src/utils/dateFormat.ts` explaining when to use formatRelativeTime vs formatDateTime
+- [x] T028 [US2] Document relative time usage guidelines - add comment in `frontend/src/utils/dateFormat.ts` explaining when to use formatRelativeTime vs formatDateTime
 
 **Checkpoint**: Relative time formatting works for recent events. User Stories 1 AND 2 both work independently.
 

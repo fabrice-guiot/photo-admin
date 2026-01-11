@@ -26,7 +26,7 @@ import {
 import { useJobProgress } from '@/hooks/useTools'
 import type { Job, JobStatus, ProgressData } from '@/contracts/api/tools-api'
 import { cn } from '@/lib/utils'
-import { formatDateTime } from '@/utils/dateFormat'
+import { formatRelativeTime } from '@/utils/dateFormat'
 
 // ============================================================================
 // Types
@@ -114,7 +114,7 @@ export function JobProgressCard({
 
   const formatJobDate = (dateString: string | null): string => {
     if (!dateString) return '-'
-    return formatDateTime(dateString)
+    return formatRelativeTime(dateString)
   }
 
   const canCancel = currentStatus === 'queued'

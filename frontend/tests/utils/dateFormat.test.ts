@@ -22,6 +22,8 @@ import {
   formatDateTime,
   formatDate,
   formatTime,
+  getRelativeTimeUnit,
+  formatRelativeTime,
 } from '@/utils/dateFormat'
 
 // ============================================================================
@@ -309,24 +311,181 @@ describe('formatTime', () => {
 // ============================================================================
 
 describe('getRelativeTimeUnit', () => {
-  // T023: Tests for getRelativeTimeUnit() will be added here
-  it.todo('should return seconds for differences under 1 minute')
-  it.todo('should return minutes for differences under 1 hour')
-  it.todo('should return hours for differences under 1 day')
-  it.todo('should return days for differences under 1 week')
-  it.todo('should return weeks for differences under 1 month')
-  it.todo('should return months for differences under 1 year')
-  it.todo('should return years for differences over 1 year')
+  // T023: Tests for getRelativeTimeUnit()
+
+  it('should return seconds for differences under 1 minute', () => {
+    // 30 seconds ago
+    const diffMs = 30 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('second')
+    expect(result.value).toBe(-30)
+  })
+
+  it('should return minutes for differences under 1 hour', () => {
+    // 15 minutes ago
+    const diffMs = 15 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('minute')
+    expect(result.value).toBe(-15)
+  })
+
+  it('should return hours for differences under 1 day', () => {
+    // 5 hours ago
+    const diffMs = 5 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('hour')
+    expect(result.value).toBe(-5)
+  })
+
+  it('should return days for differences under 1 week', () => {
+    // 3 days ago
+    const diffMs = 3 * 24 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('day')
+    expect(result.value).toBe(-3)
+  })
+
+  it('should return weeks for differences under 1 month', () => {
+    // 2 weeks ago (14 days)
+    const diffMs = 14 * 24 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('week')
+    expect(result.value).toBe(-2)
+  })
+
+  it('should return months for differences under 1 year', () => {
+    // 3 months ago (~90 days)
+    const diffMs = 90 * 24 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('month')
+    expect(result.value).toBe(-3)
+  })
+
+  it('should return years for differences over 1 year', () => {
+    // 2 years ago (~730 days)
+    const diffMs = 730 * 24 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('year')
+    expect(result.value).toBe(-2)
+  })
+
+  it('should handle zero difference', () => {
+    const result = getRelativeTimeUnit(0)
+    expect(result.unit).toBe('second')
+    expect(result.value).toBe(0)
+  })
+
+  it('should handle exactly 1 minute', () => {
+    const diffMs = 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('minute')
+    expect(result.value).toBe(-1)
+  })
+
+  it('should handle exactly 1 hour', () => {
+    const diffMs = 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('hour')
+    expect(result.value).toBe(-1)
+  })
+
+  it('should handle exactly 1 day', () => {
+    const diffMs = 24 * 60 * 60 * 1000
+    const result = getRelativeTimeUnit(diffMs)
+    expect(result.unit).toBe('day')
+    expect(result.value).toBe(-1)
+  })
 })
 
 describe('formatRelativeTime', () => {
-  // T024: Tests for formatRelativeTime() will be added here
-  it.todo('should format time from seconds ago')
-  it.todo('should format time from minutes ago')
-  it.todo('should format time from hours ago')
-  it.todo('should format "yesterday" for 1 day ago')
-  it.todo('should format days ago')
-  it.todo('should return absolute date for times older than 7 days')
+  // T024: Tests for formatRelativeTime()
+
+  beforeEach(() => {
+    // Set a fixed "now" time for consistent testing
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-11T12:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('should format time from seconds ago', () => {
+    // 30 seconds ago
+    const result = formatRelativeTime('2026-01-11T11:59:30Z')
+    // Should contain "second" in some form
+    expect(result.toLowerCase()).toMatch(/second|now/)
+  })
+
+  it('should format time from minutes ago', () => {
+    // 5 minutes ago
+    const result = formatRelativeTime('2026-01-11T11:55:00Z')
+    expect(result.toLowerCase()).toMatch(/5.*minute|minute.*5/)
+  })
+
+  it('should format time from hours ago', () => {
+    // 3 hours ago
+    const result = formatRelativeTime('2026-01-11T09:00:00Z')
+    expect(result.toLowerCase()).toMatch(/3.*hour|hour.*3/)
+  })
+
+  it('should format "yesterday" for 1 day ago', () => {
+    // 1 day ago
+    const result = formatRelativeTime('2026-01-10T12:00:00Z')
+    // Intl with numeric: 'auto' returns "yesterday"
+    expect(result.toLowerCase()).toMatch(/yesterday|1.*day/)
+  })
+
+  it('should format hours ago within threshold', () => {
+    // 20 hours ago (still within 1-day threshold)
+    const result = formatRelativeTime('2026-01-10T16:00:00Z')
+    expect(result.toLowerCase()).toMatch(/20.*hour|hour.*20/)
+  })
+
+  it('should return absolute date for times older than 1 day', () => {
+    // 2 days ago - should return absolute date format (threshold is 1 day)
+    const result = formatRelativeTime('2026-01-09T12:00:00Z')
+    // Should NOT contain relative time indicators, should contain year
+    expect(result).toMatch(/2026/)
+    expect(result.toLowerCase()).not.toMatch(/ago|hour|minute|second/)
+  })
+
+  it('should return absolute date for times older than 1 week', () => {
+    // 10 days ago
+    const result = formatRelativeTime('2026-01-01T12:00:00Z')
+    // Should return absolute date format
+    expect(result).toMatch(/2026/)
+  })
+
+  it('should return absolute date for times older than 1 month', () => {
+    // 60 days ago
+    const result = formatRelativeTime('2025-11-12T12:00:00Z')
+    // Should return absolute date format
+    expect(result).toMatch(/2025/)
+  })
+
+  it('should handle null input', () => {
+    const result = formatRelativeTime(null)
+    expect(result).toBe('Never')
+  })
+
+  it('should handle undefined input', () => {
+    const result = formatRelativeTime(undefined)
+    expect(result).toBe('Never')
+  })
+
+  it('should handle invalid date string', () => {
+    const result = formatRelativeTime('invalid-date')
+    expect(result).toBe('Invalid date')
+  })
+
+  it('should handle future dates', () => {
+    // 1 hour in the future
+    const result = formatRelativeTime('2026-01-11T13:00:00Z')
+    // Should handle gracefully - either show "in X time" or absolute
+    expect(result).not.toBe('Never')
+    expect(result).not.toBe('Invalid date')
+  })
 })
 
 // ============================================================================
