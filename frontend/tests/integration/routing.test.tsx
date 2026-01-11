@@ -113,7 +113,7 @@ describe('Routing Integration - T028a', () => {
   })
 
   describe('Settings Page Tab URL Sync', () => {
-    it('defaults to connectors tab when no query param', async () => {
+    it('defaults to config tab when no query param', async () => {
       renderWithRouter(
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
@@ -122,23 +122,11 @@ describe('Routing Integration - T028a', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByTestId('search').textContent).toBe('?tab=connectors')
+        expect(screen.getByTestId('search').textContent).toBe('?tab=config')
       })
 
-      // Connectors tab should be active
-      expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
-    })
-
-    it('activates connectors tab from URL query param', async () => {
-      renderWithRouter(
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>,
-        { initialEntries: ['/settings?tab=connectors'] }
-      )
-
-      expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
-      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'inactive')
+      // Config tab should be active (first tab)
+      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'active')
     })
 
     it('activates config tab from URL query param', async () => {
@@ -153,9 +141,19 @@ describe('Routing Integration - T028a', () => {
       expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'inactive')
     })
 
-    it('updates URL when tab is clicked', async () => {
-      const user = userEvent.setup()
+    it('activates categories tab from URL query param', async () => {
+      renderWithRouter(
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>,
+        { initialEntries: ['/settings?tab=categories'] }
+      )
 
+      expect(screen.getByRole('tab', { name: /categories/i })).toHaveAttribute('data-state', 'active')
+      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'inactive')
+    })
+
+    it('activates connectors tab from URL query param', async () => {
       renderWithRouter(
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
@@ -163,11 +161,25 @@ describe('Routing Integration - T028a', () => {
         { initialEntries: ['/settings?tab=connectors'] }
       )
 
-      // Click on Configuration tab
-      await user.click(screen.getByRole('tab', { name: /configuration/i }))
+      expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
+      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'inactive')
+    })
+
+    it('updates URL when tab is clicked', async () => {
+      const user = userEvent.setup()
+
+      renderWithRouter(
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>,
+        { initialEntries: ['/settings?tab=config'] }
+      )
+
+      // Click on Connectors tab
+      await user.click(screen.getByRole('tab', { name: /connectors/i }))
 
       await waitFor(() => {
-        expect(screen.getByTestId('search').textContent).toBe('?tab=config')
+        expect(screen.getByTestId('search').textContent).toBe('?tab=connectors')
       })
     })
 
@@ -179,15 +191,15 @@ describe('Routing Integration - T028a', () => {
         { initialEntries: ['/settings?tab=invalid'] }
       )
 
-      // Should fall back to connectors (default)
+      // Should fall back to config (default)
       await waitFor(() => {
-        expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
+        expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'active')
       })
     })
   })
 
   describe('Directory Page Tab URL Sync', () => {
-    it('defaults to categories tab when no query param', async () => {
+    it('defaults to locations tab when no query param', async () => {
       renderWithRouter(
         <Routes>
           <Route path="/directory" element={<DirectoryPage />} />
@@ -196,10 +208,10 @@ describe('Routing Integration - T028a', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByTestId('search').textContent).toBe('?tab=categories')
+        expect(screen.getByTestId('search').textContent).toBe('?tab=locations')
       })
 
-      expect(screen.getByRole('tab', { name: /categories/i })).toHaveAttribute('data-state', 'active')
+      expect(screen.getByRole('tab', { name: /locations/i })).toHaveAttribute('data-state', 'active')
     })
 
     it('activates locations tab from URL query param', async () => {
@@ -242,32 +254,19 @@ describe('Routing Integration - T028a', () => {
         <Routes>
           <Route path="/directory" element={<DirectoryPage />} />
         </Routes>,
-        { initialEntries: ['/directory?tab=categories'] }
+        { initialEntries: ['/directory?tab=locations'] }
       )
 
-      // Click on Locations tab
-      await user.click(screen.getByRole('tab', { name: /locations/i }))
+      // Click on Organizers tab
+      await user.click(screen.getByRole('tab', { name: /organizers/i }))
 
       await waitFor(() => {
-        expect(screen.getByTestId('search').textContent).toBe('?tab=locations')
+        expect(screen.getByTestId('search').textContent).toBe('?tab=organizers')
       })
     })
   })
 
   describe('Tab Content Visibility', () => {
-    it('shows connectors content when connectors tab is active', async () => {
-      renderWithRouter(
-        <Routes>
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>,
-        { initialEntries: ['/settings?tab=connectors'] }
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('Remote Storage Connectors')).toBeInTheDocument()
-      })
-    })
-
     it('shows config content when config tab is active', async () => {
       renderWithRouter(
         <Routes>
@@ -284,13 +283,26 @@ describe('Routing Integration - T028a', () => {
     it('shows categories placeholder when categories tab is active', async () => {
       renderWithRouter(
         <Routes>
-          <Route path="/directory" element={<DirectoryPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>,
-        { initialEntries: ['/directory?tab=categories'] }
+        { initialEntries: ['/settings?tab=categories'] }
       )
 
       await waitFor(() => {
         expect(screen.getByText(/manage event categories/i)).toBeInTheDocument()
+      })
+    })
+
+    it('shows connectors content when connectors tab is active', async () => {
+      renderWithRouter(
+        <Routes>
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>,
+        { initialEntries: ['/settings?tab=connectors'] }
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('Remote Storage Connectors')).toBeInTheDocument()
       })
     })
 
@@ -303,22 +315,22 @@ describe('Routing Integration - T028a', () => {
       )
 
       await waitFor(() => {
-        expect(screen.getByText(/manage event locations/i)).toBeInTheDocument()
+        expect(screen.getByText(/manage event locations with geocoding/i)).toBeInTheDocument()
       })
     })
   })
 
   describe('Deep Linking', () => {
     it('preserves tab state on page reload simulation', async () => {
-      // First render with config tab
+      // First render with connectors tab
       const { unmount } = renderWithRouter(
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>,
-        { initialEntries: ['/settings?tab=config'] }
+        { initialEntries: ['/settings?tab=connectors'] }
       )
 
-      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'active')
+      expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
 
       unmount()
 
@@ -327,10 +339,10 @@ describe('Routing Integration - T028a', () => {
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>,
-        { initialEntries: ['/settings?tab=config'] }
+        { initialEntries: ['/settings?tab=connectors'] }
       )
 
-      expect(screen.getByRole('tab', { name: /configuration/i })).toHaveAttribute('data-state', 'active')
+      expect(screen.getByRole('tab', { name: /connectors/i })).toHaveAttribute('data-state', 'active')
     })
 
     it('supports direct linking to directory performers tab', async () => {

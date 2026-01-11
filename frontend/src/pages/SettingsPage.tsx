@@ -9,33 +9,52 @@
 
 import { useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Settings, Plug, Cog } from 'lucide-react'
+import { Settings, Plug, Cog, Tag } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ConnectorsTab } from '@/components/settings/ConnectorsTab'
 import { ConfigTab } from '@/components/settings/ConfigTab'
 
-// Tab configuration
+// Tab configuration - order: Config, Categories, Connectors
 const TABS = [
-  {
-    id: 'connectors',
-    label: 'Connectors',
-    icon: Plug,
-  },
   {
     id: 'config',
     label: 'Configuration',
     icon: Cog,
   },
+  {
+    id: 'categories',
+    label: 'Categories',
+    icon: Tag,
+  },
+  {
+    id: 'connectors',
+    label: 'Connectors',
+    icon: Plug,
+  },
 ] as const
 
 type TabId = typeof TABS[number]['id']
 
-const DEFAULT_TAB: TabId = 'connectors'
+const DEFAULT_TAB: TabId = 'config'
+
+// Placeholder component for Categories tab (not yet implemented)
+function CategoriesPlaceholder() {
+  return (
+    <div className="flex h-64 items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-xl font-semibold text-foreground mb-2">Categories</h2>
+        <p className="text-muted-foreground max-w-md">
+          Manage event categories. Categories will be implemented in Phase 3.
+        </p>
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Get current tab from URL, default to 'connectors'
+  // Get current tab from URL, default to 'config'
   const currentTab = (searchParams.get('tab') as TabId) || DEFAULT_TAB
 
   // Validate tab exists
@@ -61,7 +80,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
           <p className="text-muted-foreground">
-            Configure connectors, tools, and application preferences
+            Configure tools, event categories, and storage connectors
           </p>
         </div>
       </div>
@@ -80,12 +99,16 @@ export default function SettingsPage() {
           })}
         </TabsList>
 
-        <TabsContent value="connectors" className="mt-6">
-          <ConnectorsTab />
-        </TabsContent>
-
         <TabsContent value="config" className="mt-6">
           <ConfigTab />
+        </TabsContent>
+
+        <TabsContent value="categories" className="mt-6">
+          <CategoriesPlaceholder />
+        </TabsContent>
+
+        <TabsContent value="connectors" className="mt-6">
+          <ConnectorsTab />
         </TabsContent>
       </Tabs>
     </div>

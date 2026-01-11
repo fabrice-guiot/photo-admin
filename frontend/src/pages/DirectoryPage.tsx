@@ -1,7 +1,7 @@
 /**
  * Directory Page
  *
- * Manage event-related entities: Categories, Locations, Organizers, Performers.
+ * Manage event-related entities: Locations, Organizers, Performers.
  * Uses URL-synchronized tabs for deep linking.
  *
  * Issue #39 - Calendar Events feature.
@@ -9,16 +9,11 @@
 
 import { useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { BookOpen, Tag, MapPin, Building2, Users } from 'lucide-react'
+import { BookOpen, MapPin, Building2, Users } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 // Tab configuration
 const TABS = [
-  {
-    id: 'categories',
-    label: 'Categories',
-    icon: Tag,
-  },
   {
     id: 'locations',
     label: 'Locations',
@@ -38,7 +33,7 @@ const TABS = [
 
 type TabId = typeof TABS[number]['id']
 
-const DEFAULT_TAB: TabId = 'categories'
+const DEFAULT_TAB: TabId = 'locations'
 
 // Placeholder component for tabs not yet implemented
 function PlaceholderTab({ title, description }: { title: string; description: string }) {
@@ -55,7 +50,7 @@ function PlaceholderTab({ title, description }: { title: string; description: st
 export default function DirectoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  // Get current tab from URL, default to 'categories'
+  // Get current tab from URL, default to 'locations'
   const currentTab = (searchParams.get('tab') as TabId) || DEFAULT_TAB
 
   // Validate tab exists
@@ -81,7 +76,7 @@ export default function DirectoryPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Directory</h1>
           <p className="text-muted-foreground">
-            Manage categories, locations, organizers, and performers
+            Manage event locations, organizers, and performers
           </p>
         </div>
       </div>
@@ -99,13 +94,6 @@ export default function DirectoryPage() {
             )
           })}
         </TabsList>
-
-        <TabsContent value="categories" className="mt-6">
-          <PlaceholderTab
-            title="Categories"
-            description="Manage event categories. Categories will be implemented in Phase 3."
-          />
-        </TabsContent>
 
         <TabsContent value="locations" className="mt-6">
           <PlaceholderTab
