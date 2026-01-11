@@ -16,7 +16,7 @@ Design:
 import re
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, field_serializer
 
 
 # ============================================================================
@@ -240,6 +240,12 @@ class CategoryResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_serializer("created_at", "updated_at")
+    @classmethod
+    def serialize_datetime_utc(cls, v: datetime) -> str:
+        """Serialize datetime as ISO 8601 with explicit UTC timezone (Z suffix)."""
+        return v.isoformat() + "Z" if v else None
+
     model_config = {
         "from_attributes": True,
         "json_schema_extra": {
@@ -250,8 +256,8 @@ class CategoryResponse(BaseModel):
                 "color": "#3B82F6",
                 "is_active": True,
                 "display_order": 0,
-                "created_at": "2026-01-10T10:00:00",
-                "updated_at": "2026-01-10T10:00:00",
+                "created_at": "2026-01-10T10:00:00Z",
+                "updated_at": "2026-01-10T10:00:00Z",
             }
         },
     }
@@ -283,8 +289,8 @@ class CategoryListResponse(BaseModel):
                         "color": "#3B82F6",
                         "is_active": True,
                         "display_order": 0,
-                        "created_at": "2026-01-10T10:00:00",
-                        "updated_at": "2026-01-10T10:00:00",
+                        "created_at": "2026-01-10T10:00:00Z",
+                        "updated_at": "2026-01-10T10:00:00Z",
                     }
                 ],
                 "total": 1,
