@@ -209,6 +209,16 @@ export default function EventsPage() {
     })
   }
 
+  // Format time in 12-hour format with AM/PM (input: "HH:MM" or "HH:MM:SS")
+  const formatTime12h = (timeStr: string): string => {
+    const [hoursStr, minutesStr] = timeStr.split(':')
+    const hours = parseInt(hoursStr, 10)
+    const minutes = minutesStr
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hours12 = hours % 12 || 12
+    return `${hours12}:${minutes}${period}`
+  }
+
   return (
     <div className="flex flex-col h-full p-6">
       {/* Header with Create Button */}
@@ -285,7 +295,7 @@ export default function EventsPage() {
                     day: 'numeric',
                     year: 'numeric'
                   })}
-                  {selectedEvent.start_time && ` at ${selectedEvent.start_time.slice(0, 5)}`}
+                  {selectedEvent.start_time && ` at ${formatTime12h(selectedEvent.start_time)}`}
                 </>
               )}
             </DialogDescription>
@@ -333,8 +343,8 @@ export default function EventsPage() {
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Time</div>
                   <div>
-                    {selectedEvent.start_time.slice(0, 5)}
-                    {selectedEvent.end_time && ` - ${selectedEvent.end_time.slice(0, 5)}`}
+                    {formatTime12h(selectedEvent.start_time)}
+                    {selectedEvent.end_time && ` - ${formatTime12h(selectedEvent.end_time)}`}
                   </div>
                 </div>
               )}
