@@ -2,7 +2,7 @@
  * Events API service
  *
  * Handles all API calls related to calendar events
- * Issue #39 - Calendar Events feature (Phase 4)
+ * Issue #39 - Calendar Events feature (Phases 4 & 5)
  */
 
 import api from './api'
@@ -11,7 +11,11 @@ import type {
   Event,
   EventDetail,
   EventListParams,
-  EventStatsResponse
+  EventStatsResponse,
+  EventCreateRequest,
+  EventSeriesCreateRequest,
+  EventUpdateRequest,
+  UpdateScope
 } from '@/contracts/api/event-api'
 
 /**
@@ -107,4 +111,73 @@ export const listEventsForCalendarView = async (year: number, month: number): Pr
     start_date: formatDate(startDate),
     end_date: formatDate(endDate)
   })
+}
+
+// =============================================================================
+// Create Operations (Phase 5)
+// =============================================================================
+
+/**
+ * Create a new standalone event
+ *
+ * @param data - Event creation data
+ */
+export const createEvent = async (data: EventCreateRequest): Promise<EventDetail> => {
+  const response = await api.post<EventDetail>('/events', data)
+  return response.data
+}
+
+/**
+ * Create a new event series
+ *
+ * @param data - Event series creation data
+ */
+export const createEventSeries = async (data: EventSeriesCreateRequest): Promise<Event[]> => {
+  const response = await api.post<Event[]>('/events/series', data)
+  return response.data
+}
+
+// =============================================================================
+// Update Operations (Phase 5)
+// =============================================================================
+
+/**
+ * Update an existing event
+ *
+ * @param guid - Event GUID (evt_xxx format)
+ * @param data - Update data (only changed fields)
+ */
+export const updateEvent = async (guid: string, data: EventUpdateRequest): Promise<EventDetail> => {
+  const safeGuid = encodeURIComponent(validateGuid(guid, 'evt'))
+  const response = await api.patch<EventDetail>(`/events/${safeGuid}`, data)
+  return response.data
+}
+
+// =============================================================================
+// Delete Operations (Phase 5)
+// =============================================================================
+
+/**
+ * Soft delete an event
+ *
+ * @param guid - Event GUID (evt_xxx format)
+ * @param scope - Delete scope for series events (default: single)
+ */
+export const deleteEvent = async (guid: string, scope: UpdateScope = 'single'): Promise<EventDetail> => {
+  const safeGuid = encodeURIComponent(validateGuid(guid, 'evt'))
+  const response = await api.delete<EventDetail>(`/events/${safeGuid}`, {
+    params: { scope }
+  })
+  return response.data
+}
+
+/**
+ * Restore a soft-deleted event
+ *
+ * @param guid - Event GUID (evt_xxx format)
+ */
+export const restoreEvent = async (guid: string): Promise<EventDetail> => {
+  const safeGuid = encodeURIComponent(validateGuid(guid, 'evt'))
+  const response = await api.post<EventDetail>(`/events/${safeGuid}/restore`)
+  return response.data
 }

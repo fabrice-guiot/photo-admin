@@ -4,6 +4,9 @@ Events API endpoints for managing calendar events.
 Provides endpoints for:
 - Listing events with date range and filtering
 - Getting event details
+- Creating single events and event series
+- Updating events (with scope for series)
+- Deleting events (soft delete with scope)
 - Event statistics for KPIs
 
 Phase 4 (MVP): List and get operations
@@ -26,11 +29,15 @@ from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
 from backend.src.schemas.event import (
+    EventCreate,
+    EventSeriesCreate,
+    EventUpdate,
     EventResponse,
     EventDetailResponse,
     EventStatsResponse,
     EventStatus,
     AttendanceStatus,
+    UpdateScope,
 )
 from backend.src.services.event_service import EventService
 from backend.src.services.exceptions import NotFoundError, ValidationError
@@ -268,4 +275,412 @@ async def get_event(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve event",
+        )
+
+
+# ============================================================================
+# Create Endpoints (Phase 5)
+# ============================================================================
+
+
+@router.post(
+    "",
+    response_model=EventDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new event",
+    description="Create a new standalone event",
+)
+async def create_event(
+    event_data: EventCreate,
+    event_service: EventService = Depends(get_event_service),
+) -> EventDetailResponse:
+    """
+    Create a new standalone event.
+
+    Request Body:
+        title: Event title (required)
+        category_guid: Category GUID (required)
+        event_date: Date of the event (required)
+        description: Event description
+        location_guid: Location GUID
+        organizer_guid: Organizer GUID
+        start_time: Start time (HH:MM)
+        end_time: End time (HH:MM)
+        is_all_day: Whether event spans full day
+        input_timezone: IANA timezone
+        status: Event status
+        attendance: Attendance status
+        ticket_required: Whether ticket is needed
+        timeoff_required: Whether time-off is needed
+        travel_required: Whether travel is needed
+        deadline_date: Workflow deadline
+
+    Returns:
+        Created event details (201 Created)
+
+    Raises:
+        400: Invalid data (missing fields, invalid GUIDs)
+        422: Validation error
+
+    Example:
+        POST /api/events
+        {
+          "title": "Airshow Day 1",
+          "category_guid": "cat_xxx",
+          "event_date": "2026-03-15",
+          "start_time": "09:00",
+          "end_time": "17:00"
+        }
+    """
+    try:
+        event = event_service.create(
+            title=event_data.title,
+            category_guid=event_data.category_guid,
+            event_date=event_data.event_date,
+            description=event_data.description,
+            location_guid=event_data.location_guid,
+            organizer_guid=event_data.organizer_guid,
+            start_time=event_data.start_time,
+            end_time=event_data.end_time,
+            is_all_day=event_data.is_all_day,
+            input_timezone=event_data.input_timezone,
+            status=event_data.status.value,
+            attendance=event_data.attendance.value,
+            ticket_required=event_data.ticket_required,
+            timeoff_required=event_data.timeoff_required,
+            travel_required=event_data.travel_required,
+            deadline_date=event_data.deadline_date,
+        )
+
+        # Reload with relationships
+        event = event_service.get_by_guid(event.guid)
+
+        logger.info(f"Created event: {event.guid}")
+
+        return EventDetailResponse(
+            **event_service.build_event_detail_response(event)
+        )
+
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except Exception as e:
+        logger.error(f"Error creating event: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create event",
+        )
+
+
+@router.post(
+    "/series",
+    response_model=List[EventResponse],
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an event series",
+    description="Create a multi-day event series with individual events",
+)
+async def create_event_series(
+    series_data: EventSeriesCreate,
+    event_service: EventService = Depends(get_event_service),
+) -> List[EventResponse]:
+    """
+    Create a multi-day event series.
+
+    Creates an EventSeries and individual Event records for each date.
+    Events inherit properties from the series unless overridden.
+
+    Request Body:
+        title: Series title (required)
+        category_guid: Category GUID (required)
+        event_dates: List of dates - minimum 2 (required)
+        description: Series description
+        location_guid: Default location GUID
+        organizer_guid: Default organizer GUID
+        start_time: Default start time
+        end_time: Default end time
+        is_all_day: Whether events span full day
+        input_timezone: IANA timezone
+        ticket_required: Default ticket requirement
+        timeoff_required: Default time-off requirement
+        travel_required: Default travel requirement
+
+    Returns:
+        List of created events (201 Created)
+
+    Raises:
+        400: Invalid data (less than 2 dates, invalid GUIDs)
+        422: Validation error
+
+    Example:
+        POST /api/events/series
+        {
+          "title": "Oshkosh Airshow 2026",
+          "category_guid": "cat_xxx",
+          "event_dates": ["2026-07-27", "2026-07-28", "2026-07-29"],
+          "start_time": "08:00",
+          "end_time": "18:00",
+          "ticket_required": true
+        }
+    """
+    try:
+        series = event_service.create_series(
+            title=series_data.title,
+            category_guid=series_data.category_guid,
+            event_dates=series_data.event_dates,
+            description=series_data.description,
+            location_guid=series_data.location_guid,
+            organizer_guid=series_data.organizer_guid,
+            start_time=series_data.start_time,
+            end_time=series_data.end_time,
+            is_all_day=series_data.is_all_day,
+            input_timezone=series_data.input_timezone,
+            ticket_required=series_data.ticket_required,
+            timeoff_required=series_data.timeoff_required,
+            travel_required=series_data.travel_required,
+        )
+
+        # Get all events in the series
+        events = event_service.list(
+            start_date=min(series_data.event_dates),
+            end_date=max(series_data.event_dates),
+        )
+
+        # Filter to just this series
+        series_events = [e for e in events if e.series_id == series.id]
+
+        logger.info(f"Created event series: {series.guid} ({len(series_events)} events)")
+
+        return [
+            EventResponse(**event_service.build_event_response(e))
+            for e in series_events
+        ]
+
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except Exception as e:
+        logger.error(f"Error creating event series: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create event series",
+        )
+
+
+# ============================================================================
+# Update Endpoints (Phase 5)
+# ============================================================================
+
+
+@router.patch(
+    "/{guid}",
+    response_model=EventDetailResponse,
+    summary="Update an event",
+    description="Update an existing event (with scope for series events)",
+)
+async def update_event(
+    guid: str,
+    event_data: EventUpdate,
+    event_service: EventService = Depends(get_event_service),
+) -> EventDetailResponse:
+    """
+    Update an existing event.
+
+    For series events, use the `scope` field to control update behavior:
+    - "single": Only update this event (default)
+    - "this_and_future": Update this and all future events in series
+    - "all": Update all events in series
+
+    Path Parameters:
+        guid: Event GUID (evt_xxx format)
+
+    Request Body:
+        Any event field to update (all optional)
+        scope: Update scope for series events
+
+    Returns:
+        Updated event details
+
+    Raises:
+        400: Invalid data
+        404: Event not found
+        422: Validation error
+
+    Example:
+        PATCH /api/events/evt_xxx
+        {
+          "attendance": "attended",
+          "ticket_status": "ready"
+        }
+
+        PATCH /api/events/evt_xxx (series event)
+        {
+          "start_time": "10:00",
+          "scope": "all"
+        }
+    """
+    try:
+        # Build update dict from non-None fields, excluding scope
+        updates = event_data.model_dump(exclude_unset=True, exclude={"scope"})
+
+        event = event_service.update(
+            guid=guid,
+            scope=event_data.scope.value,
+            **updates
+        )
+
+        # Reload with relationships
+        event = event_service.get_by_guid(event.guid)
+
+        logger.info(f"Updated event: {guid}")
+
+        return EventDetailResponse(
+            **event_service.build_event_detail_response(event)
+        )
+
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {guid} not found",
+        )
+
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+    except Exception as e:
+        logger.error(f"Error updating event {guid}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update event",
+        )
+
+
+# ============================================================================
+# Delete Endpoints (Phase 5)
+# ============================================================================
+
+
+@router.delete(
+    "/{guid}",
+    response_model=EventDetailResponse,
+    summary="Delete an event",
+    description="Soft delete an event (with scope for series events)",
+)
+async def delete_event(
+    guid: str,
+    scope: UpdateScope = Query(
+        default=UpdateScope.SINGLE,
+        description="Delete scope for series events",
+    ),
+    event_service: EventService = Depends(get_event_service),
+) -> EventDetailResponse:
+    """
+    Soft delete an event.
+
+    For series events, use the `scope` query parameter to control deletion:
+    - "single": Only delete this event (default)
+    - "this_and_future": Delete this and all future events in series
+    - "all": Delete all events in series
+
+    Path Parameters:
+        guid: Event GUID (evt_xxx format)
+
+    Query Parameters:
+        scope: Delete scope for series events
+
+    Returns:
+        Deleted event details (with deleted_at timestamp)
+
+    Raises:
+        404: Event not found
+
+    Example:
+        DELETE /api/events/evt_xxx
+        DELETE /api/events/evt_xxx?scope=all
+    """
+    try:
+        event = event_service.soft_delete(
+            guid=guid,
+            scope=scope.value,
+        )
+
+        # Reload with relationships
+        event = event_service.get_by_guid(event.guid, include_deleted=True)
+
+        logger.info(f"Deleted event: {guid} (scope: {scope.value})")
+
+        return EventDetailResponse(
+            **event_service.build_event_detail_response(event)
+        )
+
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {guid} not found",
+        )
+
+    except Exception as e:
+        logger.error(f"Error deleting event {guid}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete event",
+        )
+
+
+@router.post(
+    "/{guid}/restore",
+    response_model=EventDetailResponse,
+    summary="Restore a deleted event",
+    description="Restore a soft-deleted event",
+)
+async def restore_event(
+    guid: str,
+    event_service: EventService = Depends(get_event_service),
+) -> EventDetailResponse:
+    """
+    Restore a soft-deleted event.
+
+    Path Parameters:
+        guid: Event GUID (evt_xxx format)
+
+    Returns:
+        Restored event details (with deleted_at = null)
+
+    Raises:
+        404: Event not found
+
+    Example:
+        POST /api/events/evt_xxx/restore
+    """
+    try:
+        event = event_service.restore(guid=guid)
+
+        # Reload with relationships
+        event = event_service.get_by_guid(event.guid)
+
+        logger.info(f"Restored event: {guid}")
+
+        return EventDetailResponse(
+            **event_service.build_event_detail_response(event)
+        )
+
+    except NotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Event {guid} not found",
+        )
+
+    except Exception as e:
+        logger.error(f"Error restoring event {guid}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to restore event",
         )

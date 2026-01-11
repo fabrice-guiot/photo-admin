@@ -1,8 +1,8 @@
 /**
  * useEvents React hook
  *
- * Manages event state with fetch operations for calendar views
- * Issue #39 - Calendar Events feature (Phase 4)
+ * Manages event state with fetch and mutation operations for calendar views
+ * Issue #39 - Calendar Events feature (Phases 4 & 5)
  */
 
 import { useState, useEffect, useCallback } from 'react'
@@ -11,7 +11,11 @@ import type {
   Event,
   EventDetail,
   EventListParams,
-  EventStatsResponse
+  EventStatsResponse,
+  EventCreateRequest,
+  EventSeriesCreateRequest,
+  EventUpdateRequest,
+  UpdateScope
 } from '@/contracts/api/event-api'
 
 // ============================================================================
@@ -331,5 +335,145 @@ export const useCalendar = (
     goToNextMonth,
     goToToday,
     refetch
+  }
+}
+
+// ============================================================================
+// Event Mutations Hook (Phase 5)
+// ============================================================================
+
+interface UseEventMutationsReturn {
+  /** Create a new standalone event */
+  createEvent: (data: EventCreateRequest) => Promise<EventDetail>
+  /** Create a new event series */
+  createEventSeries: (data: EventSeriesCreateRequest) => Promise<Event[]>
+  /** Update an existing event */
+  updateEvent: (guid: string, data: EventUpdateRequest) => Promise<EventDetail>
+  /** Soft delete an event */
+  deleteEvent: (guid: string, scope?: UpdateScope) => Promise<EventDetail>
+  /** Restore a soft-deleted event */
+  restoreEvent: (guid: string) => Promise<EventDetail>
+  /** Loading state */
+  loading: boolean
+  /** Error message if any */
+  error: string | null
+}
+
+/**
+ * Hook for event mutation operations (create, update, delete)
+ *
+ * Use this hook alongside useCalendar for full calendar functionality.
+ *
+ * @example
+ * const { createEvent, deleteEvent, loading } = useEventMutations()
+ * const calendar = useCalendar()
+ *
+ * const handleCreate = async (data: EventCreateRequest) => {
+ *   await createEvent(data)
+ *   await calendar.refetch()
+ * }
+ */
+export const useEventMutations = (): UseEventMutationsReturn => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  /**
+   * Create a new standalone event
+   */
+  const createEvent = useCallback(async (data: EventCreateRequest): Promise<EventDetail> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await eventService.createEvent(data)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to create event'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Create a new event series
+   */
+  const createEventSeries = useCallback(async (data: EventSeriesCreateRequest): Promise<Event[]> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await eventService.createEventSeries(data)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to create event series'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Update an existing event
+   */
+  const updateEvent = useCallback(async (guid: string, data: EventUpdateRequest): Promise<EventDetail> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await eventService.updateEvent(guid, data)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to update event'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Soft delete an event
+   */
+  const deleteEvent = useCallback(async (guid: string, scope: UpdateScope = 'single'): Promise<EventDetail> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await eventService.deleteEvent(guid, scope)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to delete event'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  /**
+   * Restore a soft-deleted event
+   */
+  const restoreEvent = useCallback(async (guid: string): Promise<EventDetail> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await eventService.restoreEvent(guid)
+      return result
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to restore event'
+      setError(errorMessage)
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return {
+    createEvent,
+    createEventSeries,
+    updateEvent,
+    deleteEvent,
+    restoreEvent,
+    loading,
+    error
   }
 }

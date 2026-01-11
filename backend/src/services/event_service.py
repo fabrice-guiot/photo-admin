@@ -11,13 +11,13 @@ Design:
 - Date range queries support calendar views
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_, or_
 
-from backend.src.models import Event, EventSeries, Category
+from backend.src.models import Event, EventSeries, Category, Location, Organizer
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.exceptions import NotFoundError, ValidationError
 from backend.src.services.guid import GuidService
@@ -433,3 +433,485 @@ class EventService:
         response["deleted_at"] = event.deleted_at
 
         return response
+
+    # =========================================================================
+    # Helper Methods for CRUD
+    # =========================================================================
+
+    def _get_category_by_guid(self, guid: str) -> Category:
+        """
+        Get a category by GUID.
+
+        Args:
+            guid: Category GUID (cat_xxx format)
+
+        Returns:
+            Category instance
+
+        Raises:
+            ValidationError: If category not found or invalid GUID
+        """
+        if not GuidService.validate_guid(guid, "cat"):
+            raise ValidationError(f"Invalid category GUID: {guid}", field="category_guid")
+
+        try:
+            uuid_value = GuidService.parse_guid(guid, "cat")
+        except ValueError:
+            raise ValidationError(f"Invalid category GUID: {guid}", field="category_guid")
+
+        category = self.db.query(Category).filter(Category.uuid == uuid_value).first()
+        if not category:
+            raise ValidationError(f"Category not found: {guid}", field="category_guid")
+
+        return category
+
+    def _get_location_by_guid(self, guid: str) -> Optional[Location]:
+        """
+        Get a location by GUID.
+
+        Args:
+            guid: Location GUID (loc_xxx format)
+
+        Returns:
+            Location instance or None
+
+        Raises:
+            ValidationError: If location not found or invalid GUID
+        """
+        if not guid:
+            return None
+
+        if not GuidService.validate_guid(guid, "loc"):
+            raise ValidationError(f"Invalid location GUID: {guid}", field="location_guid")
+
+        try:
+            uuid_value = GuidService.parse_guid(guid, "loc")
+        except ValueError:
+            raise ValidationError(f"Invalid location GUID: {guid}", field="location_guid")
+
+        location = self.db.query(Location).filter(Location.uuid == uuid_value).first()
+        if not location:
+            raise ValidationError(f"Location not found: {guid}", field="location_guid")
+
+        return location
+
+    def _get_organizer_by_guid(self, guid: str) -> Optional[Organizer]:
+        """
+        Get an organizer by GUID.
+
+        Args:
+            guid: Organizer GUID (org_xxx format)
+
+        Returns:
+            Organizer instance or None
+
+        Raises:
+            ValidationError: If organizer not found or invalid GUID
+        """
+        if not guid:
+            return None
+
+        if not GuidService.validate_guid(guid, "org"):
+            raise ValidationError(f"Invalid organizer GUID: {guid}", field="organizer_guid")
+
+        try:
+            uuid_value = GuidService.parse_guid(guid, "org")
+        except ValueError:
+            raise ValidationError(f"Invalid organizer GUID: {guid}", field="organizer_guid")
+
+        organizer = self.db.query(Organizer).filter(Organizer.uuid == uuid_value).first()
+        if not organizer:
+            raise ValidationError(f"Organizer not found: {guid}", field="organizer_guid")
+
+        return organizer
+
+    # =========================================================================
+    # Create Operations
+    # =========================================================================
+
+    def create(
+        self,
+        title: str,
+        category_guid: str,
+        event_date: date,
+        description: Optional[str] = None,
+        location_guid: Optional[str] = None,
+        organizer_guid: Optional[str] = None,
+        start_time: Optional[Any] = None,
+        end_time: Optional[Any] = None,
+        is_all_day: bool = False,
+        input_timezone: Optional[str] = None,
+        status: str = "future",
+        attendance: str = "planned",
+        ticket_required: Optional[bool] = None,
+        timeoff_required: Optional[bool] = None,
+        travel_required: Optional[bool] = None,
+        deadline_date: Optional[date] = None,
+    ) -> Event:
+        """
+        Create a new standalone event.
+
+        Args:
+            title: Event title
+            category_guid: Category GUID (cat_xxx)
+            event_date: Date of the event
+            description: Optional event description
+            location_guid: Optional location GUID
+            organizer_guid: Optional organizer GUID
+            start_time: Optional start time
+            end_time: Optional end time
+            is_all_day: Whether event spans full day
+            input_timezone: Optional IANA timezone
+            status: Event status (default: future)
+            attendance: Attendance status (default: planned)
+            ticket_required: Optional ticket requirement
+            timeoff_required: Optional time-off requirement
+            travel_required: Optional travel requirement
+            deadline_date: Optional workflow deadline
+
+        Returns:
+            Created Event instance
+
+        Raises:
+            ValidationError: If category, location, or organizer not found
+        """
+        # Resolve foreign keys
+        category = self._get_category_by_guid(category_guid)
+        location = self._get_location_by_guid(location_guid) if location_guid else None
+        organizer = self._get_organizer_by_guid(organizer_guid) if organizer_guid else None
+
+        # Create event
+        event = Event(
+            title=title,
+            description=description,
+            category_id=category.id,
+            location_id=location.id if location else None,
+            organizer_id=organizer.id if organizer else None,
+            event_date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            is_all_day=is_all_day,
+            input_timezone=input_timezone,
+            status=status,
+            attendance=attendance,
+            ticket_required=ticket_required,
+            timeoff_required=timeoff_required,
+            travel_required=travel_required,
+            deadline_date=deadline_date,
+        )
+
+        self.db.add(event)
+        self.db.commit()
+        self.db.refresh(event)
+
+        logger.info(f"Created event: {event.guid} - {title}")
+        return event
+
+    def create_series(
+        self,
+        title: str,
+        category_guid: str,
+        event_dates: List[date],
+        description: Optional[str] = None,
+        location_guid: Optional[str] = None,
+        organizer_guid: Optional[str] = None,
+        start_time: Optional[Any] = None,
+        end_time: Optional[Any] = None,
+        is_all_day: bool = False,
+        input_timezone: Optional[str] = None,
+        ticket_required: bool = False,
+        timeoff_required: bool = False,
+        travel_required: bool = False,
+    ) -> EventSeries:
+        """
+        Create a new event series with individual events.
+
+        Args:
+            title: Series title (shared by all events)
+            category_guid: Category GUID (cat_xxx)
+            event_dates: List of dates (minimum 2)
+            description: Optional series description
+            location_guid: Optional default location GUID
+            organizer_guid: Optional default organizer GUID
+            start_time: Optional default start time
+            end_time: Optional default end time
+            is_all_day: Whether events span full day
+            input_timezone: Optional IANA timezone
+            ticket_required: Default ticket requirement
+            timeoff_required: Default time-off requirement
+            travel_required: Default travel requirement
+
+        Returns:
+            Created EventSeries instance with events
+
+        Raises:
+            ValidationError: If dates < 2, or category/location/organizer not found
+        """
+        # Validate minimum dates
+        if len(event_dates) < 2:
+            raise ValidationError(
+                "Event series requires at least 2 dates",
+                field="event_dates"
+            )
+
+        # Sort dates chronologically
+        sorted_dates = sorted(event_dates)
+
+        # Resolve foreign keys
+        category = self._get_category_by_guid(category_guid)
+        location = self._get_location_by_guid(location_guid) if location_guid else None
+        organizer = self._get_organizer_by_guid(organizer_guid) if organizer_guid else None
+
+        # Create series
+        series = EventSeries(
+            title=title,
+            description=description,
+            category_id=category.id,
+            location_id=location.id if location else None,
+            organizer_id=organizer.id if organizer else None,
+            input_timezone=input_timezone,
+            ticket_required=ticket_required,
+            timeoff_required=timeoff_required,
+            travel_required=travel_required,
+            total_events=len(sorted_dates),
+        )
+
+        self.db.add(series)
+        self.db.flush()  # Get series ID
+
+        # Create individual events
+        for i, event_date in enumerate(sorted_dates, start=1):
+            event = Event(
+                series_id=series.id,
+                sequence_number=i,
+                # These inherit from series via effective_* properties
+                title=None,  # Inherits from series
+                category_id=None,  # Inherits from series
+                location_id=location.id if location else None,
+                organizer_id=organizer.id if organizer else None,
+                event_date=event_date,
+                start_time=start_time,
+                end_time=end_time,
+                is_all_day=is_all_day,
+                input_timezone=input_timezone,
+                status="future",
+                attendance="planned",
+                # Logistics inherit from series
+                ticket_required=None,
+                timeoff_required=None,
+                travel_required=None,
+            )
+            self.db.add(event)
+
+        self.db.commit()
+        self.db.refresh(series)
+
+        logger.info(f"Created event series: {series.guid} - {title} ({len(sorted_dates)} events)")
+        return series
+
+    # =========================================================================
+    # Update Operations
+    # =========================================================================
+
+    def update(
+        self,
+        guid: str,
+        scope: str = "single",
+        **updates: Any
+    ) -> Event:
+        """
+        Update an event.
+
+        Args:
+            guid: Event GUID (evt_xxx)
+            scope: Update scope for series events:
+                - "single": Only this event
+                - "this_and_future": This and all future events in series
+                - "all": All events in series
+            **updates: Fields to update
+
+        Returns:
+            Updated Event instance
+
+        Raises:
+            NotFoundError: If event not found
+            ValidationError: If invalid update data
+        """
+        event = self.get_by_guid(guid)
+
+        # Resolve foreign keys if provided
+        if "category_guid" in updates:
+            category_guid = updates.pop("category_guid")
+            if category_guid:
+                category = self._get_category_by_guid(category_guid)
+                updates["category_id"] = category.id
+            else:
+                updates["category_id"] = None
+
+        if "location_guid" in updates:
+            location_guid = updates.pop("location_guid")
+            if location_guid:
+                location = self._get_location_by_guid(location_guid)
+                updates["location_id"] = location.id
+            else:
+                updates["location_id"] = None
+
+        if "organizer_guid" in updates:
+            organizer_guid = updates.pop("organizer_guid")
+            if organizer_guid:
+                organizer = self._get_organizer_by_guid(organizer_guid)
+                updates["organizer_id"] = organizer.id
+            else:
+                updates["organizer_id"] = None
+
+        # Remove scope from updates (it's not an event field)
+        updates.pop("scope", None)
+
+        # Determine which events to update
+        if event.series and scope != "single":
+            events_to_update = self._get_series_events_for_update(event, scope)
+        else:
+            events_to_update = [event]
+
+        # Apply updates
+        for e in events_to_update:
+            for field, value in updates.items():
+                if hasattr(e, field):
+                    setattr(e, field, value)
+            e.updated_at = datetime.utcnow()
+
+        self.db.commit()
+        self.db.refresh(event)
+
+        logger.info(f"Updated event: {event.guid} (scope: {scope}, events: {len(events_to_update)})")
+        return event
+
+    def _get_series_events_for_update(
+        self,
+        event: Event,
+        scope: str
+    ) -> List[Event]:
+        """
+        Get events to update based on scope.
+
+        Args:
+            event: Reference event
+            scope: Update scope ("this_and_future" or "all")
+
+        Returns:
+            List of events to update
+        """
+        if not event.series:
+            return [event]
+
+        query = (
+            self.db.query(Event)
+            .filter(
+                Event.series_id == event.series_id,
+                Event.deleted_at.is_(None)
+            )
+        )
+
+        if scope == "this_and_future":
+            query = query.filter(Event.event_date >= event.event_date)
+        # "all" scope doesn't need additional filtering
+
+        return query.order_by(Event.event_date.asc()).all()
+
+    # =========================================================================
+    # Delete Operations
+    # =========================================================================
+
+    def soft_delete(
+        self,
+        guid: str,
+        scope: str = "single"
+    ) -> Event:
+        """
+        Soft delete an event.
+
+        Args:
+            guid: Event GUID (evt_xxx)
+            scope: Delete scope for series events:
+                - "single": Only this event
+                - "this_and_future": This and all future events in series
+                - "all": All events in series
+
+        Returns:
+            Deleted Event instance
+
+        Raises:
+            NotFoundError: If event not found
+        """
+        event = self.get_by_guid(guid)
+        now = datetime.utcnow()
+
+        # Determine which events to delete
+        if event.series and scope != "single":
+            events_to_delete = self._get_series_events_for_update(event, scope)
+        else:
+            events_to_delete = [event]
+
+        # Soft delete events
+        for e in events_to_delete:
+            e.deleted_at = now
+
+        # Update series total if needed
+        if event.series and scope != "single":
+            self._update_series_total(event.series)
+
+        self.db.commit()
+        self.db.refresh(event)
+
+        logger.info(f"Soft deleted event: {event.guid} (scope: {scope}, events: {len(events_to_delete)})")
+        return event
+
+    def restore(self, guid: str) -> Event:
+        """
+        Restore a soft-deleted event.
+
+        Args:
+            guid: Event GUID (evt_xxx)
+
+        Returns:
+            Restored Event instance
+
+        Raises:
+            NotFoundError: If event not found
+        """
+        event = self.get_by_guid(guid, include_deleted=True)
+
+        if not event.deleted_at:
+            return event  # Already not deleted
+
+        event.deleted_at = None
+        event.updated_at = datetime.utcnow()
+
+        # Update series total if part of series
+        if event.series:
+            self._update_series_total(event.series)
+
+        self.db.commit()
+        self.db.refresh(event)
+
+        logger.info(f"Restored event: {event.guid}")
+        return event
+
+    def _update_series_total(self, series: EventSeries) -> None:
+        """
+        Update series total_events count based on non-deleted events.
+
+        Args:
+            series: EventSeries to update
+        """
+        count = (
+            self.db.query(func.count(Event.id))
+            .filter(
+                Event.series_id == series.id,
+                Event.deleted_at.is_(None)
+            )
+            .scalar()
+        )
+
+        series.total_events = count or 0
+        series.updated_at = datetime.utcnow()

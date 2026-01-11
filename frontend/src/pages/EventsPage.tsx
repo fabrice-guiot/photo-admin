@@ -4,26 +4,40 @@
  * Display and manage calendar events.
  * Calendar view with event management capabilities.
  *
- * Issue #39 - Calendar Events feature (Phase 4).
+ * Issue #39 - Calendar Events feature (Phases 4 & 5).
  */
 
 import { useEffect, useState } from 'react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog'
-import { useCalendar, useEventStats } from '@/hooks/useEvents'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog'
+import { useCalendar, useEventStats, useEventMutations } from '@/hooks/useEvents'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
-import { EventCalendar } from '@/components/events/EventCalendar'
-import { EventList } from '@/components/events/EventCard'
-import type { Event } from '@/contracts/api/event-api'
+import { EventCalendar, EventList, EventForm } from '@/components/events'
+import { useCategories } from '@/hooks/useCategories'
+import type { Event, EventDetail, EventCreateRequest, EventUpdateRequest } from '@/contracts/api/event-api'
 
 export default function EventsPage() {
   // Calendar state and navigation
+  const calendar = useCalendar()
   const {
     events,
     loading,
@@ -32,12 +46,19 @@ export default function EventsPage() {
     currentMonth,
     goToPreviousMonth,
     goToNextMonth,
-    goToToday
-  } = useCalendar()
+    goToToday,
+    refetch
+  } = calendar
 
   // KPI Stats for header (Issue #37)
-  const { stats } = useEventStats()
+  const { stats, refetch: refetchStats } = useEventStats()
   const { setStats } = useHeaderStats()
+
+  // Categories for event form
+  const { categories } = useCategories(true)
+
+  // Event mutations
+  const mutations = useEventMutations()
 
   // Update header stats when data changes
   useEffect(() => {
@@ -52,14 +73,32 @@ export default function EventsPage() {
     return () => setStats([]) // Clear stats on unmount
   }, [stats, setStats])
 
-  // Day detail dialog state
+  // ============================================================================
+  // Dialog States
+  // ============================================================================
+
+  // Day detail dialog
   const [selectedDay, setSelectedDay] = useState<{
     date: Date
     events: Event[]
   } | null>(null)
 
-  // Event detail dialog state
+  // Event detail dialog
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
+
+  // Create event dialog
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [createDefaultDate, setCreateDefaultDate] = useState<string | undefined>()
+
+  // Edit event dialog
+  const [editEvent, setEditEvent] = useState<EventDetail | null>(null)
+
+  // Delete confirmation dialog
+  const [deleteEvent, setDeleteEvent] = useState<Event | null>(null)
+
+  // ============================================================================
+  // Event Handlers
+  // ============================================================================
 
   // Handle day click - show day detail dialog
   const handleDayClick = (date: Date) => {
@@ -68,6 +107,10 @@ export default function EventsPage() {
 
     if (dayEvents.length > 0) {
       setSelectedDay({ date, events: dayEvents })
+    } else {
+      // Open create dialog with this date pre-selected
+      setCreateDefaultDate(dateString)
+      setCreateDialogOpen(true)
     }
   }
 
@@ -76,6 +119,69 @@ export default function EventsPage() {
     setSelectedEvent(event)
     setSelectedDay(null) // Close day dialog if open
   }
+
+  // Handle create button click
+  const handleCreateClick = () => {
+    setCreateDefaultDate(undefined)
+    setCreateDialogOpen(true)
+  }
+
+  // Handle create submit
+  const handleCreateSubmit = async (data: EventCreateRequest | EventUpdateRequest) => {
+    await mutations.createEvent(data as EventCreateRequest)
+    setCreateDialogOpen(false)
+    await refetch()
+    await refetchStats()
+  }
+
+  // Handle edit click from detail dialog
+  const handleEditClick = async () => {
+    if (selectedEvent) {
+      // Fetch full event details for editing
+      try {
+        const response = await fetch(`/api/events/${selectedEvent.guid}`)
+        const fullEvent = await response.json()
+        setEditEvent(fullEvent)
+        setSelectedEvent(null)
+      } catch {
+        // If fetch fails, use what we have
+        setEditEvent(selectedEvent as unknown as EventDetail)
+        setSelectedEvent(null)
+      }
+    }
+  }
+
+  // Handle edit submit
+  const handleEditSubmit = async (data: EventCreateRequest | EventUpdateRequest) => {
+    if (editEvent) {
+      await mutations.updateEvent(editEvent.guid, data as EventUpdateRequest)
+      setEditEvent(null)
+      await refetch()
+      await refetchStats()
+    }
+  }
+
+  // Handle delete click from detail dialog
+  const handleDeleteClick = () => {
+    if (selectedEvent) {
+      setDeleteEvent(selectedEvent)
+      setSelectedEvent(null)
+    }
+  }
+
+  // Handle delete confirm
+  const handleDeleteConfirm = async () => {
+    if (deleteEvent) {
+      await mutations.deleteEvent(deleteEvent.guid, 'single')
+      setDeleteEvent(null)
+      await refetch()
+      await refetchStats()
+    }
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
 
   // Helper to format date as YYYY-MM-DD
   const formatDateString = (d: Date): string => {
@@ -97,6 +203,15 @@ export default function EventsPage() {
 
   return (
     <div className="flex flex-col h-full p-6">
+      {/* Header with Create Button */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Events</h1>
+        <Button onClick={handleCreateClick}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Event
+        </Button>
+      </div>
+
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -217,8 +332,88 @@ export default function EventsPage() {
               )}
             </div>
           )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleEditClick}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteClick}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Event Dialog */}
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => !open && setCreateDialogOpen(false)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Event</DialogTitle>
+            <DialogDescription>
+              Add a new event to your calendar.
+            </DialogDescription>
+          </DialogHeader>
+          <EventForm
+            categories={categories}
+            onSubmit={handleCreateSubmit}
+            onCancel={() => setCreateDialogOpen(false)}
+            isSubmitting={mutations.loading}
+            defaultDate={createDefaultDate}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Event Dialog */}
+      <Dialog
+        open={editEvent !== null}
+        onOpenChange={(open) => !open && setEditEvent(null)}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+            <DialogDescription>
+              Update event details.
+            </DialogDescription>
+          </DialogHeader>
+          {editEvent && (
+            <EventForm
+              event={editEvent}
+              categories={categories}
+              onSubmit={handleEditSubmit}
+              onCancel={() => setEditEvent(null)}
+              isSubmitting={mutations.loading}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteEvent !== null}
+        onOpenChange={(open) => !open && setDeleteEvent(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{deleteEvent?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

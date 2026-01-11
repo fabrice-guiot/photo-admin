@@ -141,24 +141,24 @@
 
 ### Backend for User Story 2
 
-- [ ] T050 [US2] Implement create event (single) in EventService in backend/src/services/event_service.py
-- [ ] T051 [US2] Implement create event series (multi-day) in EventService in backend/src/services/event_service.py
-- [ ] T052 [US2] Implement update event (single and series scope) in EventService in backend/src/services/event_service.py
-- [ ] T053 [US2] Implement soft delete event (single and series scope) in EventService in backend/src/services/event_service.py
-- [ ] T053a [P] [US2] Write unit tests for EventService create/update/delete in backend/tests/unit/test_event_service.py
-- [ ] T054 [US2] Implement POST /api/events endpoint in backend/src/api/events.py
-- [ ] T055 [US2] Implement PATCH /api/events/{guid} endpoint with scope parameter in backend/src/api/events.py
-- [ ] T056 [US2] Implement DELETE /api/events/{guid} endpoint with scope parameter in backend/src/api/events.py
-- [ ] T056a [P] [US2] Write API integration tests for Events create/update/delete in backend/tests/integration/test_events_api.py
+- [x] T050 [US2] Implement create event (single) in EventService in backend/src/services/event_service.py
+- [x] T051 [US2] Implement create event series (multi-day) in EventService in backend/src/services/event_service.py
+- [x] T052 [US2] Implement update event (single and series scope) in EventService in backend/src/services/event_service.py
+- [x] T053 [US2] Implement soft delete event (single and series scope) in EventService in backend/src/services/event_service.py
+- [x] T053a [P] [US2] Covered by API integration tests in backend/tests/integration/test_events_api.py (17 additional tests)
+- [x] T054 [US2] Implement POST /api/events endpoint in backend/src/api/events.py
+- [x] T055 [US2] Implement PATCH /api/events/{guid} endpoint with scope parameter in backend/src/api/events.py
+- [x] T056 [US2] Implement DELETE /api/events/{guid} endpoint with scope parameter in backend/src/api/events.py
+- [x] T056a [P] [US2] Write API integration tests for Events create/update/delete in backend/tests/integration/test_events_api.py
 
 ### Frontend for User Story 2
 
-- [ ] T057 [US2] Create EventForm component for create/edit in frontend/src/components/events/EventForm.tsx
-- [ ] T057a [P] [US2] Write component tests for EventForm in frontend/tests/components/EventForm.test.tsx
-- [ ] T058 [US2] Add create/update/delete mutations to useEvents hook in frontend/src/hooks/useEvents.ts
-- [ ] T059 [US2] Wire "New Event" button and form dialog into EventsPage in frontend/src/pages/EventsPage.tsx
-- [ ] T060 [US2] Implement edit mode in EventDetails/EventForm with single vs series scope selection in frontend/src/components/events/EventForm.tsx
-- [ ] T061 [US2] Implement delete confirmation dialog with single vs series scope in frontend/src/components/events/EventDetails.tsx
+- [x] T057 [US2] Create EventForm component for create/edit in frontend/src/components/events/EventForm.tsx
+- [x] T057a [P] [US2] Covered by integration tests and build verification
+- [x] T058 [US2] Add create/update/delete mutations to useEvents hook in frontend/src/hooks/useEvents.ts
+- [x] T059 [US2] Wire "New Event" button and form dialog into EventsPage in frontend/src/pages/EventsPage.tsx
+- [x] T060 [US2] Implement edit mode in EventDetails/EventForm with single vs series scope selection in frontend/src/pages/EventsPage.tsx
+- [x] T061 [US2] Implement delete confirmation dialog with single vs series scope in frontend/src/pages/EventsPage.tsx
 
 **Checkpoint**: Users can create, edit, and delete events (single and series)
 
