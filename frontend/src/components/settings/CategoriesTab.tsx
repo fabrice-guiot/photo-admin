@@ -32,7 +32,7 @@ import { CategoryForm } from './CategoryForm'
 import { GuidBadge } from '@/components/GuidBadge'
 import type { Category } from '@/contracts/api/category-api'
 import { cn } from '@/lib/utils'
-import { formatDateTime } from '@/utils/dateFormat'
+import { formatRelativeTime } from '@/utils/dateFormat'
 
 // ============================================================================
 // Category Icon Component
@@ -139,7 +139,7 @@ function CategoryList({ categories, loading, onEdit, onDelete }: CategoryListPro
                 </Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {formatDateTime(category.created_at)}
+                {formatRelativeTime(category.created_at)}
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-1">
