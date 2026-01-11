@@ -332,25 +332,27 @@ export const EventForm = ({
 
         {/* Date Selection - Single Mode */}
         {(mode === 'single' || isEditMode) && (
-          <FormItem>
-            <FormLabel>Date</FormLabel>
-            <FormControl>
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-              />
-            </FormControl>
-          </FormItem>
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Date
+            </label>
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            />
+          </div>
         )}
 
         {/* Date Selection - Series Mode */}
         {mode === 'series' && !isEditMode && (
-          <FormItem>
-            <FormLabel>Dates</FormLabel>
-            <FormDescription>
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Dates
+            </label>
+            <p className="text-sm text-muted-foreground">
               Add at least 2 dates for your event series. Each date will create a separate event.
-            </FormDescription>
+            </p>
 
             {/* Date Input */}
             <div className="flex gap-2">
@@ -401,7 +403,7 @@ export const EventForm = ({
                 Event series requires at least 2 dates
               </p>
             )}
-          </FormItem>
+          </div>
         )}
 
         {/* All Day Checkbox */}
