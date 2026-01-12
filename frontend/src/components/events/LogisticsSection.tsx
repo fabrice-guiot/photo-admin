@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Select,
   SelectContent,
@@ -223,12 +223,10 @@ export function LogisticsSection({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-muted-foreground">Purchase Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={data.ticket_purchase_date ?? ''}
-                  onChange={(e) =>
-                    updateField('ticket_purchase_date', e.target.value || null)
-                  }
+                  onChange={(date) => updateField('ticket_purchase_date', date || null)}
+                  placeholder="Select date"
                   disabled={disabled}
                 />
               </div>
@@ -284,12 +282,10 @@ export function LogisticsSection({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-muted-foreground">Booking Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={data.timeoff_booking_date ?? ''}
-                  onChange={(e) =>
-                    updateField('timeoff_booking_date', e.target.value || null)
-                  }
+                  onChange={(date) => updateField('timeoff_booking_date', date || null)}
+                  placeholder="Select date"
                   disabled={disabled}
                 />
               </div>
@@ -345,12 +341,10 @@ export function LogisticsSection({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm text-muted-foreground">Booking Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={data.travel_booking_date ?? ''}
-                  onChange={(e) =>
-                    updateField('travel_booking_date', e.target.value || null)
-                  }
+                  onChange={(date) => updateField('travel_booking_date', date || null)}
+                  placeholder="Select date"
                   disabled={disabled}
                 />
               </div>
