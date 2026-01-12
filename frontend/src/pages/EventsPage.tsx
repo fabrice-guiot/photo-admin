@@ -309,6 +309,14 @@ export default function EventsPage() {
           </DialogHeader>
           {selectedEvent && (
             <div className="space-y-4 pt-4">
+              {/* Description */}
+              {selectedEvent.description && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Description</div>
+                  <div className="text-sm whitespace-pre-wrap">{selectedEvent.description}</div>
+                </div>
+              )}
+
               {/* Category */}
               {selectedEvent.category && (
                 <div>
@@ -323,15 +331,18 @@ export default function EventsPage() {
                 </div>
               )}
 
-              {/* Description */}
-              {selectedEvent.description && (
+              {/* Time */}
+              {!selectedEvent.is_all_day && selectedEvent.start_time && (
                 <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Description</div>
-                  <div className="text-sm whitespace-pre-wrap">{selectedEvent.description}</div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Time</div>
+                  <div>
+                    {formatTime12h(selectedEvent.start_time)}
+                    {selectedEvent.end_time && ` - ${formatTime12h(selectedEvent.end_time)}`}
+                  </div>
                 </div>
               )}
 
-              {/* Status */}
+              {/* Status and Attendance */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm font-medium text-muted-foreground mb-1">Status</div>
@@ -349,17 +360,6 @@ export default function EventsPage() {
                   <div className="text-sm font-medium text-muted-foreground mb-1">Series</div>
                   <div>
                     Event {selectedEvent.sequence_number} of {selectedEvent.series_total}
-                  </div>
-                </div>
-              )}
-
-              {/* Time */}
-              {!selectedEvent.is_all_day && selectedEvent.start_time && (
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground mb-1">Time</div>
-                  <div>
-                    {formatTime12h(selectedEvent.start_time)}
-                    {selectedEvent.end_time && ` - ${formatTime12h(selectedEvent.end_time)}`}
                   </div>
                 </div>
               )}
