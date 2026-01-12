@@ -24,6 +24,7 @@ class ConfigCategory(str, Enum):
     EXTENSIONS = "extensions"
     CAMERAS = "cameras"
     PROCESSING_METHODS = "processing_methods"
+    EVENT_STATUSES = "event_statuses"
 
 
 class ConfigSourceType(str, Enum):
@@ -196,6 +197,10 @@ class ConfigurationResponse(BaseModel):
         default_factory=dict,
         description="Processing method descriptions"
     )
+    event_statuses: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Event status options"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -211,6 +216,10 @@ class ConfigurationResponse(BaseModel):
                 "processing_methods": {
                     "HDR": "High Dynamic Range",
                     "BW": "Black and White"
+                },
+                "event_statuses": {
+                    "future": {"label": "Future", "display_order": 0},
+                    "confirmed": {"label": "Confirmed", "display_order": 1}
                 }
             }
         }
@@ -343,6 +352,48 @@ class DeleteResponse(BaseModel):
             "example": {
                 "message": "Configuration deleted successfully",
                 "deleted_id": 1
+            }
+        }
+    }
+
+
+class EventStatusItem(BaseModel):
+    """
+    A single event status option.
+    """
+    key: str = Field(..., description="Status key/value used in code")
+    label: str = Field(..., description="Human-readable display label")
+    display_order: int = Field(..., description="Order in dropdowns/lists")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "key": "confirmed",
+                "label": "Confirmed",
+                "display_order": 1
+            }
+        }
+    }
+
+
+class EventStatusesResponse(BaseModel):
+    """
+    List of event statuses ordered by display_order.
+    """
+    statuses: List[EventStatusItem] = Field(
+        default_factory=list,
+        description="Ordered list of event statuses"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "statuses": [
+                    {"key": "future", "label": "Future", "display_order": 0},
+                    {"key": "confirmed", "label": "Confirmed", "display_order": 1},
+                    {"key": "completed", "label": "Completed", "display_order": 2},
+                    {"key": "cancelled", "label": "Cancelled", "display_order": 3}
+                ]
             }
         }
     }

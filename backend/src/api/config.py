@@ -29,7 +29,8 @@ from backend.src.schemas.config import (
     ConfigItemCreate, ConfigItemUpdate, ConfigItemResponse,
     CategoryConfigResponse, ConfigurationResponse,
     ImportSessionResponse, ConflictResolutionRequest, ImportResultResponse,
-    ConfigStatsResponse, DeleteResponse, ConfigConflict
+    ConfigStatsResponse, DeleteResponse, ConfigConflict,
+    EventStatusItem, EventStatusesResponse
 )
 from backend.src.services.config_service import ConfigService
 from backend.src.services.exceptions import NotFoundError, ConflictError, ValidationError
@@ -77,6 +78,34 @@ def get_stats(
         Statistics including total items, cameras, methods, and source breakdown
     """
     return service.get_stats()
+
+
+# ============================================================================
+# Event Statuses Endpoint (must be before /{category})
+# ============================================================================
+
+@router.get(
+    "/event_statuses",
+    response_model=EventStatusesResponse,
+    summary="Get event status options"
+)
+def get_event_statuses(
+    service: ConfigService = Depends(get_config_service)
+) -> EventStatusesResponse:
+    """
+    Get event status options ordered by display order.
+
+    Returns an ordered list of available event statuses for use in dropdowns
+    and forms. Each status has a key (used in code), label (for display),
+    and display_order (for sorting).
+
+    Returns:
+        List of event statuses ordered by display_order
+    """
+    statuses = service.get_event_statuses()
+    return EventStatusesResponse(
+        statuses=[EventStatusItem(**s) for s in statuses]
+    )
 
 
 # ============================================================================
@@ -321,7 +350,8 @@ def get_all_config(
         return ConfigurationResponse(
             extensions=all_config.get("extensions", {}),
             cameras=all_config.get("cameras", {}),
-            processing_methods=all_config.get("processing_methods", {})
+            processing_methods=all_config.get("processing_methods", {}),
+            event_statuses=all_config.get("event_statuses", {})
         )
     except HTTPException:
         raise

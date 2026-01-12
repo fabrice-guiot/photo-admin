@@ -37,6 +37,7 @@ import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
 import { LocationPicker } from '@/components/events/LocationPicker'
 import { OrganizerPicker } from '@/components/events/OrganizerPicker'
 import { LogisticsSection, type LogisticsData } from '@/components/events/LogisticsSection'
+import { useEventStatuses } from '@/hooks/useConfig'
 import { cn } from '@/lib/utils'
 import type {
   EventDetail,
@@ -62,7 +63,7 @@ const eventFormSchema = z.object({
   end_time: z.string().optional(),
   is_all_day: z.boolean(),
   input_timezone: z.string().optional(),
-  status: z.enum(['future', 'confirmed', 'completed', 'cancelled']),
+  status: z.string().min(1, 'Status is required'),
   attendance: z.enum(['planned', 'attended', 'skipped']),
 })
 
@@ -128,6 +129,9 @@ export const EventForm = ({
   defaultDate
 }: EventFormProps) => {
   const isEditMode = !!event
+
+  // Fetch event statuses from config
+  const { statuses: eventStatuses } = useEventStatuses()
 
   // Event mode (single vs series) - only for create mode
   const [mode, setMode] = useState<EventMode>('single')
@@ -711,10 +715,11 @@ export const EventForm = ({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="future">Future</SelectItem>
-                      <SelectItem value="confirmed">Confirmed</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      {eventStatuses.map(status => (
+                        <SelectItem key={status.key} value={status.key}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

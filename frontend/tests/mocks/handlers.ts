@@ -538,6 +538,12 @@ let configData = {
     'HDR': 'High Dynamic Range',
     'BW': 'Black and White',
   } as Record<string, string>,
+  event_statuses: {
+    'future': { label: 'Future', display_order: 0 },
+    'confirmed': { label: 'Confirmed', display_order: 1 },
+    'completed': { label: 'Completed', display_order: 2 },
+    'cancelled': { label: 'Cancelled', display_order: 3 },
+  } as Record<string, { label: string; display_order: number }>,
   importSessions: {} as Record<string, ImportSessionResponse>,
   lastImport: null as string | null,
 }
@@ -1668,8 +1674,22 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
       extensions: configData.extensions,
       cameras: configData.cameras,
       processing_methods: configData.processing_methods,
+      event_statuses: configData.event_statuses,
     }
     return HttpResponse.json(response)
+  }),
+
+  // GET /api/config/event_statuses - Get event statuses
+  http.get(`${BASE_URL}/config/event_statuses`, () => {
+    const statuses = Object.entries(configData.event_statuses)
+      .map(([key, value]) => ({
+        key,
+        label: value.label,
+        display_order: value.display_order,
+      }))
+      .sort((a, b) => a.display_order - b.display_order)
+
+    return HttpResponse.json({ statuses })
   }),
 
   http.get(`${BASE_URL}/config/stats`, () => {
@@ -2753,6 +2773,12 @@ export function resetMockData(): void {
     processing_methods: {
       'HDR': 'High Dynamic Range',
       'BW': 'Black and White',
+    },
+    event_statuses: {
+      'future': { label: 'Future', display_order: 0 },
+      'confirmed': { label: 'Confirmed', display_order: 1 },
+      'completed': { label: 'Completed', display_order: 2 },
+      'cancelled': { label: 'Cancelled', display_order: 3 },
     },
     importSessions: {},
     lastImport: null,

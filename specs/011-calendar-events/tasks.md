@@ -366,15 +366,15 @@
 
 ### Backend for User Story 10
 
-- [ ] T116 [US10] Add 'event_statuses' as valid config category in backend/src/services/config_service.py
-- [ ] T117 [US10] Seed default event statuses (future, confirmed, completed, cancelled) via config in backend/alembic/versions/
-- [ ] T118 [US10] Add endpoint GET /api/config/event_statuses to return ordered status list in backend/src/api/config.py
+- [x] T116 [US10] Add 'event_statuses' as valid config category in backend/src/services/config_service.py
+- [x] T117 [US10] Seed default event statuses (future, confirmed, completed, cancelled) via migration 019_seed_default_event_statuses.py
+- [x] T118 [US10] Add endpoint GET /api/config/event_statuses to return ordered status list in backend/src/api/config.py
 
 ### Frontend for User Story 10
 
-- [ ] T119 [US10] Create EventStatusesSection component for Config tab in frontend/src/components/settings/EventStatusesSection.tsx
-- [ ] T120 [US10] Integrate EventStatusesSection into ConfigTab in frontend/src/components/settings/ConfigTab.tsx
-- [ ] T121 [US10] Update EventForm to fetch statuses from /api/config/event_statuses in frontend/src/components/events/EventForm.tsx
+- [x] T119 [US10] Create EventStatusesSection component for Config tab in frontend/src/components/settings/EventStatusesSection.tsx
+- [x] T120 [US10] Integrate EventStatusesSection into ConfigTab in frontend/src/components/settings/ConfigTab.tsx
+- [x] T121 [US10] Update EventForm to fetch statuses from /api/config/event_statuses (via useEventStatuses hook)
 
 **Checkpoint**: Event statuses are configurable via Settings > Config
 

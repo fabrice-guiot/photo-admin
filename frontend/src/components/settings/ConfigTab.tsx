@@ -38,9 +38,11 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useConfig, useConfigStats } from '@/hooks/useConfig'
 import { useHeaderStats } from '@/contexts/HeaderStatsContext'
+import { EventStatusesSection } from '@/components/settings/EventStatusesSection'
 import type {
   ConfigCategory,
-  ImportSessionResponse
+  ImportSessionResponse,
+  EventStatusConfig
 } from '@/contracts/api/config-api'
 import { cn } from '@/lib/utils'
 
@@ -666,6 +668,22 @@ export function ConfigTab() {
         {renderCategorySection('cameras')}
         {renderCategorySection('processing_methods')}
         {renderCategorySection('extensions')}
+        <EventStatusesSection
+          statuses={(configuration?.event_statuses || {}) as Record<string, EventStatusConfig>}
+          loading={loading}
+          onCreate={async (key, value) => {
+            await createConfigValue('event_statuses', key, { value })
+            refetchStats()
+          }}
+          onUpdate={async (key, value) => {
+            await updateConfigValue('event_statuses', key, { value })
+            refetchStats()
+          }}
+          onDelete={async (key) => {
+            await deleteConfigValue('event_statuses', key)
+            refetchStats()
+          }}
+        />
       </div>
 
       {/* Import Dialog */}

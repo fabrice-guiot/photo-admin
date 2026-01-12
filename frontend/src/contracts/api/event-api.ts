@@ -9,7 +9,9 @@
 // Enums
 // ============================================================================
 
-export type EventStatus = 'future' | 'confirmed' | 'completed' | 'cancelled'
+// EventStatus is configurable via Settings > Config > Event Statuses
+// Default values: 'future' | 'confirmed' | 'completed' | 'cancelled'
+export type EventStatus = string
 export type AttendanceStatus = 'planned' | 'attended' | 'skipped'
 export type TicketStatus = 'not_purchased' | 'purchased' | 'ready'
 export type TimeoffStatus = 'planned' | 'booked' | 'approved'

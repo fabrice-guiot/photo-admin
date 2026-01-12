@@ -15,7 +15,8 @@ import type {
   ImportResultResponse,
   ConfigCategory,
   ConfigValueUpdateRequest,
-  ConflictResolutionRequest
+  ConflictResolutionRequest,
+  EventStatusesResponse
 } from '@/contracts/api/config-api'
 
 /**
@@ -145,5 +146,13 @@ export const exportConfiguration = async (): Promise<Blob> => {
   const response = await api.get('/config/export', {
     responseType: 'blob'
   })
+  return response.data
+}
+
+/**
+ * Get event statuses ordered by display order
+ */
+export const getEventStatuses = async (): Promise<EventStatusesResponse> => {
+  const response = await api.get<EventStatusesResponse>('/config/event_statuses')
   return response.data
 }
