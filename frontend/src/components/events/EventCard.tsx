@@ -8,6 +8,7 @@
 import { LucideIcon, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ICON_MAP } from '@/components/settings/CategoryForm'
+import { LogisticsStatusBadges } from '@/components/events/LogisticsSection'
 import type { Event, AttendanceStatus } from '@/contracts/api/event-api'
 
 // ============================================================================
@@ -214,6 +215,24 @@ export const EventCard = ({
               </span>
             </div>
           )}
+
+          {/* Logistics Indicators */}
+          <LogisticsStatusBadges
+            data={{
+              ticket_required: event.ticket_required,
+              ticket_status: event.ticket_status,
+              ticket_purchase_date: null,
+              timeoff_required: event.timeoff_required,
+              timeoff_status: event.timeoff_status,
+              timeoff_booking_date: null,
+              travel_required: event.travel_required,
+              travel_status: event.travel_status,
+              travel_booking_date: null,
+              deadline_date: null,
+            }}
+            size="sm"
+            className="mt-1"
+          />
         </div>
 
         {/* Attendance Indicator */}

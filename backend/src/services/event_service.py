@@ -351,6 +351,23 @@ class EventService:
                 "timezone": event.location.timezone,
             }
 
+        # Get effective logistics (from event or inherit from series)
+        ticket_required = event.ticket_required
+        ticket_status = event.ticket_status
+        timeoff_required = event.timeoff_required
+        timeoff_status = event.timeoff_status
+        travel_required = event.travel_required
+        travel_status = event.travel_status
+
+        # Inherit from series if event values are None
+        if event.series:
+            if ticket_required is None:
+                ticket_required = event.series.ticket_required
+            if timeoff_required is None:
+                timeoff_required = event.series.timeoff_required
+            if travel_required is None:
+                travel_required = event.series.travel_required
+
         response = {
             "guid": event.guid,
             "title": event.effective_title,
@@ -366,6 +383,13 @@ class EventService:
             "series_guid": event.series.guid if event.series else None,
             "sequence_number": event.sequence_number,
             "series_total": event.series.total_events if event.series else None,
+            # Logistics summary
+            "ticket_required": ticket_required,
+            "ticket_status": ticket_status,
+            "timeoff_required": timeoff_required,
+            "timeoff_status": timeoff_status,
+            "travel_required": travel_required,
+            "travel_status": travel_status,
             "created_at": event.created_at,
             "updated_at": event.updated_at,
         }
@@ -583,6 +607,23 @@ class EventService:
         location = self._get_location_by_guid(location_guid) if location_guid else None
         organizer = self._get_organizer_by_guid(organizer_guid) if organizer_guid else None
 
+        # Apply default logistics from organizer and location if not explicitly set
+        effective_ticket_required = ticket_required
+        effective_timeoff_required = timeoff_required
+        effective_travel_required = travel_required
+
+        if effective_ticket_required is None and organizer and organizer.ticket_required_default:
+            effective_ticket_required = True
+            logger.debug(f"Applied ticket_required default from organizer: {organizer.name}")
+
+        if effective_timeoff_required is None and location and location.timeoff_required_default:
+            effective_timeoff_required = True
+            logger.debug(f"Applied timeoff_required default from location: {location.name}")
+
+        if effective_travel_required is None and location and location.travel_required_default:
+            effective_travel_required = True
+            logger.debug(f"Applied travel_required default from location: {location.name}")
+
         # Create event
         event = Event(
             title=title,
@@ -597,9 +638,9 @@ class EventService:
             input_timezone=input_timezone,
             status=status,
             attendance=attendance,
-            ticket_required=ticket_required,
-            timeoff_required=timeoff_required,
-            travel_required=travel_required,
+            ticket_required=effective_ticket_required,
+            timeoff_required=effective_timeoff_required,
+            travel_required=effective_travel_required,
             deadline_date=deadline_date,
         )
 
@@ -669,6 +710,23 @@ class EventService:
         location = self._get_location_by_guid(location_guid) if location_guid else None
         organizer = self._get_organizer_by_guid(organizer_guid) if organizer_guid else None
 
+        # Apply default logistics from organizer and location if not explicitly set
+        effective_ticket_required = ticket_required
+        effective_timeoff_required = timeoff_required
+        effective_travel_required = travel_required
+
+        if not effective_ticket_required and organizer and organizer.ticket_required_default:
+            effective_ticket_required = True
+            logger.debug(f"Applied ticket_required default from organizer: {organizer.name}")
+
+        if not effective_timeoff_required and location and location.timeoff_required_default:
+            effective_timeoff_required = True
+            logger.debug(f"Applied timeoff_required default from location: {location.name}")
+
+        if not effective_travel_required and location and location.travel_required_default:
+            effective_travel_required = True
+            logger.debug(f"Applied travel_required default from location: {location.name}")
+
         # Create series
         series = EventSeries(
             title=title,
@@ -677,9 +735,9 @@ class EventService:
             location_id=location.id if location else None,
             organizer_id=organizer.id if organizer else None,
             input_timezone=input_timezone,
-            ticket_required=ticket_required,
-            timeoff_required=timeoff_required,
-            travel_required=travel_required,
+            ticket_required=effective_ticket_required,
+            timeoff_required=effective_timeoff_required,
+            travel_required=effective_travel_required,
             total_events=len(sorted_dates),
         )
 

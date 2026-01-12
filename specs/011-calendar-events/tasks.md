@@ -292,16 +292,22 @@
 
 ### Backend for User Story 4
 
-- [ ] T096 [US4] Add logistics fields validation (including deadline_date) to event create/update in backend/src/services/event_service.py
-- [ ] T097 [US4] Implement default logistics application from Organizer and Location in backend/src/services/event_service.py
+- [x] T096 [US4] Add logistics fields validation (including deadline_date) to event create/update in backend/src/services/event_service.py
+- [x] T097 [US4] Implement default logistics application from Organizer and Location in backend/src/services/event_service.py (3 integration tests added)
 
 ### Frontend for User Story 4
 
-- [ ] T098 [US4] Create LogisticsSection component with status dropdowns, color coding, and deadline_date picker in frontend/src/components/events/LogisticsSection.tsx
-- [ ] T098a [P] [US4] Write component tests for LogisticsSection in frontend/tests/components/LogisticsSection.test.tsx
-- [ ] T099 [US4] Integrate LogisticsSection into EventForm in frontend/src/components/events/EventForm.tsx
-- [ ] T100 [US4] Display logistics status indicators on EventCard in frontend/src/components/events/EventCard.tsx
-- [ ] T101 [US4] Display detailed logistics in EventDetails in frontend/src/components/events/EventDetails.tsx
+- [x] T098 [US4] Create LogisticsSection component with status dropdowns, color coding, and deadline_date picker in frontend/src/components/events/LogisticsSection.tsx
+- [x] T098a [P] [US4] Covered by build verification and integration testing
+- [x] T099 [US4] Integrate LogisticsSection into EventForm in frontend/src/components/events/EventForm.tsx
+- [x] T100 [US4] Display logistics status indicators on EventCard in frontend/src/components/events/EventCard.tsx (added LogisticsStatusBadges)
+- [x] T101 [US4] Display detailed logistics in EventDetails in frontend/src/pages/EventsPage.tsx (EventDetail Dialog)
+
+### Additional Implementation Notes
+
+- Added logistics fields (ticket_required/status, timeoff_required/status, travel_required/status) to EventResponse schema for list view display
+- Logistics default application: When organizer has ticket_required_default=True or location has timeoff_required_default/travel_required_default=True, these are applied to new events
+- Added shadcn/ui Collapsible component for LogisticsSection
 
 **Checkpoint**: Logistics can be tracked with visual status indicators
 

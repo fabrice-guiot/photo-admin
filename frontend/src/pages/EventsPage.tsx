@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, MapPin } from 'lucide-react'
+import { Plus, Pencil, Trash2, MapPin, Building2, Ticket, Briefcase, Car, Calendar } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -416,6 +416,111 @@ export default function EventsPage() {
                   <div className="text-sm font-medium text-muted-foreground mb-1">Series</div>
                   <div>
                     Event {selectedEvent.sequence_number} of {selectedEvent.series_total}
+                  </div>
+                </div>
+              )}
+
+              {/* Organizer */}
+              {selectedEvent.organizer && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Organizer</div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-muted-foreground" />
+                    <span>{selectedEvent.organizer.name}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Logistics Section */}
+              {(selectedEvent.ticket_required || selectedEvent.timeoff_required || selectedEvent.travel_required || selectedEvent.deadline_date) && (
+                <div className="pt-2 border-t">
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Logistics</div>
+                  <div className="space-y-2">
+                    {/* Ticket */}
+                    {selectedEvent.ticket_required && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Ticket className="h-4 w-4" />
+                          <span>Ticket</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            selectedEvent.ticket_status === 'ready' ? 'bg-green-500/10 text-green-500' :
+                            selectedEvent.ticket_status === 'purchased' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {selectedEvent.ticket_status === 'ready' ? 'Ready' :
+                             selectedEvent.ticket_status === 'purchased' ? 'Purchased' : 'Not Purchased'}
+                          </span>
+                          {selectedEvent.ticket_purchase_date && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(selectedEvent.ticket_purchase_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Time Off */}
+                    {selectedEvent.timeoff_required && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Briefcase className="h-4 w-4" />
+                          <span>Time Off</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            selectedEvent.timeoff_status === 'approved' ? 'bg-green-500/10 text-green-500' :
+                            selectedEvent.timeoff_status === 'booked' ? 'bg-yellow-500/10 text-yellow-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {selectedEvent.timeoff_status === 'approved' ? 'Approved' :
+                             selectedEvent.timeoff_status === 'booked' ? 'Booked' : 'Planned'}
+                          </span>
+                          {selectedEvent.timeoff_booking_date && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(selectedEvent.timeoff_booking_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Travel */}
+                    {selectedEvent.travel_required && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Car className="h-4 w-4" />
+                          <span>Travel</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded ${
+                            selectedEvent.travel_status === 'booked' ? 'bg-green-500/10 text-green-500' :
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {selectedEvent.travel_status === 'booked' ? 'Booked' : 'Planned'}
+                          </span>
+                          {selectedEvent.travel_booking_date && (
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(selectedEvent.travel_booking_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Deadline */}
+                    {selectedEvent.deadline_date && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          <Calendar className="h-4 w-4" />
+                          <span>Deadline</span>
+                        </div>
+                        <span className="text-sm">
+                          {new Date(selectedEvent.deadline_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -85,6 +85,14 @@ export interface Event {
   sequence_number: number | null
   series_total: number | null
 
+  // Logistics summary (for card display indicators)
+  ticket_required: boolean | null
+  ticket_status: TicketStatus | null
+  timeoff_required: boolean | null
+  timeoff_status: TimeoffStatus | null
+  travel_required: boolean | null
+  travel_status: TravelStatus | null
+
   // Timestamps
   created_at: string                  // ISO 8601 timestamp
   updated_at: string                  // ISO 8601 timestamp

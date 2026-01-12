@@ -372,6 +372,14 @@ class EventResponse(BaseModel):
     sequence_number: Optional[int] = Field(default=None)
     series_total: Optional[int] = Field(default=None)
 
+    # Logistics summary (for card display indicators)
+    ticket_required: Optional[bool] = Field(default=None)
+    ticket_status: Optional[TicketStatus] = Field(default=None)
+    timeoff_required: Optional[bool] = Field(default=None)
+    timeoff_status: Optional[TimeoffStatus] = Field(default=None)
+    travel_required: Optional[bool] = Field(default=None)
+    travel_status: Optional[TravelStatus] = Field(default=None)
+
     # Timestamps
     created_at: datetime
     updated_at: datetime

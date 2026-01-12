@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
 import { LocationPicker } from '@/components/events/LocationPicker'
 import { OrganizerPicker } from '@/components/events/OrganizerPicker'
+import { LogisticsSection, type LogisticsData } from '@/components/events/LogisticsSection'
 import { cn } from '@/lib/utils'
 import type {
   EventDetail,
@@ -148,6 +149,20 @@ export const EventForm = ({
   // Selected organizer (for OrganizerPicker display)
   const [selectedOrganizer, setSelectedOrganizer] = useState<Organizer | null>(null)
 
+  // Logistics data
+  const [logistics, setLogistics] = useState<LogisticsData>({
+    ticket_required: null,
+    ticket_status: null,
+    ticket_purchase_date: null,
+    timeoff_required: null,
+    timeoff_status: null,
+    timeoff_booking_date: null,
+    travel_required: null,
+    travel_status: null,
+    travel_booking_date: null,
+    deadline_date: null,
+  })
+
   // Initialize form
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -231,6 +246,19 @@ export const EventForm = ({
           updated_at: '',
         })
       }
+      // Set logistics data from event
+      setLogistics({
+        ticket_required: event.ticket_required,
+        ticket_status: event.ticket_status,
+        ticket_purchase_date: event.ticket_purchase_date,
+        timeoff_required: event.timeoff_required,
+        timeoff_status: event.timeoff_status,
+        timeoff_booking_date: event.timeoff_booking_date,
+        travel_required: event.travel_required,
+        travel_status: event.travel_status,
+        travel_booking_date: event.travel_booking_date,
+        deadline_date: event.deadline_date,
+      })
     }
   }, [event, form])
 
@@ -290,9 +318,9 @@ export const EventForm = ({
         end_time: values.is_all_day ? undefined : (values.end_time || undefined),
         is_all_day: values.is_all_day,
         input_timezone: values.is_all_day ? undefined : timezone,
-        ticket_required: false,
-        timeoff_required: false,
-        travel_required: false,
+        ticket_required: logistics.ticket_required ?? false,
+        timeoff_required: logistics.timeoff_required ?? false,
+        travel_required: logistics.travel_required ?? false,
         status: values.status,
         attendance: values.attendance,
       }
@@ -315,6 +343,17 @@ export const EventForm = ({
         input_timezone: values.is_all_day ? null : (timezone || null),
         status: values.status,
         attendance: values.attendance,
+        // Logistics
+        ticket_required: logistics.ticket_required,
+        ticket_status: logistics.ticket_status,
+        ticket_purchase_date: logistics.ticket_purchase_date,
+        timeoff_required: logistics.timeoff_required,
+        timeoff_status: logistics.timeoff_status,
+        timeoff_booking_date: logistics.timeoff_booking_date,
+        travel_required: logistics.travel_required,
+        travel_status: logistics.travel_status,
+        travel_booking_date: logistics.travel_booking_date,
+        deadline_date: logistics.deadline_date,
       }
 
       await onSubmit(data)
@@ -705,6 +744,20 @@ export const EventForm = ({
                 </FormItem>
               )}
             />
+        </div>
+
+        {/* Logistics Section */}
+        <div className="pt-2 border-t">
+          <LogisticsSection
+            data={logistics}
+            onChange={setLogistics}
+            defaultOpen={isEditMode && (
+              logistics.ticket_required ||
+              logistics.timeoff_required ||
+              logistics.travel_required ||
+              logistics.deadline_date !== null
+            ) as boolean}
+          />
         </div>
 
         {/* Form Actions */}

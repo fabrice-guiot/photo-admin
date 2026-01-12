@@ -518,6 +518,131 @@ class TestEventsCreate:
 
         assert response.status_code == 422  # Validation error
 
+    def test_create_event_with_organizer_ticket_default(
+        self, test_client, test_db_session, test_category
+    ):
+        """Test that organizer's ticket_required_default is applied to new events."""
+        # Create an organizer with ticket_required_default=True
+        organizer = Organizer(
+            name="Ticket Required Organizer",
+            category_id=test_category.id,
+            ticket_required_default=True,
+        )
+        test_db_session.add(organizer)
+        test_db_session.commit()
+        test_db_session.refresh(organizer)
+
+        # Create event without explicitly setting ticket_required
+        response = test_client.post(
+            "/api/events",
+            json={
+                "title": "Event with Organizer Default",
+                "category_guid": test_category.guid,
+                "event_date": "2026-05-15",
+                "organizer_guid": organizer.guid,
+                # ticket_required is NOT explicitly set
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        # Verify ticket_required was applied from organizer default
+        detail_response = test_client.get(f"/api/events/{data['guid']}")
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert detail["ticket_required"] is True
+
+    def test_create_event_with_location_logistics_defaults(
+        self, test_client, test_db_session, test_category
+    ):
+        """Test that location's travel/timeoff defaults are applied to new events."""
+        # Create a location with logistics defaults
+        location = Location(
+            name="Remote Venue",
+            city="Remote City",
+            country="USA",
+            category_id=test_category.id,
+            is_known=True,
+            timeoff_required_default=True,
+            travel_required_default=True,
+        )
+        test_db_session.add(location)
+        test_db_session.commit()
+        test_db_session.refresh(location)
+
+        # Create event without explicitly setting logistics
+        response = test_client.post(
+            "/api/events",
+            json={
+                "title": "Event at Remote Venue",
+                "category_guid": test_category.guid,
+                "event_date": "2026-05-20",
+                "location_guid": location.guid,
+                # timeoff_required and travel_required are NOT explicitly set
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        # Verify logistics were applied from location defaults
+        detail_response = test_client.get(f"/api/events/{data['guid']}")
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert detail["timeoff_required"] is True
+        assert detail["travel_required"] is True
+
+    def test_create_event_explicit_overrides_defaults(
+        self, test_client, test_db_session, test_category
+    ):
+        """Test that explicit False overrides organizer/location defaults."""
+        # Create organizer with default=True
+        organizer = Organizer(
+            name="Ticket Default Organizer",
+            category_id=test_category.id,
+            ticket_required_default=True,
+        )
+        test_db_session.add(organizer)
+
+        # Create location with defaults=True
+        location = Location(
+            name="Default Location",
+            city="Default City",
+            country="USA",
+            category_id=test_category.id,
+            is_known=True,
+            travel_required_default=True,
+        )
+        test_db_session.add(location)
+        test_db_session.commit()
+        test_db_session.refresh(organizer)
+        test_db_session.refresh(location)
+
+        # Create event with explicit False values
+        response = test_client.post(
+            "/api/events",
+            json={
+                "title": "Event with Explicit Overrides",
+                "category_guid": test_category.guid,
+                "event_date": "2026-05-25",
+                "organizer_guid": organizer.guid,
+                "location_guid": location.guid,
+                "ticket_required": False,  # Explicit override
+                "travel_required": False,  # Explicit override
+            },
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+
+        # Verify explicit values were respected (not overridden by defaults)
+        detail_response = test_client.get(f"/api/events/{data['guid']}")
+        assert detail_response.status_code == 200
+        detail = detail_response.json()
+        assert detail["ticket_required"] is False
+        assert detail["travel_required"] is False
+
 
 class TestEventsUpdate:
     """Tests for updating events (Phase 5)."""
