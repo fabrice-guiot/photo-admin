@@ -109,8 +109,8 @@ class GeocodeResponse(BaseModel):
     state: Optional[str] = Field(default=None, description="State/province")
     country: Optional[str] = Field(default=None, description="Country name")
     postal_code: Optional[str] = Field(default=None, description="ZIP/postal code")
-    latitude: Decimal = Field(..., description="Geocoded latitude")
-    longitude: Decimal = Field(..., description="Geocoded longitude")
+    latitude: float = Field(..., description="Geocoded latitude")
+    longitude: float = Field(..., description="Geocoded longitude")
     timezone: Optional[str] = Field(default=None, description="IANA timezone identifier")
 
     model_config = {

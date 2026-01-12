@@ -468,8 +468,8 @@ class LocationService:
             "state": result.state,
             "country": result.country,
             "postal_code": result.postal_code,
-            "latitude": Decimal(str(result.latitude)),
-            "longitude": Decimal(str(result.longitude)),
+            "latitude": float(result.latitude),
+            "longitude": float(result.longitude),
             "timezone": result.timezone,
         }
 
