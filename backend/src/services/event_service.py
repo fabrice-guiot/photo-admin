@@ -148,6 +148,7 @@ class EventService:
         query = self.db.query(Event).options(
             joinedload(Event.category),
             joinedload(Event.series),
+            joinedload(Event.location),
         )
 
         # Exclude soft-deleted unless requested
@@ -339,6 +340,17 @@ class EventService:
                 "color": category.color,
             }
 
+        # Build location data
+        location_data = None
+        if event.location:
+            location_data = {
+                "guid": event.location.guid,
+                "name": event.location.name,
+                "city": event.location.city,
+                "country": event.location.country,
+                "timezone": event.location.timezone,
+            }
+
         response = {
             "guid": event.guid,
             "title": event.effective_title,
@@ -350,6 +362,7 @@ class EventService:
             "status": event.status,
             "attendance": event.attendance,
             "category": category_data,
+            "location": location_data,
             "series_guid": event.series.guid if event.series else None,
             "sequence_number": event.sequence_number,
             "series_total": event.series.total_events if event.series else None,
@@ -376,17 +389,7 @@ class EventService:
         # Add description (effective, falls back to series description)
         response["description"] = event.effective_description
 
-        # Add location
-        if event.location:
-            response["location"] = {
-                "guid": event.location.guid,
-                "name": event.location.name,
-                "city": event.location.city,
-                "country": event.location.country,
-                "timezone": event.location.timezone,
-            }
-        else:
-            response["location"] = None
+        # Note: location is already included from build_event_response
 
         # Add organizer
         if event.organizer:
@@ -740,6 +743,11 @@ class EventService:
         Raises:
             NotFoundError: If event not found
             ValidationError: If invalid update data
+
+        Note:
+            Location changes on series events are ALWAYS applied to all events
+            in the series, regardless of scope. This is because location is
+            considered a series-level property.
         """
         event = self.get_by_guid(guid)
 
@@ -752,13 +760,17 @@ class EventService:
             else:
                 updates["category_id"] = None
 
-        if "location_guid" in updates:
+        # Handle location_guid - extract separately for series sync
+        # Track both the value and whether it was provided (to handle null values)
+        location_id_update = None
+        updating_location = "location_guid" in updates
+        if updating_location:
             location_guid = updates.pop("location_guid")
             if location_guid:
                 location = self._get_location_by_guid(location_guid)
-                updates["location_id"] = location.id
+                location_id_update = location.id
             else:
-                updates["location_id"] = None
+                location_id_update = None
 
         if "organizer_guid" in updates:
             organizer_guid = updates.pop("organizer_guid")
@@ -771,18 +783,33 @@ class EventService:
         # Remove scope from updates (it's not an event field)
         updates.pop("scope", None)
 
-        # Determine which events to update
+        # Determine which events to update based on scope
         if event.series and scope != "single":
             events_to_update = self._get_series_events_for_update(event, scope)
         else:
             events_to_update = [event]
 
-        # Apply updates
+        # Apply regular updates based on scope
         for e in events_to_update:
             for field, value in updates.items():
                 if hasattr(e, field):
                     setattr(e, field, value)
             e.updated_at = datetime.utcnow()
+
+        # Handle location sync for series events
+        # Location is always synced across ALL events in a series
+        if updating_location:
+            if event.series:
+                # Get ALL events in the series (regardless of scope)
+                all_series_events = self._get_series_events_for_update(event, "all")
+                for e in all_series_events:
+                    e.location_id = location_id_update
+                    if e not in events_to_update:
+                        e.updated_at = datetime.utcnow()
+                logger.info(f"Synced location across {len(all_series_events)} series events")
+            else:
+                # Standalone event - just update location
+                event.location_id = location_id_update
 
         self.db.commit()
         self.db.refresh(event)

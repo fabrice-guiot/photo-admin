@@ -188,6 +188,9 @@ const CalendarCell = ({
   const visibleEvents = day.events.slice(0, maxEventsToShow)
   const hiddenCount = day.events.length - maxEventsToShow
 
+  // When there's only one event, allow it to expand and wrap text
+  const isSingleEvent = day.events.length === 1
+
   return (
     <div
       className={cn(
@@ -217,6 +220,7 @@ const CalendarCell = ({
             event={event}
             onClick={onEventClick}
             compact
+            expanded={isSingleEvent}
           />
         ))}
 

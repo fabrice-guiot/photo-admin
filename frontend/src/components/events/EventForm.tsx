@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { TimezoneCombobox } from '@/components/ui/timezone-combobox'
+import { LocationPicker } from '@/components/events/LocationPicker'
 import { cn } from '@/lib/utils'
 import type {
   EventDetail,
@@ -42,6 +43,7 @@ import type {
   EventSeriesCreateRequest
 } from '@/contracts/api/event-api'
 import type { Category } from '@/contracts/api/category-api'
+import type { Location } from '@/contracts/api/location-api'
 
 // ============================================================================
 // Form Schema
@@ -51,6 +53,7 @@ const eventFormSchema = z.object({
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().optional(),
   category_guid: z.string().min(1, 'Category is required'),
+  location_guid: z.string().optional().nullable(),
   start_time: z.string().optional(),
   end_time: z.string().optional(),
   is_all_day: z.boolean(),
@@ -136,6 +139,9 @@ export const EventForm = ({
   // Date input for adding to series
   const [dateInput, setDateInput] = useState<string>('')
 
+  // Selected location (for LocationPicker display)
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
+
   // Initialize form
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -143,6 +149,7 @@ export const EventForm = ({
       title: '',
       description: '',
       category_guid: '',
+      location_guid: null,
       start_time: '',
       end_time: '',
       is_all_day: false,
@@ -159,6 +166,7 @@ export const EventForm = ({
         title: event.title,
         description: event.description || '',
         category_guid: event.category?.guid || '',
+        location_guid: event.location?.guid || null,
         start_time: event.start_time?.slice(0, 5) || '', // HH:MM
         end_time: event.end_time?.slice(0, 5) || '', // HH:MM
         is_all_day: event.is_all_day,
@@ -167,6 +175,35 @@ export const EventForm = ({
         attendance: event.attendance,
       })
       setSelectedDate(event.event_date)
+      // Set location for picker display (convert summary to partial Location)
+      if (event.location) {
+        setSelectedLocation({
+          guid: event.location.guid,
+          name: event.location.name,
+          city: event.location.city,
+          country: event.location.country,
+          timezone: event.location.timezone,
+          // Remaining fields are not available from summary, use defaults
+          address: null,
+          state: null,
+          postal_code: null,
+          latitude: null,
+          longitude: null,
+          category: event.category ? {
+            guid: event.category.guid,
+            name: event.category.name,
+            icon: event.category.icon || null,
+            color: event.category.color || null,
+          } : { guid: '', name: '', icon: null, color: null },
+          rating: null,
+          timeoff_required_default: false,
+          travel_required_default: false,
+          notes: null,
+          is_known: true,
+          created_at: '',
+          updated_at: '',
+        })
+      }
     }
   }, [event, form])
 
@@ -181,6 +218,21 @@ export const EventForm = ({
   // Remove date from series
   const removeDateFromSeries = (dateToRemove: string) => {
     setSeriesDates(seriesDates.filter(d => d !== dateToRemove))
+  }
+
+  // Handle location selection
+  const handleLocationChange = (location: Location | null) => {
+    setSelectedLocation(location)
+    form.setValue('location_guid', location?.guid || null)
+  }
+
+  // Handle timezone suggestion from location
+  const handleTimezoneHint = (timezone: string) => {
+    // Only suggest if no timezone is set
+    const currentTimezone = form.getValues('input_timezone')
+    if (!currentTimezone) {
+      form.setValue('input_timezone', timezone)
+    }
   }
 
   // Handle form submission
@@ -198,6 +250,7 @@ export const EventForm = ({
         title: values.title,
         description: values.description || undefined,
         category_guid: values.category_guid,
+        location_guid: values.location_guid || undefined,
         event_dates: seriesDates,
         start_time: values.is_all_day ? undefined : (values.start_time || undefined),
         end_time: values.is_all_day ? undefined : (values.end_time || undefined),
@@ -219,6 +272,7 @@ export const EventForm = ({
         title: values.title,
         description: values.description || null,
         category_guid: values.category_guid,
+        location_guid: values.location_guid || null,
         event_date: selectedDate,
         start_time: values.is_all_day ? null : (values.start_time || null),
         end_time: values.is_all_day ? null : (values.end_time || null),
@@ -234,6 +288,18 @@ export const EventForm = ({
 
   // Watch all-day state to show/hide time fields
   const isAllDay = form.watch('is_all_day')
+
+  // Watch category for LocationPicker filtering
+  const selectedCategoryGuid = form.watch('category_guid')
+
+  // Clear location when category changes (locations are category-specific)
+  useEffect(() => {
+    // Only clear if we're not in initial load (when event is being populated)
+    if (!event && selectedLocation && selectedLocation.category?.guid !== selectedCategoryGuid) {
+      setSelectedLocation(null)
+      form.setValue('location_guid', null)
+    }
+  }, [selectedCategoryGuid, selectedLocation, event, form])
 
   // Validation for series mode
   const seriesError = mode === 'series' && seriesDates.length < 2
@@ -337,6 +403,31 @@ export const EventForm = ({
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Location */}
+        <FormField
+          control={form.control}
+          name="location_guid"
+          render={() => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <FormControl>
+                <LocationPicker
+                  categoryGuid={selectedCategoryGuid || null}
+                  value={selectedLocation}
+                  onChange={handleLocationChange}
+                  onTimezoneHint={handleTimezoneHint}
+                  placeholder={selectedCategoryGuid ? 'Select or enter location...' : 'Select a category first'}
+                  disabled={!selectedCategoryGuid}
+                />
+              </FormControl>
+              <FormDescription>
+                Select a known location or enter a new address
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

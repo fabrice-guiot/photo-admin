@@ -325,6 +325,18 @@ class CategorySummary(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class LocationSummary(BaseModel):
+    """Summary of location for inclusion in event responses."""
+
+    guid: str = Field(..., description="Location GUID (loc_xxx)")
+    name: str
+    city: Optional[str]
+    country: Optional[str]
+    timezone: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
 class EventResponse(BaseModel):
     """
     Schema for event API responses (list view).
@@ -351,6 +363,9 @@ class EventResponse(BaseModel):
 
     # Category (always included for display)
     category: Optional[CategorySummary]
+
+    # Location (included for calendar/list display)
+    location: Optional[LocationSummary]
 
     # Series info (for "x/n" display)
     series_guid: Optional[str] = Field(default=None, description="Series GUID if part of series")
@@ -395,18 +410,6 @@ class EventResponse(BaseModel):
     }
 
 
-class LocationSummary(BaseModel):
-    """Summary of location for inclusion in event detail responses."""
-
-    guid: str
-    name: str
-    city: Optional[str]
-    country: Optional[str]
-    timezone: Optional[str]
-
-    model_config = {"from_attributes": True}
-
-
 class OrganizerSummary(BaseModel):
     """Summary of organizer for inclusion in event detail responses."""
 
@@ -431,15 +434,16 @@ class EventDetailResponse(EventResponse):
 
     Extends EventResponse with full event details including:
     - Description
-    - Location, organizer, performers
+    - Organizer, performers
     - All logistics fields
     - Soft delete status
+
+    Note: Location is inherited from EventResponse (included in list views).
     """
 
     description: Optional[str]
 
-    # Related entities
-    location: Optional[LocationSummary]
+    # Related entities (location inherited from EventResponse)
     organizer: Optional[OrganizerSummary]
     performers: List[PerformerSummary] = Field(default_factory=list)
 

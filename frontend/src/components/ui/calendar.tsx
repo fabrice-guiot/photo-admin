@@ -29,14 +29,14 @@ function Calendar({
         [UI.Month]: 'space-y-4',
         [UI.MonthCaption]: 'flex justify-center pt-1 relative items-center h-7',
         [UI.CaptionLabel]: 'text-sm font-medium',
-        [UI.Nav]: 'flex items-center gap-1',
+        [UI.Nav]: 'absolute inset-x-0 top-0 flex justify-between items-center h-7 px-1',
         [UI.PreviousMonthButton]: cn(
           buttonVariants({ variant: 'outline' }),
-          'absolute left-1 top-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100'
+          'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10'
         ),
         [UI.NextMonthButton]: cn(
           buttonVariants({ variant: 'outline' }),
-          'absolute right-1 top-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100'
+          'h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 z-10'
         ),
         [UI.MonthGrid]: 'w-full border-collapse',
         [UI.Weekdays]: 'flex',
@@ -74,6 +74,14 @@ function Calendar({
           ) : (
             <ChevronRight className="h-4 w-4" />
           ),
+        // Ensure navigation buttons don't submit parent forms
+        // type="button" must come AFTER spread to override any default type
+        PreviousMonthButton: (props) => (
+          <button {...props} type="button" />
+        ),
+        NextMonthButton: (props) => (
+          <button {...props} type="button" />
+        ),
       }}
       {...props}
     />

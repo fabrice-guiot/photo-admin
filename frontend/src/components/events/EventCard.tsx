@@ -5,7 +5,7 @@
  * Issue #39 - Calendar Events feature (Phase 4)
  */
 
-import { LucideIcon } from 'lucide-react'
+import { LucideIcon, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ICON_MAP } from '@/components/settings/CategoryForm'
 import type { Event, AttendanceStatus } from '@/contracts/api/event-api'
@@ -34,6 +34,8 @@ interface EventCardProps {
   event: Event
   onClick?: (event: Event) => void
   compact?: boolean
+  /** In compact mode, allow text to wrap (up to 3 lines) instead of truncating */
+  expanded?: boolean
   className?: string
 }
 
@@ -41,6 +43,7 @@ export const EventCard = ({
   event,
   onClick,
   compact = false,
+  expanded = false,
   className
 }: EventCardProps) => {
   // Get category icon component
@@ -60,8 +63,54 @@ export const EventCard = ({
     ? `${event.sequence_number}/${event.series_total}`
     : null
 
+  // Location display for compact mode (in parentheses)
+  const locationShort = event.location?.name || null
+
+  // Full title with location for tooltip
+  const fullTitle = locationShort
+    ? `${event.title} (${locationShort})`
+    : event.title
+
   // Compact mode - minimal display for small calendar cells
   if (compact) {
+    // Expanded mode: allow wrapping up to 3 lines (for single-event days)
+    if (expanded) {
+      return (
+        <button
+          onClick={() => onClick?.(event)}
+          className={cn(
+            'w-full text-left px-1.5 py-0.5 rounded text-xs transition-colors',
+            'hover:bg-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'border-l-2',
+            ATTENDANCE_BORDER_COLORS[event.attendance],
+            className
+          )}
+          style={{
+            backgroundColor: event.category?.color
+              ? `${event.category.color}20` // 12% opacity
+              : undefined
+          }}
+          title={fullTitle}
+        >
+          <span className="flex items-start gap-1">
+            {CategoryIcon && (
+              <CategoryIcon
+                className="h-2.5 w-2.5 flex-shrink-0 mt-0.5"
+                style={{ color: event.category?.color || undefined }}
+              />
+            )}
+            <span className="line-clamp-3">
+              {event.title}
+              {locationShort && (
+                <span className="text-muted-foreground"> ({locationShort})</span>
+              )}
+            </span>
+          </span>
+        </button>
+      )
+    }
+
+    // Standard compact: single line with truncation
     return (
       <button
         onClick={() => onClick?.(event)}
@@ -77,7 +126,7 @@ export const EventCard = ({
             ? `${event.category.color}20` // 12% opacity
             : undefined
         }}
-        title={event.title}
+        title={fullTitle}
       >
         <span className="flex items-center gap-1">
           {CategoryIcon && (
@@ -86,7 +135,12 @@ export const EventCard = ({
               style={{ color: event.category?.color || undefined }}
             />
           )}
-          <span className="truncate">{event.title}</span>
+          <span className="truncate">
+            {event.title}
+            {locationShort && (
+              <span className="text-muted-foreground"> ({locationShort})</span>
+            )}
+          </span>
         </span>
       </button>
     )
@@ -149,6 +203,17 @@ export const EventCard = ({
               </>
             )}
           </div>
+
+          {/* Location Row */}
+          {event.location && (
+            <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              <span className="truncate">
+                {event.location.name}
+                {event.location.city && `, ${event.location.city}`}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Attendance Indicator */}

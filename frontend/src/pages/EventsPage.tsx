@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, MapPin } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -368,6 +368,21 @@ export default function EventsPage() {
                 </div>
               )}
 
+              {/* Location */}
+              {selectedEvent.location && (
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Location</div>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {selectedEvent.location.name}
+                      {selectedEvent.location.city && `, ${selectedEvent.location.city}`}
+                      {selectedEvent.location.country && `, ${selectedEvent.location.country}`}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Time */}
               {!selectedEvent.is_all_day && selectedEvent.start_time && (
                 <div>
@@ -424,21 +439,23 @@ export default function EventsPage() {
         open={createDialogOpen}
         onOpenChange={(open) => !open && setCreateDialogOpen(false)}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Create Event</DialogTitle>
             <DialogDescription>
               Add a new event to your calendar.
             </DialogDescription>
           </DialogHeader>
-          <EventForm
-            categories={categories}
-            onSubmit={handleCreateSubmit}
-            onSubmitSeries={handleCreateSeriesSubmit}
-            onCancel={() => setCreateDialogOpen(false)}
-            isSubmitting={mutations.loading}
-            defaultDate={createDefaultDate}
-          />
+          <div className="flex-1 overflow-y-auto pr-2">
+            <EventForm
+              categories={categories}
+              onSubmit={handleCreateSubmit}
+              onSubmitSeries={handleCreateSeriesSubmit}
+              onCancel={() => setCreateDialogOpen(false)}
+              isSubmitting={mutations.loading}
+              defaultDate={createDefaultDate}
+            />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -447,22 +464,24 @@ export default function EventsPage() {
         open={editEvent !== null}
         onOpenChange={(open) => !open && setEditEvent(null)}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Event</DialogTitle>
             <DialogDescription>
               Update event details.
             </DialogDescription>
           </DialogHeader>
-          {editEvent && (
-            <EventForm
-              event={editEvent}
-              categories={categories}
-              onSubmit={handleEditSubmit}
-              onCancel={() => setEditEvent(null)}
-              isSubmitting={mutations.loading}
-            />
-          )}
+          <div className="flex-1 overflow-y-auto pr-2">
+            {editEvent && (
+              <EventForm
+                event={editEvent}
+                categories={categories}
+                onSubmit={handleEditSubmit}
+                onCancel={() => setEditEvent(null)}
+                isSubmitting={mutations.loading}
+              />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

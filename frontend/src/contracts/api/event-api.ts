@@ -77,6 +77,9 @@ export interface Event {
   // Category (always included for display)
   category: CategorySummary | null
 
+  // Location (included for calendar/list display)
+  location: LocationSummary | null
+
   // Series info (for "x/n" display)
   series_guid: string | null          // Series GUID if part of series
   sequence_number: number | null

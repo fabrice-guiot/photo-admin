@@ -15,7 +15,7 @@ Issue #39 - Calendar Events feature (Phases 4 & 5)
 import pytest
 from datetime import date, time
 
-from backend.src.models import Category, Event, EventSeries
+from backend.src.models import Category, Event, EventSeries, Location
 
 
 class TestEventsAPI:
@@ -670,6 +670,111 @@ class TestEventsUpdate:
         for event in events:
             response = test_client.get(f"/api/events/{event.guid}")
             assert response.json()["status"] == "confirmed"
+
+    def test_update_series_location_syncs_to_all_events(
+        self, test_client, test_db_session, update_category, update_series
+    ):
+        """Test that updating location on a series event syncs to ALL events.
+
+        Location is a series-level property and should always sync across
+        all events, regardless of scope.
+        """
+        series, events = update_series
+
+        # Create a location
+        location = Location(
+            name="Test Venue",
+            city="Test City",
+            country="USA",
+            category_id=update_category.id,
+            is_known=True,
+        )
+        test_db_session.add(location)
+        test_db_session.commit()
+        test_db_session.refresh(location)
+
+        # Update location on middle event with scope="single"
+        # Expectation: location syncs to ALL events despite single scope
+        middle_event = events[1]
+        response = test_client.patch(
+            f"/api/events/{middle_event.guid}",
+            json={
+                "location_guid": location.guid,
+                "scope": "single",  # Single scope, but location should sync to all
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify ALL events in series have the location
+        for event in events:
+            response = test_client.get(f"/api/events/{event.guid}")
+            data = response.json()
+            assert data["location"] is not None, f"Event {event.guid} missing location"
+            assert data["location"]["guid"] == location.guid
+            assert data["location"]["name"] == "Test Venue"
+
+    def test_update_series_location_clear_syncs_to_all_events(
+        self, test_client, test_db_session, update_category
+    ):
+        """Test that clearing location on a series event syncs to ALL events."""
+        # Create a location
+        location = Location(
+            name="Location to Clear",
+            city="Clear City",
+            country="USA",
+            category_id=update_category.id,
+            is_known=True,
+        )
+        test_db_session.add(location)
+        test_db_session.commit()
+        test_db_session.refresh(location)
+
+        # Create series with location set
+        series = EventSeries(
+            title="Series with Location",
+            category_id=update_category.id,
+            location_id=location.id,
+            total_events=3,
+        )
+        test_db_session.add(series)
+        test_db_session.commit()
+        test_db_session.refresh(series)
+
+        events = []
+        for i in range(3):
+            event = Event(
+                series_id=series.id,
+                sequence_number=i + 1,
+                event_date=date(2026, 11, 10 + i),
+                location_id=location.id,  # All start with location
+                status="future",
+                attendance="planned",
+            )
+            test_db_session.add(event)
+            events.append(event)
+
+        test_db_session.commit()
+        for event in events:
+            test_db_session.refresh(event)
+
+        # Clear location on first event with scope="single"
+        first_event = events[0]
+        response = test_client.patch(
+            f"/api/events/{first_event.guid}",
+            json={
+                "location_guid": None,  # Clear location
+                "scope": "single",
+            },
+        )
+
+        assert response.status_code == 200
+
+        # Verify ALL events have location cleared
+        for event in events:
+            response = test_client.get(f"/api/events/{event.guid}")
+            data = response.json()
+            assert data["location"] is None, f"Event {event.guid} location not cleared"
 
 
 class TestEventsDelete:

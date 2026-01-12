@@ -216,7 +216,7 @@
 
 - [x] T070 [P] [US5] Create Pydantic schemas for Location in backend/src/schemas/location.py
 - [x] T071 [US5] Implement LocationService CRUD operations in backend/src/services/location_service.py
-- [ ] T071a [P] [US5] Write unit tests for LocationService in backend/tests/unit/test_location_service.py (SKIPPED: Covered by integration tests)
+- [x] T071a [P] [US5] Write unit tests for LocationService in backend/tests/unit/test_location_service.py (37 tests)
 - [x] T072 [US5] Implement category matching validation in LocationService in backend/src/services/location_service.py
 - [x] T073 [US5] Implement POST /api/locations/geocode endpoint in backend/src/api/locations.py
 - [x] T074 [US5] Implement Locations API endpoints (list, create, get, update, delete) in backend/src/api/locations.py
@@ -228,16 +228,21 @@
 - [x] T076 [P] [US5] Create location TypeScript types in frontend/src/contracts/api/location-api.ts
 - [x] T077 [P] [US5] Create locations API service in frontend/src/services/locations.ts
 - [x] T078 [US5] Create useLocations hook in frontend/src/hooks/useLocations.ts
-- [ ] T078a [P] [US5] Write hook tests for useLocations in frontend/tests/hooks/useLocations.test.ts
+- [x] T078a [P] [US5] Write hook tests for useLocations in frontend/tests/hooks/useLocations.test.ts (21 tests)
 - [x] T079 [US5] Create LocationsTab component in frontend/src/components/settings/LocationsTab.tsx (in Settings instead of Directory)
 - [x] T080 [US5] Create LocationForm dialog component with geocoding in frontend/src/components/settings/LocationForm.tsx
-- [ ] T080a [P] [US5] Write component tests for LocationForm in frontend/tests/components/LocationForm.test.tsx
-- [ ] T081 [US5] Create LocationPicker component for EventForm in frontend/src/components/directory/LocationPicker.tsx
-- [ ] T081a [P] [US5] Write component tests for LocationPicker in frontend/tests/components/LocationPicker.test.tsx
+- [x] T080a [P] [US5] Write component tests for LocationForm in frontend/tests/components/LocationForm.test.tsx (28 tests)
+- [x] T081 [US5] Create LocationPicker component for EventForm in frontend/src/components/events/LocationPicker.tsx
+- [x] T081a [P] [US5] Write component tests for LocationPicker in frontend/tests/components/LocationPicker.test.tsx
 - [x] T082 [US5] Wire LocationsTab into SettingsPage in frontend/src/pages/SettingsPage.tsx (in Settings instead of Directory)
-- [ ] T083 [US5] Integrate LocationPicker into EventForm with timezone suggestion in frontend/src/components/events/EventForm.tsx
+- [x] T083 [US5] Integrate LocationPicker into EventForm with timezone suggestion in frontend/src/components/events/EventForm.tsx
 
 **Checkpoint**: Locations can be geocoded, saved, and selected for events with category enforcement
+
+### Backend Requirements (Post-Implementation Notes)
+
+- [x] T083b [US5] **BACKEND**: Include `location` (LocationSummary) in Event list response, not just EventDetail - required for calendar/card display
+- [x] T083c [US3] **BACKEND**: Sync location changes across series events - when updating location on a series event, apply to all events in the series
 
 ---
 
