@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, MapPin, Star } from 'lucide-react'
+import { ChevronDown, ChevronRight, Loader2, MapPin, Search, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -141,6 +141,8 @@ export function LocationForm({
 }: LocationFormProps) {
   const isEditMode = !!location
   const [isGeocoding, setIsGeocoding] = useState(false)
+  const [fullAddressInput, setFullAddressInput] = useState('')
+  const [showAddressDetails, setShowAddressDetails] = useState(false)
 
   // Filter to only active categories for new locations
   const availableCategories = isEditMode
@@ -188,40 +190,44 @@ export function LocationForm({
         notes: location.notes,
         is_known: location.is_known,
       })
+      // Show address details if any address field is populated
+      if (location.address || location.city || location.state || location.country || location.postal_code) {
+        setShowAddressDetails(true)
+      }
     }
   }, [location, form])
 
-  // Handle geocoding
+  // Handle geocoding from full address input
   const handleGeocode = async () => {
-    const address = form.getValues('address')
-    const city = form.getValues('city')
-    const state = form.getValues('state')
-    const country = form.getValues('country')
-
-    // Build full address string
-    const parts = [address, city, state, country].filter(Boolean)
-    if (parts.length === 0) return
-
-    const fullAddress = parts.join(', ')
-
-    if (!onGeocode) return
+    if (!fullAddressInput.trim() || !onGeocode) return
 
     setIsGeocoding(true)
     try {
-      const result = await onGeocode(fullAddress)
+      const result = await onGeocode(fullAddressInput.trim())
       if (result) {
-        // Update form with geocoded values
-        if (result.address) form.setValue('address', result.address)
-        if (result.city) form.setValue('city', result.city)
-        if (result.state) form.setValue('state', result.state)
-        if (result.country) form.setValue('country', result.country)
-        if (result.postal_code) form.setValue('postal_code', result.postal_code)
+        // Update form with geocoded values - populate individual fields
+        form.setValue('address', result.address || null)
+        form.setValue('city', result.city || null)
+        form.setValue('state', result.state || null)
+        form.setValue('country', result.country || null)
+        form.setValue('postal_code', result.postal_code || null)
         form.setValue('latitude', result.latitude)
         form.setValue('longitude', result.longitude)
         if (result.timezone) form.setValue('timezone', result.timezone)
+        // Show address details and clear the lookup field
+        setShowAddressDetails(true)
+        setFullAddressInput('')
       }
     } finally {
       setIsGeocoding(false)
+    }
+  }
+
+  // Handle Enter key in full address input
+  const handleAddressKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleGeocode()
     }
   }
 
@@ -295,124 +301,160 @@ export function LocationForm({
           )}
         />
 
-        {/* Address Fields */}
+        {/* Address Lookup */}
+        {onGeocode && (
+          <div className="space-y-2">
+            <FormLabel>Address Lookup</FormLabel>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter full address to lookup..."
+                value={fullAddressInput}
+                onChange={(e) => setFullAddressInput(e.target.value)}
+                onKeyDown={handleAddressKeyDown}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGeocode}
+                disabled={isGeocoding || !fullAddressInput.trim()}
+                className="gap-2"
+              >
+                {isGeocoding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                Lookup
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Enter an address and click Lookup to auto-fill the fields below
+            </p>
+          </div>
+        )}
+
+        {/* Address Details (Collapsible) */}
         <div className="space-y-3">
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Street Address</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="123 Main Street"
-                    {...field}
-                    value={field.value || ''}
-                    onChange={(e) => field.onChange(e.target.value || null)}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+          <button
+            type="button"
+            onClick={() => setShowAddressDetails(!showAddressDetails)}
+            className="flex items-center gap-2 text-sm font-medium hover:text-foreground text-muted-foreground"
+          >
+            {showAddressDetails ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
             )}
-          />
+            Address Details
+            {!showAddressDetails && (form.getValues('city') || form.getValues('country')) && (
+              <span className="font-normal">
+                — {[form.getValues('city'), form.getValues('country')].filter(Boolean).join(', ')}
+              </span>
+            )}
+          </button>
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="City"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          {showAddressDetails && (
+            <div className="space-y-3 pl-6 border-l-2 border-muted">
+              <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="123 Main Street"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(e.target.value || null)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField
-              control={form.control}
-              name="state"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State/Province</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="State"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="City"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="country"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Country</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Country"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State/Province</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="State"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
-            <FormField
-              control={form.control}
-              name="postal_code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Postal Code</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="12345"
-                      {...field}
-                      value={field.value || ''}
-                      onChange={(e) => field.onChange(e.target.value || null)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Country"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-          {/* Geocode Button */}
-          {onGeocode && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleGeocode}
-              disabled={isGeocoding}
-              className="gap-2"
-            >
-              {isGeocoding ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MapPin className="h-4 w-4" />
-              )}
-              Lookup Coordinates
-            </Button>
+                <FormField
+                  control={form.control}
+                  name="postal_code"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Postal Code</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="12345"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value || null)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
           )}
         </div>
 
