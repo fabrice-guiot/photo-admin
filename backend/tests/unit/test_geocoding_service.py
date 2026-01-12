@@ -69,33 +69,34 @@ class TestGeocodingService:
 
     def test_geocode_address_success(self, geocoding_service, mock_nominatim_location):
         """Test successful address geocoding."""
-        with patch.object(
-            geocoding_service, "geolocator"
-        ) as mock_geolocator, patch.object(
-            geocoding_service, "timezone_finder"
-        ) as mock_tz:
-            mock_geolocator.geocode.return_value = mock_nominatim_location
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.return_value = mock_nominatim_location
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_address("123 Main St, New York, NY")
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            assert result is not None
-            assert result.latitude == 40.7128
-            assert result.longitude == -74.0060
-            assert result.city == "New York"
-            assert result.state == "New York"
-            assert result.country == "United States"
-            assert result.postal_code == "10001"
-            assert result.timezone == "America/New_York"
+        result = geocoding_service.geocode_address("123 Main St, New York, NY")
+
+        assert result is not None
+        assert result.latitude == 40.7128
+        assert result.longitude == -74.0060
+        assert result.city == "New York"
+        assert result.state == "New York"
+        assert result.country == "United States"
+        assert result.postal_code == "10001"
+        assert result.timezone == "America/New_York"
 
     def test_geocode_address_not_found(self, geocoding_service):
         """Test geocoding when address is not found."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.geocode.return_value = None
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.return_value = None
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_address("Nonexistent Address 12345")
+        result = geocoding_service.geocode_address("Nonexistent Address 12345")
 
-            assert result is None
+        assert result is None
 
     def test_geocode_address_empty_string(self, geocoding_service):
         """Test geocoding with empty address returns None."""
@@ -107,38 +108,40 @@ class TestGeocodingService:
 
     def test_geocode_address_timeout(self, geocoding_service):
         """Test handling of geocoder timeout."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.geocode.side_effect = GeocoderTimedOut("Timeout")
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.side_effect = GeocoderTimedOut("Timeout")
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_address("123 Main St, New York, NY")
+        result = geocoding_service.geocode_address("123 Main St, New York, NY")
 
-            assert result is None
+        assert result is None
 
     def test_geocode_address_service_error(self, geocoding_service):
         """Test handling of geocoder service error."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.geocode.side_effect = GeocoderServiceError("Service error")
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.side_effect = GeocoderServiceError("Service error")
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_address("123 Main St, New York, NY")
+        result = geocoding_service.geocode_address("123 Main St, New York, NY")
 
-            assert result is None
+        assert result is None
 
     def test_geocode_address_with_town(
         self, geocoding_service, mock_nominatim_location_town
     ):
         """Test extracting city from 'town' field when 'city' is not present."""
-        with patch.object(
-            geocoding_service, "geolocator"
-        ) as mock_geolocator, patch.object(
-            geocoding_service, "timezone_finder"
-        ) as mock_tz:
-            mock_geolocator.geocode.return_value = mock_nominatim_location_town
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.return_value = mock_nominatim_location_town
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_address("Main St, Stamford, CT")
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            assert result is not None
-            assert result.city == "Stamford"
+        result = geocoding_service.geocode_address("Main St, Stamford, CT")
+
+        assert result is not None
+        assert result.city == "Stamford"
 
 
 class TestGetTimezone:
@@ -146,31 +149,34 @@ class TestGetTimezone:
 
     def test_get_timezone_success(self, geocoding_service):
         """Test successful timezone lookup."""
-        with patch.object(geocoding_service, "timezone_finder") as mock_tz:
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            result = geocoding_service.get_timezone(40.7128, -74.0060)
+        result = geocoding_service.get_timezone(40.7128, -74.0060)
 
-            assert result == "America/New_York"
-            mock_tz.timezone_at.assert_called_once_with(lat=40.7128, lng=-74.0060)
+        assert result == "America/New_York"
+        mock_tz.timezone_at.assert_called_once_with(lat=40.7128, lng=-74.0060)
 
     def test_get_timezone_not_found(self, geocoding_service):
         """Test timezone lookup for location with no timezone (e.g., ocean)."""
-        with patch.object(geocoding_service, "timezone_finder") as mock_tz:
-            mock_tz.timezone_at.return_value = None
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = None
+        geocoding_service._timezone_finder = mock_tz
 
-            result = geocoding_service.get_timezone(0.0, 0.0)
+        result = geocoding_service.get_timezone(0.0, 0.0)
 
-            assert result is None
+        assert result is None
 
     def test_get_timezone_error(self, geocoding_service):
         """Test handling of timezone lookup error."""
-        with patch.object(geocoding_service, "timezone_finder") as mock_tz:
-            mock_tz.timezone_at.side_effect = Exception("Unknown error")
+        mock_tz = Mock()
+        mock_tz.timezone_at.side_effect = Exception("Unknown error")
+        geocoding_service._timezone_finder = mock_tz
 
-            result = geocoding_service.get_timezone(40.7128, -74.0060)
+        result = geocoding_service.get_timezone(40.7128, -74.0060)
 
-            assert result is None
+        assert result is None
 
 
 class TestGeocodeComponents:
@@ -178,50 +184,50 @@ class TestGeocodeComponents:
 
     def test_geocode_components_full(self, geocoding_service, mock_nominatim_location):
         """Test geocoding with all address components."""
-        with patch.object(
-            geocoding_service, "geolocator"
-        ) as mock_geolocator, patch.object(
-            geocoding_service, "timezone_finder"
-        ) as mock_tz:
-            mock_geolocator.geocode.return_value = mock_nominatim_location
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.return_value = mock_nominatim_location
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_components(
-                city="New York",
-                state="NY",
-                country="USA",
-                postal_code="10001",
-            )
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            assert result is not None
-            # Verify address was built correctly
-            mock_geolocator.geocode.assert_called_once()
-            call_args = mock_geolocator.geocode.call_args
-            assert "New York" in call_args[0][0]
-            assert "NY" in call_args[0][0]
-            assert "USA" in call_args[0][0]
+        result = geocoding_service.geocode_components(
+            city="New York",
+            state="NY",
+            country="USA",
+            postal_code="10001",
+        )
+
+        assert result is not None
+        # Verify address was built correctly
+        mock_geolocator.geocode.assert_called_once()
+        call_args = mock_geolocator.geocode.call_args
+        assert "New York" in call_args[0][0]
+        assert "NY" in call_args[0][0]
+        assert "USA" in call_args[0][0]
 
     def test_geocode_components_partial(
         self, geocoding_service, mock_nominatim_location
     ):
         """Test geocoding with partial address components."""
-        with patch.object(
-            geocoding_service, "geolocator"
-        ) as mock_geolocator, patch.object(
-            geocoding_service, "timezone_finder"
-        ) as mock_tz:
-            mock_geolocator.geocode.return_value = mock_nominatim_location
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_geolocator = Mock()
+        mock_geolocator.geocode.return_value = mock_nominatim_location
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.geocode_components(
-                city="New York",
-                country="USA",
-            )
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            assert result is not None
-            call_args = mock_geolocator.geocode.call_args
-            assert "New York" in call_args[0][0]
-            assert "USA" in call_args[0][0]
+        result = geocoding_service.geocode_components(
+            city="New York",
+            country="USA",
+        )
+
+        assert result is not None
+        call_args = mock_geolocator.geocode.call_args
+        assert "New York" in call_args[0][0]
+        assert "USA" in call_args[0][0]
 
     def test_geocode_components_empty(self, geocoding_service):
         """Test geocoding with no components returns None."""
@@ -236,48 +242,51 @@ class TestReverseGeocode:
         self, geocoding_service, mock_nominatim_location
     ):
         """Test successful reverse geocoding."""
-        with patch.object(
-            geocoding_service, "geolocator"
-        ) as mock_geolocator, patch.object(
-            geocoding_service, "timezone_finder"
-        ) as mock_tz:
-            mock_geolocator.reverse.return_value = mock_nominatim_location
-            mock_tz.timezone_at.return_value = "America/New_York"
+        mock_geolocator = Mock()
+        mock_geolocator.reverse.return_value = mock_nominatim_location
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.reverse_geocode(40.7128, -74.0060)
+        mock_tz = Mock()
+        mock_tz.timezone_at.return_value = "America/New_York"
+        geocoding_service._timezone_finder = mock_tz
 
-            assert result is not None
-            assert result.latitude == 40.7128
-            assert result.longitude == -74.0060
-            assert result.city == "New York"
-            assert result.timezone == "America/New_York"
+        result = geocoding_service.reverse_geocode(40.7128, -74.0060)
+
+        assert result is not None
+        assert result.latitude == 40.7128
+        assert result.longitude == -74.0060
+        assert result.city == "New York"
+        assert result.timezone == "America/New_York"
 
     def test_reverse_geocode_not_found(self, geocoding_service):
         """Test reverse geocoding when location is not found."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.reverse.return_value = None
+        mock_geolocator = Mock()
+        mock_geolocator.reverse.return_value = None
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.reverse_geocode(0.0, 0.0)
+        result = geocoding_service.reverse_geocode(0.0, 0.0)
 
-            assert result is None
+        assert result is None
 
     def test_reverse_geocode_timeout(self, geocoding_service):
         """Test handling of reverse geocoder timeout."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.reverse.side_effect = GeocoderTimedOut("Timeout")
+        mock_geolocator = Mock()
+        mock_geolocator.reverse.side_effect = GeocoderTimedOut("Timeout")
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.reverse_geocode(40.7128, -74.0060)
+        result = geocoding_service.reverse_geocode(40.7128, -74.0060)
 
-            assert result is None
+        assert result is None
 
     def test_reverse_geocode_service_error(self, geocoding_service):
         """Test handling of reverse geocoder service error."""
-        with patch.object(geocoding_service, "geolocator") as mock_geolocator:
-            mock_geolocator.reverse.side_effect = GeocoderServiceError("Service error")
+        mock_geolocator = Mock()
+        mock_geolocator.reverse.side_effect = GeocoderServiceError("Service error")
+        geocoding_service._geolocator = mock_geolocator
 
-            result = geocoding_service.reverse_geocode(40.7128, -74.0060)
+        result = geocoding_service.reverse_geocode(40.7128, -74.0060)
 
-            assert result is None
+        assert result is None
 
 
 class TestServiceInitialization:

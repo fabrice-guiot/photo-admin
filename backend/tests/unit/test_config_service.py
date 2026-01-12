@@ -489,7 +489,8 @@ class TestConfigServiceGetAll:
         assert result == {
             "extensions": {},
             "cameras": {},
-            "processing_methods": {}
+            "processing_methods": {},
+            "event_statuses": {}
         }
 
 
@@ -502,7 +503,7 @@ class TestConfigServiceCategoryValidation:
 
     def test_valid_categories(self, config_service):
         """Test that valid categories are accepted."""
-        valid_categories = ["extensions", "cameras", "processing_methods"]
+        valid_categories = ["extensions", "cameras", "processing_methods", "event_statuses"]
 
         for category in valid_categories:
             result = config_service.create(

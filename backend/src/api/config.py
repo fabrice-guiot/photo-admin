@@ -20,8 +20,6 @@ before parameterized routes (/{category}, /{category}/{key}).
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, UploadFile, File, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from backend.src.db.database import get_db
@@ -44,8 +42,8 @@ router = APIRouter(
     tags=["Configuration"],
 )
 
-# Rate limiter instance
-limiter = Limiter(key_func=get_remote_address)
+# Use the shared limiter from main module
+from backend.src.main import limiter
 
 
 # ============================================================================

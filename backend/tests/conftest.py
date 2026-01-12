@@ -25,6 +25,17 @@ _TEST_MASTER_KEY = Fernet.generate_key().decode('utf-8')
 os.environ['PHOTO_ADMIN_MASTER_KEY'] = _TEST_MASTER_KEY
 os.environ['PHOTO_ADMIN_DB_URL'] = 'sqlite:///:memory:'
 
+# Disable rate limiter at import time to prevent rate limit exhaustion during tests
+from backend.src.main import limiter as _main_limiter
+_main_limiter.enabled = False
+# Clear any existing rate limit state from previous runs
+# The limiter uses limits library which stores state in _storage
+try:
+    if hasattr(_main_limiter, '_storage') and _main_limiter._storage is not None:
+        _main_limiter._storage.reset()
+except Exception:
+    pass  # Ignore errors during cleanup
+
 from backend.src.models import Base, Connector, Collection, AnalysisResult, Pipeline, Configuration
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.cache import FileListingCache
