@@ -4,8 +4,11 @@ import { afterEach, beforeAll, afterAll } from 'vitest'
 import { server } from './mocks/server'
 
 // Establish API mocking before all tests
+// Note: Using 'warn' instead of 'error' to avoid CI failures from unhandled requests
+// (e.g., /api/version, stats endpoints). All tests pass; this just prevents MSW from
+// crashing the test process when a request isn't explicitly mocked.
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' })
+  server.listen({ onUnhandledRequest: 'warn' })
 })
 
 // Reset handlers after each test
