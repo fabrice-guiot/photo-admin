@@ -4,7 +4,7 @@
  * Main application component with routing and layout
  */
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { type ReactElement } from 'react'
 import {
   LayoutGrid,
@@ -13,9 +13,10 @@ import {
   Archive,
   ChartNoAxesCombined,
   Users,
-  Plug,
   Settings,
   GitBranch,
+  Calendar,
+  BookOpen,
   type LucideIcon
 } from 'lucide-react'
 import { MainLayout } from './components/layout/MainLayout'
@@ -29,11 +30,11 @@ import CollectionsPage from './pages/CollectionsPage'
 import AssetsPage from './pages/AssetsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import TeamPage from './pages/TeamPage'
-import ConnectorsPage from './pages/ConnectorsPage'
 import SettingsPage from './pages/SettingsPage'
 import PipelinesPage from './pages/PipelinesPage'
 import PipelineEditorPage from './pages/PipelineEditorPage'
-import ConfigurationPage from './pages/ConfigurationPage'
+import EventsPage from './pages/EventsPage'
+import DirectoryPage from './pages/DirectoryPage'
 
 // ============================================================================
 // Route Configuration
@@ -52,6 +53,12 @@ const routes: RouteConfig[] = [
     element: <DashboardPage />,
     pageTitle: 'Dashboard',
     pageIcon: LayoutGrid,
+  },
+  {
+    path: '/events',
+    element: <EventsPage />,
+    pageTitle: 'Events',
+    pageIcon: Calendar,
   },
   {
     path: '/workflows',
@@ -84,27 +91,21 @@ const routes: RouteConfig[] = [
     pageIcon: Users,
   },
   {
-    path: '/connectors',
-    element: <ConnectorsPage />,
-    pageTitle: 'Connectors',
-    pageIcon: Plug,
-  },
-  {
     path: '/pipelines',
     element: <PipelinesPage />,
     pageTitle: 'Pipelines',
     pageIcon: GitBranch,
   },
   {
+    path: '/directory',
+    element: <DirectoryPage />,
+    pageTitle: 'Directory',
+    pageIcon: BookOpen,
+  },
+  {
     path: '/settings',
     element: <SettingsPage />,
     pageTitle: 'Settings',
-    pageIcon: Settings,
-  },
-  {
-    path: '/config',
-    element: <ConfigurationPage />,
-    pageTitle: 'Configuration',
     pageIcon: Settings,
   },
 ]
@@ -133,6 +134,9 @@ function App() {
           <Route path="/pipelines/new" element={<PipelineEditorPage />} />
           <Route path="/pipelines/:id" element={<PipelineEditorPage />} />
           <Route path="/pipelines/:id/edit" element={<PipelineEditorPage />} />
+          {/* Legacy route redirects (Issue #39 - Navigation restructure) */}
+          <Route path="/connectors" element={<Navigate to="/settings?tab=connectors" replace />} />
+          <Route path="/config" element={<Navigate to="/settings?tab=config" replace />} />
           {/* Catch-all 404 route */}
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

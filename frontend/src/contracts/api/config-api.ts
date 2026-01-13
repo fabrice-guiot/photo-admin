@@ -9,7 +9,7 @@
 // Entity Types
 // ============================================================================
 
-export type ConfigCategory = 'extensions' | 'cameras' | 'processing_methods'
+export type ConfigCategory = 'extensions' | 'cameras' | 'processing_methods' | 'event_statuses'
 
 export type ConfigSource = 'database' | 'yaml_import'
 
@@ -37,6 +37,27 @@ export interface CameraConfig {
   serial_number: string
 }
 
+export interface EventStatusConfig {
+  /** Human-readable display label */
+  label: string
+  /** Order in dropdowns/lists */
+  display_order: number
+}
+
+export interface EventStatusItem {
+  /** Status key/value used in code */
+  key: string
+  /** Human-readable display label */
+  label: string
+  /** Order in dropdowns/lists */
+  display_order: number
+}
+
+export interface EventStatusesResponse {
+  /** Ordered list of event statuses */
+  statuses: EventStatusItem[]
+}
+
 export interface ConfigItem {
   /** Configuration key */
   key: string
@@ -58,6 +79,7 @@ export interface ConfigurationResponse {
   extensions: ExtensionsConfig
   cameras: Record<string, CameraConfig>
   processing_methods: Record<string, string>
+  event_statuses: Record<string, EventStatusConfig>
 }
 
 export interface CategoryConfigResponse {
@@ -231,6 +253,7 @@ export const CATEGORY_LABELS: Record<ConfigCategory, string> = {
   extensions: 'File Extensions',
   cameras: 'Camera Mappings',
   processing_methods: 'Processing Methods',
+  event_statuses: 'Event Statuses',
 }
 
 /**
@@ -240,6 +263,7 @@ export const CATEGORY_DESCRIPTIONS: Record<ConfigCategory, string> = {
   extensions: 'Configure photo and metadata file extensions',
   cameras: 'Map camera IDs to camera names and serial numbers',
   processing_methods: 'Define processing method codes and descriptions',
+  event_statuses: 'Configure available event status options',
 }
 
 // ============================================================================

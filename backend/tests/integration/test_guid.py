@@ -1,19 +1,19 @@
 """
-Integration tests for GUID migration and UUID functionality.
+Integration tests for GUID functionality.
 
 Tests verify:
-- UUID columns are properly added to all entities
-- Existing records receive valid UUIDs
-- GUID generation works correctly
-- No data loss during migration
+- Entities have valid GUIDs with correct prefix format
+- GUIDs are unique across entities
+- GUID lookups are case-insensitive (Crockford Base32)
+- Error handling for invalid GUID formats
 """
 
 import pytest
 from uuid import UUID
 
 
-class TestGuidMigration:
-    """Integration tests for UUID migration - Issue #42"""
+class TestGuidGeneration:
+    """Integration tests for GUID generation and format - Issue #42"""
 
     def test_collection_has_uuid_and_guid(self, test_client):
         """
@@ -49,7 +49,7 @@ class TestGuidMigration:
         assert fetch_response.json()["guid"] == guid
 
         # Clean up
-        test_client.delete(f"/api/collections/{collection['id']}")
+        test_client.delete(f"/api/collections/{guid}")
 
     def test_connector_has_uuid_and_guid(self, test_client):
         """
@@ -86,7 +86,7 @@ class TestGuidMigration:
         assert fetch_response.json()["guid"] == guid
 
         # Clean up
-        test_client.delete(f"/api/connectors/{connector['id']}")
+        test_client.delete(f"/api/connectors/{guid}")
 
     def test_pipeline_has_uuid_and_guid(self, test_client):
         """
@@ -125,7 +125,7 @@ class TestGuidMigration:
         assert fetch_response.json()["guid"] == guid
 
         # Clean up
-        test_client.delete(f"/api/pipelines/{pipeline['id']}")
+        test_client.delete(f"/api/pipelines/{guid}")
 
     def test_guids_are_unique(self, test_client):
         """
@@ -152,7 +152,7 @@ class TestGuidMigration:
         # Clean up
         for collection in test_client.get("/api/collections").json():
             if collection["name"].startswith("Unique Test Collection"):
-                test_client.delete(f"/api/collections/{collection['id']}")
+                test_client.delete(f"/api/collections/{collection['guid']}")
 
     def test_list_endpoint_includes_guid(self, test_client):
         """
@@ -181,7 +181,7 @@ class TestGuidMigration:
         # Clean up
         for collection in collections:
             if collection["name"] == "List Test Collection":
-                test_client.delete(f"/api/collections/{collection['id']}")
+                test_client.delete(f"/api/collections/{collection['guid']}")
 
     def test_guid_case_insensitive_lookup(self, test_client):
         """
@@ -210,7 +210,7 @@ class TestGuidMigration:
         assert mixed_response.status_code == 200
 
         # Clean up
-        test_client.delete(f"/api/collections/{collection['id']}")
+        test_client.delete(f"/api/collections/{guid}")
 
 
 class TestGuidErrorHandling:
@@ -258,7 +258,7 @@ class TestGuidErrorHandling:
         assert wrong_prefix_response.status_code in [400, 404]
 
         # Clean up
-        test_client.delete(f"/api/connectors/{connector['id']}")
+        test_client.delete(f"/api/connectors/{connector_guid}")
 
     def test_nonexistent_guid_returns_404(self, test_client):
         """
@@ -268,57 +268,3 @@ class TestGuidErrorHandling:
         fake_guid = "col_00000000000000000000000000"
         response = test_client.get(f"/api/collections/{fake_guid}")
         assert response.status_code == 404
-
-
-class TestBackwardCompatibility:
-    """Tests for backward compatibility with numeric IDs - Issue #42"""
-
-    def test_numeric_id_still_works(self, test_client):
-        """
-        Test that numeric IDs still work for backward compatibility.
-        """
-        # Create a collection
-        response = test_client.post("/api/collections", json={
-            "name": "Numeric ID Test Collection",
-            "type": "local",
-            "location": "/test/numeric",
-            "state": "live"
-        })
-        collection = response.json()
-        numeric_id = collection["id"]
-
-        # Fetch by numeric ID
-        numeric_response = test_client.get(f"/api/collections/{numeric_id}")
-        assert numeric_response.status_code == 200
-        assert numeric_response.json()["id"] == numeric_id
-
-        # Clean up
-        test_client.delete(f"/api/collections/{numeric_id}")
-
-    def test_both_id_types_return_same_entity(self, test_client):
-        """
-        Test that numeric and GUID types return the same entity.
-        """
-        # Create a collection
-        response = test_client.post("/api/collections", json={
-            "name": "Both IDs Test Collection",
-            "type": "local",
-            "location": "/test/both",
-            "state": "live"
-        })
-        collection = response.json()
-        numeric_id = collection["id"]
-        guid = collection["guid"]
-
-        # Fetch by both ID types
-        numeric_response = test_client.get(f"/api/collections/{numeric_id}")
-        external_response = test_client.get(f"/api/collections/{guid}")
-
-        # Both should return the same entity
-        assert numeric_response.status_code == 200
-        assert external_response.status_code == 200
-        assert numeric_response.json()["id"] == external_response.json()["id"]
-        assert numeric_response.json()["guid"] == external_response.json()["guid"]
-
-        # Clean up
-        test_client.delete(f"/api/collections/{numeric_id}")

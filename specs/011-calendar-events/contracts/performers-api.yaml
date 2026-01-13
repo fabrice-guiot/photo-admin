@@ -1,0 +1,259 @@
+openapi: 3.1.0
+info:
+  title: Performers API
+  description: Event performer/subject management
+  version: 1.0.0
+
+paths:
+  /api/performers:
+    get:
+      summary: List performers
+      description: Retrieve performers with optional filtering
+      operationId: listPerformers
+      tags: [Performers]
+      parameters:
+        - name: category_guid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by category GUID
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name
+      responses:
+        '200':
+          description: List of performers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PerformerResponse'
+    post:
+      summary: Create performer
+      operationId: createPerformer
+      tags: [Performers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformerCreateRequest'
+      responses:
+        '201':
+          description: Performer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformerResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/performers/{guid}:
+    get:
+      summary: Get performer by GUID
+      operationId: getPerformer
+      tags: [Performers]
+      parameters:
+        - $ref: '#/components/parameters/PerformerGuid'
+      responses:
+        '200':
+          description: Performer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformerResponse'
+        '404':
+          description: Performer not found
+    patch:
+      summary: Update performer
+      operationId: updatePerformer
+      tags: [Performers]
+      parameters:
+        - $ref: '#/components/parameters/PerformerGuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformerUpdateRequest'
+      responses:
+        '200':
+          description: Updated performer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformerResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Performer not found
+    delete:
+      summary: Delete performer
+      description: Delete performer (fails if associated with events)
+      operationId: deletePerformer
+      tags: [Performers]
+      parameters:
+        - $ref: '#/components/parameters/PerformerGuid'
+      responses:
+        '204':
+          description: Performer deleted
+        '404':
+          description: Performer not found
+        '409':
+          description: Performer is associated with events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/performers/{guid}/events:
+    get:
+      summary: List events for performer
+      description: Get all events featuring this performer
+      operationId: listPerformerEvents
+      tags: [Performers, Events]
+      parameters:
+        - $ref: '#/components/parameters/PerformerGuid'
+        - name: include_past
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include past events
+      responses:
+        '200':
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PerformerEventResponse'
+
+components:
+  parameters:
+    PerformerGuid:
+      name: guid
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^prf_[a-z0-9]{26}$'
+      description: Performer GUID (prf_xxx)
+
+  schemas:
+    PerformerCreateRequest:
+      type: object
+      required: [name, category_guid]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        category_guid:
+          type: string
+          description: Category GUID (cat_xxx)
+        website:
+          type: string
+          format: uri
+          maxLength: 500
+          nullable: true
+        instagram_handle:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: Instagram username (without @)
+        additional_info:
+          type: string
+          nullable: true
+          description: Multiline notes
+
+    PerformerUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        website:
+          type: string
+          format: uri
+          maxLength: 500
+          nullable: true
+        instagram_handle:
+          type: string
+          maxLength: 100
+          nullable: true
+        additional_info:
+          type: string
+          nullable: true
+
+    PerformerResponse:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: Performer GUID (prf_xxx)
+        name:
+          type: string
+        category_guid:
+          type: string
+        category_name:
+          type: string
+        website:
+          type: string
+          nullable: true
+        instagram_handle:
+          type: string
+          nullable: true
+        instagram_url:
+          type: string
+          nullable: true
+          description: Full Instagram profile URL
+        additional_info:
+          type: string
+          nullable: true
+        event_count:
+          type: integer
+          description: Number of events featuring this performer
+        upcoming_event_count:
+          type: integer
+          description: Number of upcoming events
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PerformerEventResponse:
+      type: object
+      properties:
+        event_guid:
+          type: string
+        event_title:
+          type: string
+        event_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [confirmed, cancelled]
+          description: Performer's status at this event
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          nullable: true

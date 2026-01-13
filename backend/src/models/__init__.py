@@ -49,6 +49,23 @@ from backend.src.models.analysis_result import AnalysisResult
 # Configuration model
 from backend.src.models.configuration import Configuration, ConfigSource
 
+# Calendar Events models (Issue #39)
+# Import order matters due to FK relationships
+from backend.src.models.category import Category
+from backend.src.models.location import Location
+from backend.src.models.organizer import Organizer
+from backend.src.models.performer import Performer
+from backend.src.models.event_series import EventSeries
+from backend.src.models.event import (
+    Event,
+    EventStatus,
+    AttendanceStatus,
+    TicketStatus,
+    TimeoffStatus,
+    TravelStatus,
+)
+from backend.src.models.event_performer import EventPerformer, PerformerStatus
+
 # Export Base and all models
 __all__ = [
     "Base",
@@ -70,4 +87,18 @@ __all__ = [
     "AnalysisResult",
     # Configuration
     "Configuration",
+    # Calendar Events (Issue #39)
+    "Category",
+    "Location",
+    "Organizer",
+    "Performer",
+    "EventSeries",
+    "Event",
+    "EventStatus",
+    "AttendanceStatus",
+    "TicketStatus",
+    "TimeoffStatus",
+    "TravelStatus",
+    "EventPerformer",
+    "PerformerStatus",
 ]

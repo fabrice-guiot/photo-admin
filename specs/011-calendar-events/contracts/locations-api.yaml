@@ -1,0 +1,365 @@
+openapi: 3.1.0
+info:
+  title: Locations API
+  description: Location management with geocoding
+  version: 1.0.0
+
+paths:
+  /api/locations:
+    get:
+      summary: List locations
+      description: Retrieve known locations with optional filtering
+      operationId: listLocations
+      tags: [Locations]
+      parameters:
+        - name: category_guid
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by category GUID
+        - name: is_known
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by known location status
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search by name, city, or address
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationResponse'
+    post:
+      summary: Create location
+      description: Create a new known location
+      operationId: createLocation
+      tags: [Locations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreateRequest'
+      responses:
+        '201':
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/locations/geocode:
+    post:
+      summary: Geocode address
+      description: Resolve address to coordinates and timezone
+      operationId: geocodeAddress
+      tags: [Locations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address]
+              properties:
+                address:
+                  type: string
+                  description: Full address to geocode
+      responses:
+        '200':
+          description: Geocoding result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeocodeResponse'
+        '404':
+          description: Address not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/locations/{guid}:
+    get:
+      summary: Get location by GUID
+      operationId: getLocation
+      tags: [Locations]
+      parameters:
+        - $ref: '#/components/parameters/LocationGuid'
+      responses:
+        '200':
+          description: Location details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '404':
+          description: Location not found
+    patch:
+      summary: Update location
+      operationId: updateLocation
+      tags: [Locations]
+      parameters:
+        - $ref: '#/components/parameters/LocationGuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationUpdateRequest'
+      responses:
+        '200':
+          description: Updated location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationResponse'
+        '400':
+          description: Validation error
+        '404':
+          description: Location not found
+    delete:
+      summary: Delete location
+      description: Delete location (fails if referenced by events)
+      operationId: deleteLocation
+      tags: [Locations]
+      parameters:
+        - $ref: '#/components/parameters/LocationGuid'
+      responses:
+        '204':
+          description: Location deleted
+        '404':
+          description: Location not found
+        '409':
+          description: Location is referenced by events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    LocationGuid:
+      name: guid
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^loc_[a-z0-9]{26}$'
+      description: Location GUID (loc_xxx)
+
+  schemas:
+    LocationCreateRequest:
+      type: object
+      required: [name, category_guid]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        state:
+          type: string
+          maxLength: 100
+          nullable: true
+        country:
+          type: string
+          maxLength: 100
+          nullable: true
+        postal_code:
+          type: string
+          maxLength: 20
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        timezone:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: IANA timezone (e.g., "America/New_York")
+        category_guid:
+          type: string
+          description: Category GUID (cat_xxx)
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        timeoff_required_default:
+          type: boolean
+          default: false
+        travel_required_default:
+          type: boolean
+          default: false
+        notes:
+          type: string
+          nullable: true
+        is_known:
+          type: boolean
+          default: true
+
+    LocationUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        city:
+          type: string
+          maxLength: 100
+          nullable: true
+        state:
+          type: string
+          maxLength: 100
+          nullable: true
+        country:
+          type: string
+          maxLength: 100
+          nullable: true
+        postal_code:
+          type: string
+          maxLength: 20
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        timezone:
+          type: string
+          maxLength: 64
+          nullable: true
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        timeoff_required_default:
+          type: boolean
+        travel_required_default:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        is_known:
+          type: boolean
+
+    LocationResponse:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: Location GUID (loc_xxx)
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        state:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        postal_code:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          format: double
+          nullable: true
+        longitude:
+          type: number
+          format: double
+          nullable: true
+        timezone:
+          type: string
+          nullable: true
+        category_guid:
+          type: string
+        category_name:
+          type: string
+        rating:
+          type: integer
+          nullable: true
+        timeoff_required_default:
+          type: boolean
+        travel_required_default:
+          type: boolean
+        notes:
+          type: string
+          nullable: true
+        is_known:
+          type: boolean
+        event_count:
+          type: integer
+          description: Number of events at this location
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    GeocodeResponse:
+      type: object
+      properties:
+        formatted_address:
+          type: string
+          description: Full formatted address
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        timezone:
+          type: string
+          description: IANA timezone
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        code:
+          type: string
+          nullable: true

@@ -16,7 +16,8 @@ import type {
   ImportResultResponse,
   ConfigCategory,
   ConfigValueUpdateRequest,
-  ConflictResolutionRequest
+  ConflictResolutionRequest,
+  EventStatusItem
 } from '@/contracts/api/config-api'
 
 interface UseConfigReturn {
@@ -318,5 +319,55 @@ export const useConfigStats = (autoFetch = true): UseConfigStatsReturn => {
     loading,
     error,
     refetch: fetchStats
+  }
+}
+
+/**
+ * useEventStatuses - Hook for fetching event status options
+ */
+interface UseEventStatusesReturn {
+  statuses: EventStatusItem[]
+  loading: boolean
+  error: string | null
+  refetch: () => Promise<void>
+}
+
+export const useEventStatuses = (autoFetch = true): UseEventStatusesReturn => {
+  const [statuses, setStatuses] = useState<EventStatusItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchStatuses = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await configService.getEventStatuses()
+      setStatuses(data.statuses)
+    } catch (err: any) {
+      const errorMessage = err.userMessage || 'Failed to load event statuses'
+      setError(errorMessage)
+      // Fallback to default statuses if fetch fails
+      setStatuses([
+        { key: 'future', label: 'Future', display_order: 0 },
+        { key: 'confirmed', label: 'Confirmed', display_order: 1 },
+        { key: 'completed', label: 'Completed', display_order: 2 },
+        { key: 'cancelled', label: 'Cancelled', display_order: 3 },
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoFetch) {
+      fetchStatuses()
+    }
+  }, [autoFetch, fetchStatuses])
+
+  return {
+    statuses,
+    loading,
+    error,
+    refetch: fetchStatuses
   }
 }

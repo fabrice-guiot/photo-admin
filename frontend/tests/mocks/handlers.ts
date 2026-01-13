@@ -21,6 +21,36 @@ import type {
   ConfigCategory,
   ConfigItem
 } from '@/contracts/api/config-api'
+import type {
+  Category,
+  CategoryCreateRequest,
+  CategoryUpdateRequest,
+  CategoryStatsResponse
+} from '@/contracts/api/category-api'
+import type {
+  Event,
+  EventDetail,
+  EventStatsResponse
+} from '@/contracts/api/event-api'
+import type {
+  Location,
+  LocationCreateRequest,
+  LocationUpdateRequest,
+  LocationStatsResponse,
+  GeocodeResponse
+} from '@/contracts/api/location-api'
+import type {
+  Performer,
+  PerformerCreateRequest,
+  PerformerUpdateRequest,
+  PerformerStatsResponse
+} from '@/contracts/api/performer-api'
+import type {
+  Organizer,
+  OrganizerCreateRequest,
+  OrganizerUpdateRequest,
+  OrganizerStatsResponse
+} from '@/contracts/api/organizer-api'
 
 // Mock data
 let jobs: JobResponse[] = []
@@ -285,6 +315,278 @@ let collections: Collection[] = [
 let nextConnectorId = 3
 let nextCollectionId = 3
 
+// Category mock data
+let categories: Category[] = [
+  {
+    guid: 'cat_01hgw2bbg00000000000000001',
+    name: 'Airshow',
+    icon: 'plane',
+    color: '#3B82F6',
+    display_order: 0,
+    is_active: true,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+  {
+    guid: 'cat_01hgw2bbg00000000000000002',
+    name: 'Wildlife',
+    icon: 'bird',
+    color: '#22C55E',
+    display_order: 1,
+    is_active: true,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+  {
+    guid: 'cat_01hgw2bbg00000000000000003',
+    name: 'Wedding',
+    icon: 'heart',
+    color: '#EC4899',
+    display_order: 2,
+    is_active: false,
+    created_at: '2025-01-01T09:00:00Z',
+    updated_at: '2025-01-01T09:00:00Z',
+  },
+]
+let nextCategoryNum = 4
+
+// Events mock data
+let events: Event[] = [
+  {
+    guid: 'evt_01hgw2bbg00000000000000001',
+    title: 'Oshkosh Airshow Day 1',
+    event_date: '2026-07-27',
+    start_time: '08:00:00',
+    end_time: '18:00:00',
+    is_all_day: false,
+    input_timezone: 'America/Chicago',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    location: null,
+    series_guid: 'ser_01hgw2bbg00000000000000001',
+    sequence_number: 1,
+    series_total: 3,
+    ticket_required: true,
+    ticket_status: 'purchased',
+    timeoff_required: true,
+    timeoff_status: 'approved',
+    travel_required: true,
+    travel_status: 'booked',
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'evt_01hgw2bbg00000000000000002',
+    title: 'Oshkosh Airshow Day 2',
+    event_date: '2026-07-28',
+    start_time: '08:00:00',
+    end_time: '18:00:00',
+    is_all_day: false,
+    input_timezone: 'America/Chicago',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    location: null,
+    series_guid: 'ser_01hgw2bbg00000000000000001',
+    sequence_number: 2,
+    series_total: 3,
+    ticket_required: true,
+    ticket_status: 'purchased',
+    timeoff_required: true,
+    timeoff_status: 'approved',
+    travel_required: true,
+    travel_status: 'booked',
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'evt_01hgw2bbg00000000000000003',
+    title: 'Wildlife Photography Workshop',
+    event_date: '2026-03-15',
+    start_time: '10:00:00',
+    end_time: '16:00:00',
+    is_all_day: false,
+    input_timezone: 'America/New_York',
+    status: 'future',
+    attendance: 'planned',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+    },
+    location: null,
+    series_guid: null,
+    sequence_number: null,
+    series_total: null,
+    ticket_required: false,
+    ticket_status: null,
+    timeoff_required: false,
+    timeoff_status: null,
+    travel_required: false,
+    travel_status: null,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+]
+let nextEventNum = 4
+
+// Locations mock data
+let locations: Location[] = [
+  {
+    guid: 'loc_01hgw2bbg00000000000000001',
+    name: 'EAA Grounds',
+    address: '3000 Poberezny Road',
+    city: 'Oshkosh',
+    state: 'Wisconsin',
+    country: 'USA',
+    postal_code: '54902',
+    latitude: 43.9844,
+    longitude: -88.5564,
+    timezone: 'America/Chicago',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    rating: 5,
+    timeoff_required_default: true,
+    travel_required_default: true,
+    notes: 'Annual EAA AirVenture event location',
+    is_known: true,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'loc_01hgw2bbg00000000000000002',
+    name: 'Yellowstone National Park',
+    address: null,
+    city: 'Yellowstone',
+    state: 'Wyoming',
+    country: 'USA',
+    postal_code: null,
+    latitude: 44.4280,
+    longitude: -110.5885,
+    timezone: 'America/Denver',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+    },
+    rating: 5,
+    timeoff_required_default: true,
+    travel_required_default: true,
+    notes: 'Great for wildlife photography',
+    is_known: true,
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+]
+let nextLocationNum = 3
+
+// Performer mock data
+let performers: Performer[] = [
+  {
+    guid: 'prf_01hgw2bbg00000000000000001',
+    name: 'Blue Angels',
+    website: 'https://blueangels.navy.mil',
+    instagram_handle: 'usabordo_blueangels',
+    instagram_url: 'https://instagram.com/usabordo_blueangels',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    additional_info: 'US Navy Flight Demonstration Squadron',
+    created_at: '2026-01-10T09:00:00Z',
+    updated_at: '2026-01-10T09:00:00Z',
+  },
+  {
+    guid: 'prf_01hgw2bbg00000000000000002',
+    name: 'Thunderbirds',
+    website: 'https://thunderbirds.airforce.com',
+    instagram_handle: 'afthunderbirds',
+    instagram_url: 'https://instagram.com/afthunderbirds',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    additional_info: 'US Air Force Air Demonstration Squadron',
+    created_at: '2026-01-10T09:00:00Z',
+    updated_at: '2026-01-10T09:00:00Z',
+  },
+  {
+    guid: 'prf_01hgw2bbg00000000000000003',
+    name: 'Wildlife Photography Guide',
+    website: null,
+    instagram_handle: null,
+    instagram_url: null,
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+    },
+    additional_info: 'Expert wildlife guide',
+    created_at: '2026-01-10T09:00:00Z',
+    updated_at: '2026-01-10T09:00:00Z',
+  },
+]
+let nextPerformerNum = 4
+
+// Organizers mock data
+let organizers: Organizer[] = [
+  {
+    guid: 'org_01hgw2bbg00000000000000001',
+    name: 'USAF Demonstration Teams',
+    website: 'https://usaf.com/demo',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+    },
+    rating: 5,
+    ticket_required_default: true,
+    notes: 'Military demonstration team organizer',
+    created_at: '2026-01-01T09:00:00Z',
+    updated_at: '2026-01-01T09:00:00Z',
+  },
+  {
+    guid: 'org_01hgw2bbg00000000000000002',
+    name: 'National Wildlife Federation',
+    website: 'https://nwf.org',
+    category: {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+    },
+    rating: 4,
+    ticket_required_default: false,
+    notes: 'Conservation organization',
+    created_at: '2026-01-01T10:00:00Z',
+    updated_at: '2026-01-01T10:00:00Z',
+  },
+]
+let nextOrganizerNum = 3
+
 // Config mock data
 let configData = {
   extensions: {
@@ -300,6 +602,12 @@ let configData = {
     'HDR': 'High Dynamic Range',
     'BW': 'Black and White',
   } as Record<string, string>,
+  event_statuses: {
+    'future': { label: 'Future', display_order: 0 },
+    'confirmed': { label: 'Confirmed', display_order: 1 },
+    'completed': { label: 'Completed', display_order: 2 },
+    'cancelled': { label: 'Cancelled', display_order: 3 },
+  } as Record<string, { label: string; display_order: number }>,
   importSessions: {} as Record<string, ImportSessionResponse>,
   lastImport: null as string | null,
 }
@@ -1430,8 +1738,22 @@ ${pipeline.edges.map((e) => `  - from: ${e.from}
       extensions: configData.extensions,
       cameras: configData.cameras,
       processing_methods: configData.processing_methods,
+      event_statuses: configData.event_statuses,
     }
     return HttpResponse.json(response)
+  }),
+
+  // GET /api/config/event_statuses - Get event statuses
+  http.get(`${BASE_URL}/config/event_statuses`, () => {
+    const statuses = Object.entries(configData.event_statuses)
+      .map(([key, value]) => ({
+        key,
+        label: value.label,
+        display_order: value.display_order,
+      }))
+      .sort((a, b) => a.display_order - b.display_order)
+
+    return HttpResponse.json({ statuses })
   }),
 
   http.get(`${BASE_URL}/config/stats`, () => {
@@ -1660,6 +1982,744 @@ ${Object.entries(configData.processing_methods).map(([key, desc]) => `  ${key}: 
     }
 
     return HttpResponse.json({ message: 'Configuration deleted successfully' })
+  }),
+
+  // ============================================================================
+  // Categories API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/categories`, ({ request }) => {
+    const url = new URL(request.url)
+    const isActive = url.searchParams.get('is_active')
+
+    let filteredCategories = [...categories]
+    if (isActive !== null) {
+      filteredCategories = filteredCategories.filter((c) => c.is_active === (isActive === 'true'))
+    }
+
+    // Sort by display_order
+    filteredCategories.sort((a, b) => a.display_order - b.display_order)
+
+    return HttpResponse.json(filteredCategories)
+  }),
+
+  http.get(`${BASE_URL}/categories/stats`, () => {
+    const stats: CategoryStatsResponse = {
+      total_count: categories.length,
+      active_count: categories.filter((c) => c.is_active).length,
+      inactive_count: categories.filter((c) => !c.is_active).length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/categories/:guid`, ({ params }) => {
+    const category = categories.find((c) => c.guid === params.guid)
+    if (!category) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    return HttpResponse.json(category)
+  }),
+
+  http.post(`${BASE_URL}/categories`, async ({ request }) => {
+    const data = await request.json() as CategoryCreateRequest
+
+    // Check for duplicate name
+    if (categories.some((c) => c.name.toLowerCase() === data.name.toLowerCase())) {
+      return HttpResponse.json(
+        { detail: `Category with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    const newCategory: Category = {
+      guid: `cat_01hgw2bbg000000000000000${nextCategoryNum++}`,
+      name: data.name,
+      icon: data.icon ?? null,
+      color: data.color ?? null,
+      display_order: categories.length,
+      is_active: data.is_active ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    categories.push(newCategory)
+    return HttpResponse.json(newCategory, { status: 201 })
+  }),
+
+  http.patch(`${BASE_URL}/categories/:guid`, async ({ params, request }) => {
+    const data = await request.json() as CategoryUpdateRequest
+    const index = categories.findIndex((c) => c.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // Check for duplicate name (excluding current category)
+    if (data.name && categories.some((c) => c.name.toLowerCase() === data.name!.toLowerCase() && c.guid !== params.guid)) {
+      return HttpResponse.json(
+        { detail: `Category with name '${data.name}' already exists` },
+        { status: 409 }
+      )
+    }
+
+    categories[index] = {
+      ...categories[index],
+      ...data,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(categories[index])
+  }),
+
+  http.delete(`${BASE_URL}/categories/:guid`, ({ params }) => {
+    const index = categories.findIndex((c) => c.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Category ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    categories.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post(`${BASE_URL}/categories/reorder`, async ({ request }) => {
+    const data = await request.json() as { ordered_guids: string[] }
+
+    // Reorder categories based on the provided order
+    const reorderedCategories: Category[] = []
+    data.ordered_guids.forEach((guid, index) => {
+      const category = categories.find((c) => c.guid === guid)
+      if (category) {
+        category.display_order = index
+        category.updated_at = new Date().toISOString()
+        reorderedCategories.push(category)
+      }
+    })
+
+    // Add any categories not in the list at the end
+    categories.forEach((c) => {
+      if (!data.ordered_guids.includes(c.guid)) {
+        c.display_order = reorderedCategories.length
+        reorderedCategories.push(c)
+      }
+    })
+
+    categories = reorderedCategories
+    return HttpResponse.json(categories)
+  }),
+
+  // ============================================================================
+  // Events API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/events`, ({ request }) => {
+    const url = new URL(request.url)
+    const startDate = url.searchParams.get('start_date')
+    const endDate = url.searchParams.get('end_date')
+    const categoryGuid = url.searchParams.get('category_guid')
+    const status = url.searchParams.get('status')
+    const attendance = url.searchParams.get('attendance')
+
+    let filteredEvents = [...events]
+
+    if (startDate) {
+      filteredEvents = filteredEvents.filter((e) => e.event_date >= startDate)
+    }
+    if (endDate) {
+      filteredEvents = filteredEvents.filter((e) => e.event_date <= endDate)
+    }
+    if (categoryGuid) {
+      filteredEvents = filteredEvents.filter((e) => e.category?.guid === categoryGuid)
+    }
+    if (status) {
+      filteredEvents = filteredEvents.filter((e) => e.status === status)
+    }
+    if (attendance) {
+      filteredEvents = filteredEvents.filter((e) => e.attendance === attendance)
+    }
+
+    // Sort by date
+    filteredEvents.sort((a, b) => a.event_date.localeCompare(b.event_date))
+
+    return HttpResponse.json(filteredEvents)
+  }),
+
+  http.get(`${BASE_URL}/events/stats`, () => {
+    const today = new Date().toISOString().split('T')[0]
+    const currentMonth = today.slice(0, 7)
+
+    const stats: EventStatsResponse = {
+      total_count: events.length,
+      upcoming_count: events.filter((e) => e.event_date >= today && (e.status === 'future' || e.status === 'confirmed')).length,
+      this_month_count: events.filter((e) => e.event_date.startsWith(currentMonth)).length,
+      attended_count: events.filter((e) => e.attendance === 'attended').length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/events/:guid`, ({ params }) => {
+    const event = events.find((e) => e.guid === params.guid)
+    if (!event) {
+      return HttpResponse.json(
+        { detail: `Event ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // Build detail response
+    const detailResponse: EventDetail = {
+      ...event,
+      description: 'Event description goes here',
+      location: null,
+      organizer: null,
+      performers: [],
+      series: event.series_guid ? {
+        guid: event.series_guid,
+        title: 'Oshkosh Airshow 2026',
+        total_events: event.series_total || 3,
+      } : null,
+      ticket_required: true,
+      ticket_status: 'purchased',
+      ticket_purchase_date: '2026-01-15',
+      timeoff_required: true,
+      timeoff_status: 'approved',
+      timeoff_booking_date: '2026-01-10',
+      travel_required: true,
+      travel_status: 'booked',
+      travel_booking_date: '2026-02-01',
+      deadline_date: null,
+      deleted_at: null,
+    }
+
+    return HttpResponse.json(detailResponse)
+  }),
+
+  // ============================================================================
+  // Locations API endpoints
+  // ============================================================================
+
+  http.get(`${BASE_URL}/locations`, ({ request }) => {
+    const url = new URL(request.url)
+    const categoryGuid = url.searchParams.get('category_guid')
+    const knownOnly = url.searchParams.get('known_only')
+    const search = url.searchParams.get('search')
+    const limit = parseInt(url.searchParams.get('limit') ?? '100', 10)
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
+
+    let filteredLocations = [...locations]
+
+    if (categoryGuid) {
+      filteredLocations = filteredLocations.filter((l) => l.category.guid === categoryGuid)
+    }
+    if (knownOnly === 'true') {
+      filteredLocations = filteredLocations.filter((l) => l.is_known)
+    }
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredLocations = filteredLocations.filter(
+        (l) =>
+          l.name.toLowerCase().includes(searchLower) ||
+          l.city?.toLowerCase().includes(searchLower) ||
+          l.address?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    const total = filteredLocations.length
+    const items = filteredLocations.slice(offset, offset + limit)
+
+    return HttpResponse.json({ items, total })
+  }),
+
+  http.get(`${BASE_URL}/locations/stats`, () => {
+    const stats: LocationStatsResponse = {
+      total_count: locations.length,
+      known_count: locations.filter((l) => l.is_known).length,
+      with_coordinates_count: locations.filter((l) => l.latitude !== null && l.longitude !== null).length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/locations/by-category/:categoryGuid`, ({ params, request }) => {
+    const url = new URL(request.url)
+    const knownOnly = url.searchParams.get('known_only') !== 'false'
+    const categoryGuid = params.categoryGuid as string
+
+    let filteredLocations = locations.filter((l) => l.category.guid === categoryGuid)
+    if (knownOnly) {
+      filteredLocations = filteredLocations.filter((l) => l.is_known)
+    }
+
+    return HttpResponse.json(filteredLocations)
+  }),
+
+  http.get(`${BASE_URL}/locations/:guid`, ({ params }) => {
+    const location = locations.find((l) => l.guid === params.guid)
+    if (!location) {
+      return HttpResponse.json(
+        { detail: `Location ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    return HttpResponse.json(location)
+  }),
+
+  http.post(`${BASE_URL}/locations`, async ({ request }) => {
+    const data = await request.json() as LocationCreateRequest
+
+    // Find category
+    const category = categories.find((c) => c.guid === data.category_guid)
+    if (!category) {
+      return HttpResponse.json(
+        { detail: `Category ${data.category_guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    const newLocation: Location = {
+      guid: `loc_01hgw2bbg00000000000000${nextLocationNum++}`,
+      name: data.name,
+      address: data.address ?? null,
+      city: data.city ?? null,
+      state: data.state ?? null,
+      country: data.country ?? null,
+      postal_code: data.postal_code ?? null,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      timezone: data.timezone ?? null,
+      category: {
+        guid: category.guid,
+        name: category.name,
+        icon: category.icon,
+        color: category.color,
+      },
+      rating: data.rating ?? null,
+      timeoff_required_default: data.timeoff_required_default ?? false,
+      travel_required_default: data.travel_required_default ?? false,
+      notes: data.notes ?? null,
+      is_known: data.is_known ?? true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    locations.push(newLocation)
+    return HttpResponse.json(newLocation, { status: 201 })
+  }),
+
+  http.patch(`${BASE_URL}/locations/:guid`, async ({ params, request }) => {
+    const data = await request.json() as LocationUpdateRequest
+    const index = locations.findIndex((l) => l.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Location ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // If category is being updated, find it
+    let category = locations[index].category
+    if (data.category_guid) {
+      const newCategory = categories.find((c) => c.guid === data.category_guid)
+      if (!newCategory) {
+        return HttpResponse.json(
+          { detail: `Category ${data.category_guid} not found` },
+          { status: 404 }
+        )
+      }
+      category = {
+        guid: newCategory.guid,
+        name: newCategory.name,
+        icon: newCategory.icon,
+        color: newCategory.color,
+      }
+    }
+
+    locations[index] = {
+      ...locations[index],
+      ...data,
+      category,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(locations[index])
+  }),
+
+  http.delete(`${BASE_URL}/locations/:guid`, ({ params }) => {
+    const index = locations.findIndex((l) => l.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Location ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    locations.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.post(`${BASE_URL}/locations/geocode`, async ({ request }) => {
+    const data = await request.json() as { address: string }
+
+    // Mock geocoding response
+    const response: GeocodeResponse = {
+      address: '123 Main St',
+      city: 'Test City',
+      state: 'Test State',
+      country: 'USA',
+      postal_code: '12345',
+      latitude: 40.7128,
+      longitude: -74.0060,
+      timezone: 'America/New_York',
+    }
+    return HttpResponse.json(response)
+  }),
+
+  http.get(`${BASE_URL}/locations/:guid/validate-category/:eventCategoryGuid`, ({ params }) => {
+    const location = locations.find((l) => l.guid === params.guid)
+    if (!location) {
+      return HttpResponse.json(
+        { detail: `Location ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    const matches = location.category.guid === params.eventCategoryGuid
+    return HttpResponse.json({ matches })
+  }),
+
+  // ============================================================================
+  // Performer Handlers (Phase 11)
+  // ============================================================================
+
+  http.get(`${BASE_URL}/performers`, ({ request }) => {
+    const url = new URL(request.url)
+    const categoryGuid = url.searchParams.get('category_guid')
+    const search = url.searchParams.get('search')
+    const limit = parseInt(url.searchParams.get('limit') ?? '100', 10)
+    const offset = parseInt(url.searchParams.get('offset') ?? '0', 10)
+
+    let filteredPerformers = [...performers]
+
+    if (categoryGuid) {
+      filteredPerformers = filteredPerformers.filter((p) => p.category.guid === categoryGuid)
+    }
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredPerformers = filteredPerformers.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchLower) ||
+          p.instagram_handle?.toLowerCase().includes(searchLower) ||
+          p.additional_info?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    const total = filteredPerformers.length
+    const items = filteredPerformers.slice(offset, offset + limit)
+
+    return HttpResponse.json({ items, total })
+  }),
+
+  http.get(`${BASE_URL}/performers/stats`, () => {
+    const stats: PerformerStatsResponse = {
+      total_count: performers.length,
+      with_instagram_count: performers.filter((p) => p.instagram_handle !== null).length,
+      with_website_count: performers.filter((p) => p.website !== null).length,
+    }
+    return HttpResponse.json(stats)
+  }),
+
+  http.get(`${BASE_URL}/performers/by-category/:categoryGuid`, ({ params, request }) => {
+    const url = new URL(request.url)
+    const search = url.searchParams.get('search')
+    const categoryGuid = params.categoryGuid as string
+
+    let filteredPerformers = performers.filter((p) => p.category.guid === categoryGuid)
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredPerformers = filteredPerformers.filter(
+        (p) => p.name.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return HttpResponse.json(filteredPerformers)
+  }),
+
+  http.get(`${BASE_URL}/performers/:guid`, ({ params }) => {
+    const performer = performers.find((p) => p.guid === params.guid)
+    if (!performer) {
+      return HttpResponse.json(
+        { detail: `Performer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    return HttpResponse.json(performer)
+  }),
+
+  http.post(`${BASE_URL}/performers`, async ({ request }) => {
+    const data = await request.json() as PerformerCreateRequest
+
+    // Find category
+    const category = categories.find((c) => c.guid === data.category_guid)
+    if (!category) {
+      return HttpResponse.json(
+        { detail: `Category ${data.category_guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // Check if category is inactive
+    if (!category.is_active) {
+      return HttpResponse.json(
+        { detail: 'Cannot create performer in inactive category' },
+        { status: 400 }
+      )
+    }
+
+    const newPerformer: Performer = {
+      guid: `prf_01hgw2bbg0000000000000000${nextPerformerNum++}`,
+      name: data.name,
+      website: data.website ?? null,
+      instagram_handle: data.instagram_handle?.replace(/^@/, '') ?? null,
+      instagram_url: data.instagram_handle
+        ? `https://instagram.com/${data.instagram_handle.replace(/^@/, '')}`
+        : null,
+      category: {
+        guid: category.guid,
+        name: category.name,
+        icon: category.icon,
+        color: category.color,
+      },
+      additional_info: data.additional_info ?? null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    performers.push(newPerformer)
+    return HttpResponse.json(newPerformer, { status: 201 })
+  }),
+
+  http.patch(`${BASE_URL}/performers/:guid`, async ({ params, request }) => {
+    const data = await request.json() as PerformerUpdateRequest
+    const index = performers.findIndex((p) => p.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Performer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    // If category is being updated, find it
+    let category = performers[index].category
+    if (data.category_guid) {
+      const newCategory = categories.find((c) => c.guid === data.category_guid)
+      if (!newCategory) {
+        return HttpResponse.json(
+          { detail: `Category ${data.category_guid} not found` },
+          { status: 404 }
+        )
+      }
+      category = {
+        guid: newCategory.guid,
+        name: newCategory.name,
+        icon: newCategory.icon,
+        color: newCategory.color,
+      }
+    }
+
+    // Handle instagram URL
+    let instagram_url = performers[index].instagram_url
+    if (data.instagram_handle !== undefined) {
+      if (data.instagram_handle) {
+        const handle = data.instagram_handle.replace(/^@/, '')
+        instagram_url = `https://instagram.com/${handle}`
+      } else {
+        instagram_url = null
+      }
+    }
+
+    performers[index] = {
+      ...performers[index],
+      ...data,
+      instagram_handle: data.instagram_handle?.replace(/^@/, '') ?? performers[index].instagram_handle,
+      instagram_url,
+      category,
+      updated_at: new Date().toISOString(),
+    }
+
+    return HttpResponse.json(performers[index])
+  }),
+
+  http.delete(`${BASE_URL}/performers/:guid`, ({ params }) => {
+    const index = performers.findIndex((p) => p.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Performer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    performers.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get(`${BASE_URL}/performers/:guid/validate-category/:eventCategoryGuid`, ({ params }) => {
+    const performer = performers.find((p) => p.guid === params.guid)
+    if (!performer) {
+      return HttpResponse.json(
+        { detail: `Performer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    const matches = performer.category.guid === params.eventCategoryGuid
+    return HttpResponse.json({ matches })
+  }),
+
+  // ============================================================================
+  // Organizers API
+  // ============================================================================
+
+  http.get(`${BASE_URL}/organizers`, ({ request }) => {
+    const url = new URL(request.url)
+    const categoryGuid = url.searchParams.get('category_guid')
+    const search = url.searchParams.get('search')
+
+    let filteredOrganizers = [...organizers]
+
+    if (categoryGuid) {
+      filteredOrganizers = filteredOrganizers.filter((o) => o.category.guid === categoryGuid)
+    }
+
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filteredOrganizers = filteredOrganizers.filter(
+        (o) =>
+          o.name.toLowerCase().includes(searchLower) ||
+          o.website?.toLowerCase().includes(searchLower) ||
+          o.notes?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    return HttpResponse.json({ items: filteredOrganizers, total: filteredOrganizers.length })
+  }),
+
+  http.get(`${BASE_URL}/organizers/stats`, () => {
+    return HttpResponse.json({
+      total_count: organizers.length,
+      with_rating_count: organizers.filter((o) => o.rating !== null).length,
+      avg_rating: organizers.length > 0
+        ? organizers.filter((o) => o.rating !== null).reduce((sum, o) => sum + (o.rating || 0), 0) / organizers.filter((o) => o.rating !== null).length
+        : null,
+    })
+  }),
+
+  http.get(`${BASE_URL}/organizers/by-category/:categoryGuid`, ({ params }) => {
+    const categoryGuid = params.categoryGuid as string
+    const filteredOrganizers = organizers.filter((o) => o.category.guid === categoryGuid)
+    return HttpResponse.json(filteredOrganizers)
+  }),
+
+  http.get(`${BASE_URL}/organizers/:guid`, ({ params }) => {
+    const organizer = organizers.find((o) => o.guid === params.guid)
+    if (!organizer) {
+      return HttpResponse.json(
+        { detail: `Organizer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+    return HttpResponse.json(organizer)
+  }),
+
+  http.post(`${BASE_URL}/organizers`, async ({ request }) => {
+    const data = (await request.json()) as OrganizerCreateRequest
+    const category = categories.find((c) => c.guid === data.category_guid)
+    if (!category) {
+      return HttpResponse.json(
+        { detail: `Category ${data.category_guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    const newOrganizer: Organizer = {
+      guid: `org_01hgw2bbg0000000000000000${nextOrganizerNum++}`,
+      name: data.name,
+      website: data.website ?? null,
+      category: {
+        guid: category.guid,
+        name: category.name,
+        icon: category.icon,
+        color: category.color,
+      },
+      rating: data.rating ?? null,
+      ticket_required_default: data.ticket_required_default ?? true,
+      notes: data.notes ?? null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+
+    organizers.push(newOrganizer)
+    return HttpResponse.json(newOrganizer, { status: 201 })
+  }),
+
+  http.patch(`${BASE_URL}/organizers/:guid`, async ({ params, request }) => {
+    const data = (await request.json()) as OrganizerUpdateRequest
+    const index = organizers.findIndex((o) => o.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Organizer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    let category = organizers[index].category
+    if (data.category_guid) {
+      const newCategory = categories.find((c) => c.guid === data.category_guid)
+      if (!newCategory) {
+        return HttpResponse.json(
+          { detail: `Category ${data.category_guid} not found` },
+          { status: 404 }
+        )
+      }
+      category = {
+        guid: newCategory.guid,
+        name: newCategory.name,
+        icon: newCategory.icon,
+        color: newCategory.color,
+      }
+    }
+
+    organizers[index] = {
+      ...organizers[index],
+      ...data,
+      category,
+      updated_at: new Date().toISOString(),
+    }
+    return HttpResponse.json(organizers[index])
+  }),
+
+  http.delete(`${BASE_URL}/organizers/:guid`, ({ params }) => {
+    const index = organizers.findIndex((o) => o.guid === params.guid)
+    if (index === -1) {
+      return HttpResponse.json(
+        { detail: `Organizer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    organizers.splice(index, 1)
+    return new HttpResponse(null, { status: 204 })
+  }),
+
+  http.get(`${BASE_URL}/organizers/:guid/validate-category/:eventCategoryGuid`, ({ params }) => {
+    const organizer = organizers.find((o) => o.guid === params.guid)
+    if (!organizer) {
+      return HttpResponse.json(
+        { detail: `Organizer ${params.guid} not found` },
+        { status: 404 }
+      )
+    }
+
+    const matches = organizer.category.guid === params.eventCategoryGuid
+    return HttpResponse.json({ matches })
   }),
 ]
 
@@ -1926,7 +2986,282 @@ export function resetMockData(): void {
       'HDR': 'High Dynamic Range',
       'BW': 'Black and White',
     },
+    event_statuses: {
+      'future': { label: 'Future', display_order: 0 },
+      'confirmed': { label: 'Confirmed', display_order: 1 },
+      'completed': { label: 'Completed', display_order: 2 },
+      'cancelled': { label: 'Cancelled', display_order: 3 },
+    },
     importSessions: {},
     lastImport: null,
   }
+  // Reset categories
+  categories = [
+    {
+      guid: 'cat_01hgw2bbg00000000000000001',
+      name: 'Airshow',
+      icon: 'plane',
+      color: '#3B82F6',
+      display_order: 0,
+      is_active: true,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      guid: 'cat_01hgw2bbg00000000000000002',
+      name: 'Wildlife',
+      icon: 'bird',
+      color: '#22C55E',
+      display_order: 1,
+      is_active: true,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+    {
+      guid: 'cat_01hgw2bbg00000000000000003',
+      name: 'Wedding',
+      icon: 'heart',
+      color: '#EC4899',
+      display_order: 2,
+      is_active: false,
+      created_at: '2025-01-01T09:00:00Z',
+      updated_at: '2025-01-01T09:00:00Z',
+    },
+  ]
+  nextCategoryNum = 4
+  // Reset events
+  events = [
+    {
+      guid: 'evt_01hgw2bbg00000000000000001',
+      title: 'Oshkosh Airshow Day 1',
+      event_date: '2026-07-27',
+      start_time: '08:00:00',
+      end_time: '18:00:00',
+      is_all_day: false,
+      input_timezone: 'America/Chicago',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      location: null,
+      series_guid: 'ser_01hgw2bbg00000000000000001',
+      sequence_number: 1,
+      series_total: 3,
+      ticket_required: true,
+      ticket_status: 'purchased',
+      timeoff_required: true,
+      timeoff_status: 'approved',
+      travel_required: true,
+      travel_status: 'booked',
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'evt_01hgw2bbg00000000000000002',
+      title: 'Oshkosh Airshow Day 2',
+      event_date: '2026-07-28',
+      start_time: '08:00:00',
+      end_time: '18:00:00',
+      is_all_day: false,
+      input_timezone: 'America/Chicago',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      location: null,
+      series_guid: 'ser_01hgw2bbg00000000000000001',
+      sequence_number: 2,
+      series_total: 3,
+      ticket_required: true,
+      ticket_status: 'purchased',
+      timeoff_required: true,
+      timeoff_status: 'approved',
+      travel_required: true,
+      travel_status: 'booked',
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'evt_01hgw2bbg00000000000000003',
+      title: 'Wildlife Photography Workshop',
+      event_date: '2026-03-15',
+      start_time: '10:00:00',
+      end_time: '16:00:00',
+      is_all_day: false,
+      input_timezone: 'America/New_York',
+      status: 'future',
+      attendance: 'planned',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000002',
+        name: 'Wildlife',
+        icon: 'bird',
+        color: '#22C55E',
+      },
+      location: null,
+      series_guid: null,
+      sequence_number: null,
+      series_total: null,
+      ticket_required: false,
+      ticket_status: null,
+      timeoff_required: false,
+      timeoff_status: null,
+      travel_required: false,
+      travel_status: null,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+  ]
+  nextEventNum = 4
+  // Reset locations
+  locations = [
+    {
+      guid: 'loc_01hgw2bbg00000000000000001',
+      name: 'EAA Grounds',
+      address: '3000 Poberezny Road',
+      city: 'Oshkosh',
+      state: 'Wisconsin',
+      country: 'USA',
+      postal_code: '54902',
+      latitude: 43.9844,
+      longitude: -88.5564,
+      timezone: 'America/Chicago',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      rating: 5,
+      timeoff_required_default: true,
+      travel_required_default: true,
+      notes: 'Annual EAA AirVenture event location',
+      is_known: true,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'loc_01hgw2bbg00000000000000002',
+      name: 'Yellowstone National Park',
+      address: null,
+      city: 'Yellowstone',
+      state: 'Wyoming',
+      country: 'USA',
+      postal_code: null,
+      latitude: 44.4280,
+      longitude: -110.5885,
+      timezone: 'America/Denver',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000002',
+        name: 'Wildlife',
+        icon: 'bird',
+        color: '#22C55E',
+      },
+      rating: 5,
+      timeoff_required_default: true,
+      travel_required_default: true,
+      notes: 'Great for wildlife photography',
+      is_known: true,
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+  ]
+  nextLocationNum = 3
+
+  // Reset performers
+  performers = [
+    {
+      guid: 'prf_01hgw2bbg00000000000000001',
+      name: 'Blue Angels',
+      website: 'https://blueangels.navy.mil',
+      instagram_handle: 'usabordo_blueangels',
+      instagram_url: 'https://instagram.com/usabordo_blueangels',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      additional_info: 'US Navy Flight Demonstration Squadron',
+      created_at: '2026-01-10T09:00:00Z',
+      updated_at: '2026-01-10T09:00:00Z',
+    },
+    {
+      guid: 'prf_01hgw2bbg00000000000000002',
+      name: 'Thunderbirds',
+      website: 'https://thunderbirds.airforce.com',
+      instagram_handle: 'afthunderbirds',
+      instagram_url: 'https://instagram.com/afthunderbirds',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      additional_info: 'US Air Force Air Demonstration Squadron',
+      created_at: '2026-01-10T09:00:00Z',
+      updated_at: '2026-01-10T09:00:00Z',
+    },
+    {
+      guid: 'prf_01hgw2bbg00000000000000003',
+      name: 'Wildlife Photography Guide',
+      website: null,
+      instagram_handle: null,
+      instagram_url: null,
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000002',
+        name: 'Wildlife',
+        icon: 'bird',
+        color: '#22C55E',
+      },
+      additional_info: 'Expert wildlife guide',
+      created_at: '2026-01-10T09:00:00Z',
+      updated_at: '2026-01-10T09:00:00Z',
+    },
+  ]
+  nextPerformerNum = 4
+
+  // Reset organizers
+  organizers = [
+    {
+      guid: 'org_01hgw2bbg00000000000000001',
+      name: 'USAF Demonstration Teams',
+      website: 'https://usaf.com/demo',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000001',
+        name: 'Airshow',
+        icon: 'plane',
+        color: '#3B82F6',
+      },
+      rating: 5,
+      ticket_required_default: true,
+      notes: 'Military demonstration team organizer',
+      created_at: '2026-01-01T09:00:00Z',
+      updated_at: '2026-01-01T09:00:00Z',
+    },
+    {
+      guid: 'org_01hgw2bbg00000000000000002',
+      name: 'National Wildlife Federation',
+      website: 'https://nwf.org',
+      category: {
+        guid: 'cat_01hgw2bbg00000000000000002',
+        name: 'Wildlife',
+        icon: 'bird',
+        color: '#22C55E',
+      },
+      rating: 4,
+      ticket_required_default: false,
+      notes: 'Conservation organization',
+      created_at: '2026-01-01T10:00:00Z',
+      updated_at: '2026-01-01T10:00:00Z',
+    },
+  ]
+  nextOrganizerNum = 3
 }

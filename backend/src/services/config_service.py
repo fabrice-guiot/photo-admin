@@ -32,7 +32,7 @@ from backend.src.utils.logging_config import get_logger
 logger = get_logger("services")
 
 # Valid configuration categories
-VALID_CATEGORIES = {"extensions", "cameras", "processing_methods"}
+VALID_CATEGORIES = {"extensions", "cameras", "processing_methods", "event_statuses"}
 
 # Import session expiry time (1 hour)
 IMPORT_SESSION_TTL = timedelta(hours=1)
@@ -299,7 +299,8 @@ class ConfigService:
         result = {
             "extensions": {},
             "cameras": {},
-            "processing_methods": {}
+            "processing_methods": {},
+            "event_statuses": {}
         }
 
         configs = self.db.query(Configuration).all()
@@ -311,6 +312,8 @@ class ConfigService:
                 result["cameras"][config.key] = config.value_json
             elif config.category == "processing_methods":
                 result["processing_methods"][config.key] = config.value_json
+            elif config.category == "event_statuses":
+                result["event_statuses"][config.key] = config.value_json
 
         return result
 
@@ -331,6 +334,31 @@ class ConfigService:
             raise ValidationError(f"Invalid category: {category}")
 
         return self.list(category_filter=category)
+
+    def get_event_statuses(self) -> List[Dict[str, Any]]:
+        """
+        Get event statuses ordered by their display_order value.
+
+        Returns:
+            List of status objects with key, label, and display_order
+        """
+        configs = self.db.query(Configuration).filter(
+            Configuration.category == "event_statuses"
+        ).all()
+
+        # Each status value_json contains: {"label": "...", "display_order": N}
+        statuses = []
+        for config in configs:
+            value = config.value_json if isinstance(config.value_json, dict) else {}
+            statuses.append({
+                "key": config.key,
+                "label": value.get("label", config.key.replace("_", " ").title()),
+                "display_order": value.get("display_order", 999)
+            })
+
+        # Sort by display_order
+        statuses.sort(key=lambda x: x["display_order"])
+        return statuses
 
     # =========================================================================
     # Extension Seeding
