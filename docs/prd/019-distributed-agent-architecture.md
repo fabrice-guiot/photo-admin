@@ -849,9 +849,34 @@ KEYS:
 
 ## Communication Protocol
 
-### Agent ↔ Coordinator API
+The agent-server communication uses a **hybrid protocol**:
+- **REST API**: Registration, heartbeat, job claiming, job completion
+- **WebSocket**: Real-time progress streaming during job execution
 
-All agent communication uses REST API with API key authentication.
+This hybrid approach maintains the real-time progress visibility users expect while keeping job discovery simple and firewall-friendly.
+
+### Protocol Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Agent Lifecycle                                 │
+│                                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────────────────────┐  │
+│  │ Registration │    │  Idle Loop   │    │      Job Execution           │  │
+│  │   (REST)     │───>│   (REST)     │───>│                              │  │
+│  │              │    │              │    │  1. Claim job (REST)         │  │
+│  │ POST /register│    │ POST /heartbeat│    │  2. Open WebSocket          │  │
+│  │              │    │ POST /jobs/claim│    │  3. Stream progress (WS)    │  │
+│  │              │    │              │    │  4. Complete job (REST)      │  │
+│  │              │    │              │    │  5. Close WebSocket          │  │
+│  └──────────────┘    └──────────────┘    └──────────────────────────────┘  │
+│                             ▲                          │                     │
+│                             └──────────────────────────┘                     │
+│                                  (return to idle)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Agent ↔ Coordinator REST API
 
 **Base URL:** `{server_url}/api/agent/v1`
 
@@ -890,7 +915,6 @@ Authorization: Bearer agt_key_xxxxx
 {
   "status": "ONLINE",
   "current_job_guid": "job_01hgw2bbg..." | null,
-  "progress": {...} | null,
   "metrics": {  // Optional
     "cpu_percent": 45.2,
     "memory_percent": 62.1,
@@ -927,33 +951,14 @@ Response (job available):
       "location": "/home/user/Photos/Wedding2026"
     },
     "pipeline": null,
-    "parameters": {}
+    "parameters": {},
+    "websocket_url": "/ws/agent/jobs/job_01hgw2bbg.../progress"
   }
 }
 
 Response (no job):
 {
   "job": null
-}
-```
-
-#### Progress Update
-
-```http
-POST /api/agent/v1/jobs/{job_guid}/progress
-Authorization: Bearer agt_key_xxxxx
-
-{
-  "stage": "scanning",
-  "percentage": 45,
-  "files_scanned": 1234,
-  "message": "Scanning files..."
-}
-
-Response:
-{
-  "acknowledged": true,
-  "cancelled": false  // Agent should abort if true
 }
 ```
 
@@ -1006,32 +1011,293 @@ Response:
 }
 ```
 
-### Polling Strategy
+---
 
-**Agent Main Loop:**
+### Agent → Server WebSocket (Progress Streaming)
+
+When an agent claims a job, it establishes a WebSocket connection to stream real-time progress updates. The server proxies these updates to connected frontend clients, maintaining the existing real-time UX.
+
+**WebSocket URL:** `wss://{server_url}/ws/agent/jobs/{job_guid}/progress`
+
+**Authentication:** Query parameter `?token=agt_key_xxxxx`
+
+#### Connection Flow
+
+```
+Agent                          Server                         Frontend
+  │                              │                               │
+  │ 1. POST /jobs/claim          │                               │
+  │─────────────────────────────>│                               │
+  │                              │                               │
+  │ 2. Job assigned              │                               │
+  │<─────────────────────────────│                               │
+  │                              │                               │
+  │ 3. Connect WebSocket         │                               │
+  │   /ws/agent/jobs/{id}/progress                               │
+  │─────────────────────────────>│                               │
+  │                              │                               │
+  │ 4. Connection accepted       │                               │
+  │<─────────────────────────────│                               │
+  │                              │                               │
+  │ 5. Send progress update      │                               │
+  │─────────────────────────────>│ 6. Proxy to frontend WS      │
+  │                              │──────────────────────────────>│
+  │                              │                               │
+  │ 7. Send progress update      │                               │
+  │─────────────────────────────>│ 8. Proxy to frontend WS      │
+  │                              │──────────────────────────────>│
+  │                              │                               │
+  │         ... (continuous progress streaming) ...              │
+  │                              │                               │
+  │ 9. Close WebSocket           │                               │
+  │─────────────────────────────>│                               │
+  │                              │                               │
+  │ 10. POST /jobs/{id}/complete │                               │
+  │─────────────────────────────>│ 11. Broadcast completion     │
+  │                              │──────────────────────────────>│
+```
+
+#### WebSocket Message Format (Agent → Server)
+
+**Progress Update:**
+```json
+{
+  "type": "progress",
+  "timestamp": "2026-01-14T12:00:05.123Z",
+  "data": {
+    "stage": "scanning",
+    "percentage": 45,
+    "files_scanned": 1234,
+    "total_files": 2741,
+    "current_file": "IMG_1234.jpg",
+    "message": "Scanning files..."
+  }
+}
+```
+
+**Stage Transition:**
+```json
+{
+  "type": "stage",
+  "timestamp": "2026-01-14T12:01:00.000Z",
+  "data": {
+    "previous_stage": "scanning",
+    "current_stage": "analyzing",
+    "message": "Analyzing 2741 files..."
+  }
+}
+```
+
+**Error (Non-Fatal):**
+```json
+{
+  "type": "warning",
+  "timestamp": "2026-01-14T12:01:30.000Z",
+  "data": {
+    "message": "Could not read EXIF from IMG_5678.jpg",
+    "file": "IMG_5678.jpg"
+  }
+}
+```
+
+#### WebSocket Message Format (Server → Agent)
+
+**Cancellation Request:**
+```json
+{
+  "type": "cancel",
+  "timestamp": "2026-01-14T12:02:00.000Z",
+  "reason": "User requested cancellation"
+}
+```
+
+**Heartbeat (Keep-Alive):**
+```json
+{
+  "type": "ping",
+  "timestamp": "2026-01-14T12:02:30.000Z"
+}
+```
+
+Agent responds with:
+```json
+{
+  "type": "pong",
+  "timestamp": "2026-01-14T12:02:30.050Z"
+}
+```
+
+#### Server-Side WebSocket Proxy
+
+The server acts as a proxy between agent WebSocket and frontend WebSocket:
+
+```python
+# Server-side WebSocket handler (pseudocode)
+
+class AgentProgressWebSocket:
+    """Handles WebSocket connection from agent for progress streaming."""
+
+    async def on_connect(self, websocket, job_guid: str, agent_key: str):
+        # Validate agent authentication
+        agent = await validate_agent_key(agent_key)
+        if not agent:
+            await websocket.close(code=4001, reason="Invalid agent key")
+            return
+
+        # Validate job ownership
+        job = await get_job(job_guid)
+        if job.agent_id != agent.id:
+            await websocket.close(code=4003, reason="Job not assigned to this agent")
+            return
+
+        # Register this WebSocket for the job
+        self.agent_sockets[job_guid] = websocket
+
+        # Update job status to RUNNING
+        job.status = JobStatus.RUNNING
+        job.started_at = datetime.utcnow()
+
+    async def on_message(self, websocket, message: dict):
+        job_guid = self.get_job_guid(websocket)
+
+        if message["type"] == "progress":
+            # Update job progress in database
+            await update_job_progress(job_guid, message["data"])
+
+            # Proxy to all frontend WebSocket clients watching this job
+            await broadcast_to_frontend(
+                channel=f"/ws/jobs/{job_guid}",
+                message={
+                    "type": "job_progress",
+                    "job_guid": job_guid,
+                    "progress": message["data"]
+                }
+            )
+
+            # Also broadcast to global job feed
+            await broadcast_to_frontend(
+                channel="/ws/jobs/all",
+                message={
+                    "type": "job_progress",
+                    "job_guid": job_guid,
+                    "progress": message["data"]
+                }
+            )
+
+        elif message["type"] == "pong":
+            # Update agent heartbeat
+            await touch_agent_heartbeat(job_guid)
+
+    async def on_disconnect(self, websocket):
+        job_guid = self.get_job_guid(websocket)
+        del self.agent_sockets[job_guid]
+        # Job completion handled via REST endpoint
+```
+
+#### Fallback: REST Progress Updates
+
+If WebSocket connection fails (firewall, proxy issues), the agent falls back to REST-based progress updates:
+
+```http
+POST /api/agent/v1/jobs/{job_guid}/progress
+Authorization: Bearer agt_key_xxxxx
+
+{
+  "stage": "scanning",
+  "percentage": 45,
+  "files_scanned": 1234,
+  "message": "Scanning files..."
+}
+
+Response:
+{
+  "acknowledged": true,
+  "cancelled": false  // Agent should abort if true
+}
+```
+
+**Fallback Behavior:**
+- Agent attempts WebSocket connection first
+- If connection fails after 3 retries, switch to REST polling
+- REST progress updates sent every 2-5 seconds
+- Slightly degraded UX (less smooth progress) but functional
+
+---
+
+### Agent Main Loop
+
 ```python
 async def agent_main_loop():
     while running:
-        # 1. Send heartbeat
+        # 1. Send heartbeat (REST)
         await send_heartbeat()
 
         # 2. Check for job (if idle)
         if not current_job:
             job = await claim_job()
             if job:
-                asyncio.create_task(execute_job(job))
+                asyncio.create_task(execute_job_with_websocket(job))
 
         # 3. Wait before next poll
-        await asyncio.sleep(POLL_INTERVAL)  # 5-10 seconds
+        await asyncio.sleep(POLL_INTERVAL)
+
+async def execute_job_with_websocket(job: Job):
+    """Execute job with WebSocket progress streaming."""
+    global current_job
+    current_job = job
+
+    # 1. Establish WebSocket connection for progress
+    ws = await connect_progress_websocket(job.websocket_url)
+    use_websocket = ws is not None
+
+    if not use_websocket:
+        logger.warning("WebSocket unavailable, falling back to REST progress")
+
+    try:
+        # 2. Execute tool with progress callback
+        result = await tool_executor.run(
+            tool=job.tool,
+            collection=job.collection,
+            progress_callback=lambda p: report_progress(ws, job.guid, p, use_websocket)
+        )
+
+        # 3. Report completion (REST)
+        await complete_job(job.guid, "COMPLETED", result)
+
+    except CancelledException:
+        await complete_job(job.guid, "CANCELLED", None)
+
+    except Exception as e:
+        await complete_job(job.guid, "FAILED", None, error=str(e))
+
+    finally:
+        # 4. Close WebSocket
+        if ws:
+            await ws.close()
+        current_job = None
+
+async def report_progress(ws, job_guid: str, progress: dict, use_websocket: bool):
+    """Report progress via WebSocket or REST fallback."""
+    if use_websocket and ws and ws.open:
+        await ws.send(json.dumps({
+            "type": "progress",
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": progress
+        }))
+    else:
+        # Fallback to REST (rate-limited to every 2 seconds)
+        await rest_progress_update(job_guid, progress)
 
 POLL_INTERVAL = 5  # seconds when idle
 HEARTBEAT_INTERVAL = 30  # seconds
+WS_RECONNECT_ATTEMPTS = 3
 ```
 
 **Backoff on Errors:**
 - Network error: exponential backoff (5s, 10s, 20s, 40s, max 60s)
 - Authentication error: log and exit (requires manual intervention)
 - Server 5xx: exponential backoff with jitter
+- WebSocket disconnect during job: attempt reconnect, fall back to REST if fails
 
 ---
 
@@ -1433,14 +1699,24 @@ class JobCoordinatorService:
 - **FR-450.4**: Server tracks which agents can execute which tools
 - **FR-450.5**: (Future) Agent detects and reports external tool availability
 
-#### FR-500: Progress and Results
+#### FR-500: Real-Time Progress Streaming
 
-- **FR-500.1**: Agent reports progress via POST /jobs/{guid}/progress
-- **FR-500.2**: Progress updates broadcast to UI via existing WebSocket
-- **FR-500.3**: Agent reports completion with results JSON and HTML report
-- **FR-500.4**: Results stored in existing AnalysisResult table
-- **FR-500.5**: Collection statistics updated on job completion
-- **FR-500.6**: Job completion triggers WebSocket notification
+- **FR-500.1**: Agent establishes WebSocket connection to stream progress in real-time
+- **FR-500.2**: Progress updates include: stage, percentage, files processed, current file, message
+- **FR-500.3**: Server proxies agent WebSocket to frontend WebSocket channels
+- **FR-500.4**: Frontend receives real-time updates same as server-executed jobs
+- **FR-500.5**: Server can send cancellation request to agent via WebSocket
+- **FR-500.6**: Agent responds to WebSocket ping/pong for connection health
+- **FR-500.7**: Fallback to REST progress updates if WebSocket unavailable
+- **FR-500.8**: REST fallback updates every 2-5 seconds (graceful degradation)
+
+#### FR-510: Job Completion and Results
+
+- **FR-510.1**: Agent reports completion via REST with results JSON and HTML report
+- **FR-510.2**: Results stored in existing AnalysisResult table
+- **FR-510.3**: Collection statistics updated on job completion
+- **FR-510.4**: Job completion triggers WebSocket notification to frontend
+- **FR-510.5**: WebSocket connection closed after completion REST call
 
 ---
 
@@ -1453,6 +1729,9 @@ class JobCoordinatorService:
 - **NFR-100.3**: Job queue throughput: 1000 jobs/minute
 - **NFR-100.4**: Heartbeat processing < 50ms
 - **NFR-100.5**: Agent polling interval: 5-10 seconds (configurable)
+- **NFR-100.6**: WebSocket progress latency < 200ms (agent → frontend)
+- **NFR-100.7**: Support 100+ concurrent WebSocket connections per server
+- **NFR-100.8**: WebSocket message throughput: 10 messages/second per job
 
 #### NFR-200: Reliability
 
@@ -1461,6 +1740,9 @@ class JobCoordinatorService:
 - **NFR-200.3**: Failed jobs retry with exponential backoff
 - **NFR-200.4**: Orphaned jobs (agent offline) reassigned within 2 minutes
 - **NFR-200.5**: Results survive agent restart (completion is atomic)
+- **NFR-200.6**: WebSocket auto-reconnect on disconnect (3 attempts)
+- **NFR-200.7**: Graceful fallback to REST if WebSocket unavailable
+- **NFR-200.8**: WebSocket ping/pong keepalive every 30 seconds
 
 #### NFR-300: Security
 
@@ -1921,6 +2203,22 @@ Example: agt_key_xK9mN2pQrStUvWxYz01234567890ABCDEFghij
 ---
 
 ## Revision History
+
+- **2026-01-14 (v1.2)**: Added WebSocket-based real-time progress streaming
+  - **Hybrid Communication Protocol**: REST for control plane, WebSocket for data plane
+    - Agent establishes WebSocket connection when claiming a job
+    - Real-time progress streaming during job execution
+    - Server proxies agent updates to frontend WebSocket channels
+    - Maintains existing real-time UX for users
+  - **WebSocket Message Protocol**: Defined message types and formats
+    - Progress updates with stage, percentage, files, current file
+    - Cancellation requests from server to agent
+    - Ping/pong keepalive mechanism
+  - **Graceful Fallback**: REST progress updates if WebSocket unavailable
+    - Automatic fallback after 3 WebSocket connection failures
+    - Slightly degraded but functional progress reporting
+  - Updated functional requirements (FR-500, FR-510)
+  - Added WebSocket performance requirements (NFR-100.6-8, NFR-200.6-8)
 
 - **2026-01-14 (v1.1)**: Refined routing model and credential modes
   - **Local Collections**: Changed from capability-based to explicit agent binding
