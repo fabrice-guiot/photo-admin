@@ -722,30 +722,37 @@ Day 2, 2:00 PM:
 
 **Job Status State Machine:**
 ```
-                                    ┌─────────────────────────────────────────┐
-                                    │                                         │
-SCHEDULED ──(time arrives)──> PENDING ──(agent claims)──> ASSIGNED ──(starts)──> RUNNING
-    │                           │                           │                      │
-    │ (cancelled/TTL change)    │ (cancelled)               │ (agent offline)      │ (success)
-    ▼                           ▼                           ▼                      ▼
-CANCELLED                   CANCELLED                   PENDING (released)     COMPLETED ──┐
-                                                                                   │        │
-                                                            ▲                      │(fail)  │
-                                                            │                      ▼        │
-                                                            └──(retry)─────────FAILED       │
-                                                                                            │
-                     ┌──────────────────────────────────────────────────────────────────────┘
-                     │ (if collection.auto_refresh && TTL > 0)
-                     ▼
-              Create new SCHEDULED job
-              (scheduled_for = completed_at + TTL)
+                                                  ┌──────────────────────────────────┐
+                                                  │                                  │
+SCHEDULED ──(agent claims when time passes)───────┼──> ASSIGNED ──(starts)──> RUNNING
+    │                                             │        │                      │
+    │ (cancelled/TTL change)                      │        │ (agent offline)      │ (success)
+    ▼                                             │        ▼                      ▼
+CANCELLED                                         │    PENDING (released)     COMPLETED ──┐
+                                                  │                               │        │
+                              ▲                   │        ▲                      │(fail)  │
+                              │                   │        │                      ▼        │
+PENDING ──(agent claims)──────┘                   │        └──(retry)─────────FAILED       │
+    │                                             │                                        │
+    │ (cancelled)                                 └────────────────────────────────────────┤
+    ▼                                                                                      │
+CANCELLED                         ┌────────────────────────────────────────────────────────┘
+                                  │ (if collection.auto_refresh && TTL > 0)
+                                  ▼
+                           Create new SCHEDULED job
+                           (scheduled_for = completed_at + TTL)
 ```
+
+**Key Insight: No Background Task Needed**
+
+SCHEDULED jobs transition directly to ASSIGNED when an agent claims them (if `scheduled_for <= NOW()`).
+The claim query handles both PENDING and ready-SCHEDULED jobs in a single query—no status transition step required.
 
 **Status Definitions:**
 | Status | Description |
 |--------|-------------|
-| `SCHEDULED` | Job exists but waiting for `scheduled_for` time to arrive |
-| `PENDING` | Ready for agent to claim (immediate or scheduled time passed) |
+| `SCHEDULED` | Waiting for `scheduled_for` time; claimable once time passes |
+| `PENDING` | Immediate job, ready to claim (no scheduled time) |
 | `ASSIGNED` | Claimed by agent, not yet started |
 | `RUNNING` | Agent is actively executing |
 | `COMPLETED` | Successfully finished |
@@ -800,38 +807,34 @@ def resolve_connector_capabilities(collection: Collection) -> list[str]:
     return caps
 ```
 
-**Scheduled Job Activation (Background Task):**
-```python
-async def activate_scheduled_jobs():
-    """Transition SCHEDULED jobs to PENDING when their time arrives.
+**Job Claim Logic (with Inline Scheduling):**
 
-    Run periodically (every 30-60 seconds) or integrate into claim query.
-    """
+Scheduled jobs are claimed directly during agent polling—no background task needed. The claim query includes jobs that are either PENDING or SCHEDULED with a past `scheduled_for` time:
+
+```python
+from sqlalchemy import or_, and_
+
+def is_ready_to_claim():
+    """Filter for jobs ready to be claimed by an agent."""
     now = datetime.utcnow()
+    return or_(
+        Job.status == JobStatus.PENDING,
+        and_(
+            Job.status == JobStatus.SCHEDULED,
+            Job.scheduled_for <= now
+        )
+    )
 
-    # Find all SCHEDULED jobs whose time has arrived
-    jobs = db.query(Job).filter(
-        Job.status == JobStatus.SCHEDULED,
-        Job.scheduled_for <= now
-    ).with_for_update(skip_locked=True).all()
-
-    for job in jobs:
-        job.status = JobStatus.PENDING
-        job.scheduled_for = None  # Clear to indicate "ready now"
-        logger.info(f"Activated scheduled job {job.guid} for collection {job.collection_id}")
-
-    db.commit()
-```
-
-**Job Claim Logic:**
-```python
 def claim_job(agent: Agent) -> Job | None:
-    """Find and assign a job this agent can execute."""
+    """Find and assign a job this agent can execute.
 
-    # Only claim PENDING jobs (not SCHEDULED - those aren't ready yet)
+    Jobs become claimable when:
+    - Status is PENDING (immediate jobs), OR
+    - Status is SCHEDULED and scheduled_for time has passed
+    """
     # Priority 1: Jobs explicitly bound to this agent
     job = db.query(Job).filter(
-        Job.status == JobStatus.PENDING,
+        is_ready_to_claim(),
         Job.team_id == agent.team_id,
         Job.bound_agent_id == agent.id
     ).order_by(Job.priority.desc(), Job.created_at.asc()
@@ -842,7 +845,7 @@ def claim_job(agent: Agent) -> Job | None:
 
     # Priority 2: Unbound jobs matching agent capabilities
     job = db.query(Job).filter(
-        Job.status == JobStatus.PENDING,
+        is_ready_to_claim(),
         Job.team_id == agent.team_id,
         Job.bound_agent_id.is_(None),
         Job.required_capabilities_json.contained_by(agent.capabilities_json)
@@ -853,7 +856,30 @@ def claim_job(agent: Agent) -> Job | None:
         return assign_job(job, agent)
 
     return None
+
+
+def assign_job(job: Job, agent: Agent) -> Job:
+    """Assign job to agent, transitioning from PENDING/SCHEDULED to ASSIGNED."""
+    job.status = JobStatus.ASSIGNED
+    job.assigned_agent_id = agent.id
+    job.assigned_at = datetime.utcnow()
+    db.commit()
+    return job
 ```
+
+**Why No Background Task:**
+
+The pull-based polling model eliminates the need for a background process to transition job statuses:
+
+| Approach | Complexity | Latency | Resource Usage |
+|----------|------------|---------|----------------|
+| Background task | Higher (extra process, scheduler) | Up to polling interval (30-60s) | Constant DB polling |
+| Inline in claim query | Lower (single query) | Zero (instant on poll) | On-demand only |
+
+The SCHEDULED status remains useful for:
+- UI display: Show "upcoming" vs "ready" jobs
+- Cancellation: User can cancel a scheduled job before it runs
+- History: Track when job was originally scheduled vs when claimed
 
 **Job Completion with Auto-Scheduling:**
 ```python
@@ -1891,8 +1917,8 @@ class JobCoordinatorService:
 
 - **FR-460.1**: Jobs support `scheduled_for` field (DateTime, nullable)
 - **FR-460.2**: Jobs with future `scheduled_for` have status `SCHEDULED`
-- **FR-460.3**: Background task transitions SCHEDULED → PENDING when time arrives
-- **FR-460.4**: Agents only claim PENDING jobs (not SCHEDULED)
+- **FR-460.3**: Claim query includes SCHEDULED jobs where `scheduled_for <= NOW()` (no background task)
+- **FR-460.4**: SCHEDULED jobs transition directly to ASSIGNED when claimed (not via PENDING)
 - **FR-460.5**: Unique constraint ensures one SCHEDULED job per (collection, tool)
 - **FR-460.6**: Job completion auto-creates next SCHEDULED job if TTL configured
 - **FR-460.7**: Next scheduled time = completion time + collection TTL
@@ -2406,6 +2432,20 @@ Example: agt_key_xK9mN2pQrStUvWxYz01234567890ABCDEFghij
 ---
 
 ## Revision History
+
+- **2026-01-14 (v1.3)**: Added scheduled job execution for automatic collection refresh
+  - **Scheduled Jobs**: Jobs can specify `scheduled_for` datetime for deferred execution
+    - SCHEDULED status for jobs waiting for their time
+    - Agents claim SCHEDULED jobs directly when `scheduled_for <= NOW()`
+    - No background task needed—leverages existing agent polling
+  - **Auto-Refresh**: Collections can configure automatic refresh scheduling
+    - `auto_refresh` flag and `refresh_interval_hours` (TTL) settings
+    - Job completion atomically creates next SCHEDULED job
+    - Manual refresh cancels scheduled job and runs immediately
+  - **Job Chaining**: `parent_job_id` links refresh jobs for history visibility
+  - **Simplicity**: Inline claim query approach eliminates need for cron or background scheduler
+  - Added Collection model enhancements (auto_refresh, refresh_interval_hours, etc.)
+  - Added functional requirements (FR-460)
 
 - **2026-01-14 (v1.2)**: Added WebSocket-based real-time progress streaming
   - **Hybrid Communication Protocol**: REST for control plane, WebSocket for data plane
