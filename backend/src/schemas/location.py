@@ -148,6 +148,7 @@ class LocationCreate(BaseModel):
         state: State/province
         country: Country name
         postal_code: ZIP/postal code
+        instagram_handle: Instagram username (without @)
         latitude: Geocoded latitude (-90 to 90)
         longitude: Geocoded longitude (-180 to 180)
         timezone: IANA timezone identifier
@@ -202,6 +203,11 @@ class LocationCreate(BaseModel):
         max_length=20,
         description="ZIP/postal code",
     )
+    instagram_handle: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Instagram username (without @)",
+    )
     latitude: Optional[Decimal] = Field(
         default=None,
         ge=-90,
@@ -250,6 +256,23 @@ class LocationCreate(BaseModel):
             raise ValueError("Name cannot be empty or whitespace")
         return v.strip()
 
+    @field_validator("instagram_handle")
+    @classmethod
+    def validate_instagram_handle(cls, v: Optional[str]) -> Optional[str]:
+        """Strip @ from instagram handle if present."""
+        if v is not None:
+            v = v.strip()
+            if v:
+                # Remove @ if present
+                if v.startswith('@'):
+                    v = v[1:]
+                # Validate format (alphanumeric, underscores, periods)
+                if not all(c.isalnum() or c in '._' for c in v):
+                    raise ValueError("Instagram handle can only contain letters, numbers, underscores, and periods")
+            else:
+                return None
+        return v
+
     @field_validator("latitude", "longitude")
     @classmethod
     def validate_coordinates_together(cls, v, info):
@@ -266,6 +289,7 @@ class LocationCreate(BaseModel):
                 "state": "New York",
                 "country": "United States",
                 "postal_code": "10001",
+                "instagram_handle": "thegarden",
                 "latitude": 40.7505,
                 "longitude": -73.9934,
                 "timezone": "America/New_York",
@@ -292,6 +316,7 @@ class LocationUpdate(BaseModel):
         state: New state
         country: New country
         postal_code: New postal code
+        instagram_handle: New Instagram handle (empty string to clear)
         latitude: New latitude (null to clear)
         longitude: New longitude (null to clear)
         timezone: New timezone (null to clear)
@@ -339,6 +364,11 @@ class LocationUpdate(BaseModel):
         default=None,
         max_length=20,
         description="ZIP/postal code",
+    )
+    instagram_handle: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Instagram username (without @)",
     )
     latitude: Optional[Decimal] = Field(
         default=None,
@@ -388,6 +418,25 @@ class LocationUpdate(BaseModel):
             raise ValueError("Name cannot be empty or whitespace")
         return v.strip() if v else None
 
+    @field_validator("instagram_handle")
+    @classmethod
+    def validate_instagram_handle(cls, v: Optional[str]) -> Optional[str]:
+        """Strip @ from instagram handle if present.
+
+        For update schema, empty string means 'clear', None means 'don't update'.
+        """
+        if v is not None:
+            v = v.strip()
+            if v:
+                # Remove @ if present
+                if v.startswith('@'):
+                    v = v[1:]
+                # Validate format
+                if not all(c.isalnum() or c in '._' for c in v):
+                    raise ValueError("Instagram handle can only contain letters, numbers, underscores, and periods")
+            # Keep empty string - service interprets as 'clear'
+        return v
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -417,6 +466,8 @@ class LocationResponse(BaseModel):
         state: State/province
         country: Country name
         postal_code: ZIP/postal code
+        instagram_handle: Instagram username (without @)
+        instagram_url: Full Instagram profile URL (computed)
         latitude: Geocoded latitude
         longitude: Geocoded longitude
         timezone: IANA timezone identifier
@@ -440,6 +491,11 @@ class LocationResponse(BaseModel):
     state: Optional[str]
     country: Optional[str]
     postal_code: Optional[str]
+    instagram_handle: Optional[str]
+    instagram_url: Optional[str] = Field(
+        default=None,
+        description="Full Instagram profile URL"
+    )
     latitude: Optional[Decimal]
     longitude: Optional[Decimal]
     timezone: Optional[str]
@@ -475,6 +531,8 @@ class LocationResponse(BaseModel):
                 "state": "New York",
                 "country": "United States",
                 "postal_code": "10001",
+                "instagram_handle": "thegarden",
+                "instagram_url": "https://www.instagram.com/thegarden",
                 "latitude": 40.7505,
                 "longitude": -73.9934,
                 "timezone": "America/New_York",
@@ -545,12 +603,14 @@ class LocationStatsResponse(BaseModel):
         total_count: Total number of locations
         known_count: Number of saved "known" locations
         with_coordinates_count: Number with geocoded coordinates
+        with_instagram_count: Number with Instagram handle
 
     Example:
         >>> stats = LocationStatsResponse(
         ...     total_count=25,
         ...     known_count=20,
-        ...     with_coordinates_count=18
+        ...     with_coordinates_count=18,
+        ...     with_instagram_count=10
         ... )
     """
 
@@ -559,6 +619,9 @@ class LocationStatsResponse(BaseModel):
     with_coordinates_count: int = Field(
         ..., ge=0, description="Number with geocoded coordinates"
     )
+    with_instagram_count: int = Field(
+        ..., ge=0, description="Number with Instagram handle"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -566,6 +629,7 @@ class LocationStatsResponse(BaseModel):
                 "total_count": 25,
                 "known_count": 20,
                 "with_coordinates_count": 18,
+                "with_instagram_count": 10,
             }
         }
     }

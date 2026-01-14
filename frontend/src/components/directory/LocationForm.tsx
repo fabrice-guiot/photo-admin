@@ -48,6 +48,7 @@ const locationFormSchema = z.object({
   state: z.string().max(100).optional().nullable(),
   country: z.string().max(100).optional().nullable(),
   postal_code: z.string().max(20).optional().nullable(),
+  instagram_handle: z.string().max(100).optional().nullable(),
   latitude: z.number().min(-90).max(90).optional().nullable(),
   longitude: z.number().min(-180).max(180).optional().nullable(),
   timezone: z.string().max(64).optional().nullable(),
@@ -159,6 +160,7 @@ export function LocationForm({
       state: null,
       country: null,
       postal_code: null,
+      instagram_handle: null,
       latitude: null,
       longitude: null,
       timezone: null,
@@ -181,6 +183,7 @@ export function LocationForm({
         state: location.state,
         country: location.country,
         postal_code: location.postal_code,
+        instagram_handle: location.instagram_handle,
         latitude: location.latitude,
         longitude: location.longitude,
         timezone: location.timezone,
@@ -232,7 +235,7 @@ export function LocationForm({
   }
 
   const handleFormSubmit = async (data: LocationFormData) => {
-    // Clean up empty strings to null
+    // Clean up empty strings to null, strip @ from instagram handle
     const cleanedData = {
       ...data,
       address: data.address || null,
@@ -240,6 +243,7 @@ export function LocationForm({
       state: data.state || null,
       country: data.country || null,
       postal_code: data.postal_code || null,
+      instagram_handle: data.instagram_handle?.trim()?.replace(/^@/, '') || null,
       timezone: data.timezone || null,
       notes: data.notes || null,
     }
@@ -540,6 +544,35 @@ export function LocationForm({
               </FormControl>
               <FormDescription>
                 Your rating of this venue (optional)
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Instagram Handle */}
+        <FormField
+          control={form.control}
+          name="instagram_handle"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Instagram Handle</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    @
+                  </span>
+                  <Input
+                    placeholder="username"
+                    className="pl-7"
+                    {...field}
+                    value={field.value?.replace(/^@/, '') || ''}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                  />
+                </div>
+              </FormControl>
+              <FormDescription>
+                Instagram username (without the @)
               </FormDescription>
               <FormMessage />
             </FormItem>

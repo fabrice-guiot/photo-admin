@@ -42,6 +42,7 @@ const organizerFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(255),
   category_guid: z.string().min(1, 'Category is required'),
   website: z.string().max(500).optional().nullable(),
+  instagram_handle: z.string().max(100).optional().nullable(),
   rating: z.number().min(1).max(5).optional().nullable(),
   ticket_required_default: z.boolean(),
   notes: z.string().optional().nullable(),
@@ -139,6 +140,7 @@ export function OrganizerForm({
       name: organizer?.name || '',
       category_guid: organizer?.category.guid || '',
       website: organizer?.website || '',
+      instagram_handle: organizer?.instagram_handle || '',
       rating: organizer?.rating || null,
       ticket_required_default: organizer?.ticket_required_default || false,
       notes: organizer?.notes || '',
@@ -148,10 +150,11 @@ export function OrganizerForm({
   const handleSubmit = async (data: OrganizerFormData) => {
     setSubmitting(true)
     try {
-      // Clean up empty strings to null
+      // Clean up empty strings to null, strip @ from instagram handle
       const cleanedData = {
         ...data,
         website: data.website?.trim() || null,
+        instagram_handle: data.instagram_handle?.trim()?.replace(/^@/, '') || null,
         notes: data.notes?.trim() || null,
       }
       await onSubmit(cleanedData)
@@ -242,6 +245,34 @@ export function OrganizerForm({
               </FormControl>
               <FormDescription>
                 Link to organizer's official website
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Instagram Handle */}
+        <FormField
+          control={form.control}
+          name="instagram_handle"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Instagram Handle</FormLabel>
+              <FormControl>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    @
+                  </span>
+                  <Input
+                    placeholder="username"
+                    className="pl-7"
+                    {...field}
+                    value={field.value?.replace(/^@/, '') || ''}
+                  />
+                </div>
+              </FormControl>
+              <FormDescription>
+                Instagram username (without the @)
               </FormDescription>
               <FormMessage />
             </FormItem>

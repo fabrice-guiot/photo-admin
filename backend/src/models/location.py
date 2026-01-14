@@ -43,6 +43,7 @@ class Location(Base, GuidMixin):
         state: State/province
         country: Country name
         postal_code: ZIP/postal code
+        instagram_handle: Instagram username (without @)
         latitude: Geocoded latitude (Decimal 10,7)
         longitude: Geocoded longitude (Decimal 10,7)
         timezone: IANA timezone identifier (e.g., "America/New_York")
@@ -95,6 +96,7 @@ class Location(Base, GuidMixin):
     state = Column(String(100), nullable=True)
     country = Column(String(100), nullable=True)
     postal_code = Column(String(20), nullable=True)
+    instagram_handle = Column(String(100), nullable=True)  # Without @
 
     # Geocoding fields
     latitude = Column(Numeric(10, 7), nullable=True)
@@ -158,6 +160,13 @@ class Location(Base, GuidMixin):
         ]
         filtered = [p for p in parts if p]
         return ", ".join(filtered) if filtered else None
+
+    @property
+    def instagram_url(self) -> str | None:
+        """Get full Instagram profile URL."""
+        if self.instagram_handle:
+            return f"https://www.instagram.com/{self.instagram_handle}"
+        return None
 
     def __repr__(self) -> str:
         """String representation for debugging."""

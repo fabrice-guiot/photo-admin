@@ -53,6 +53,7 @@ class OrganizerCreate(BaseModel):
 
     Optional:
         website: Organizer website URL
+        instagram_handle: Instagram username (without @)
         rating: Organizer rating (1-5 stars)
         ticket_required_default: Pre-select ticket required for new events
         notes: Additional notes
@@ -62,6 +63,7 @@ class OrganizerCreate(BaseModel):
         ...     name="Live Nation",
         ...     category_guid="cat_01hgw2bbg0000000000000001",
         ...     website="https://livenation.com",
+        ...     instagram_handle="livenation",
         ...     rating=4
         ... )
     """
@@ -80,6 +82,11 @@ class OrganizerCreate(BaseModel):
         default=None,
         max_length=500,
         description="Organizer website URL",
+    )
+    instagram_handle: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Instagram username (without @)",
     )
     rating: Optional[int] = Field(
         default=None,
@@ -118,12 +125,30 @@ class OrganizerCreate(BaseModel):
                 return None
         return v
 
+    @field_validator("instagram_handle")
+    @classmethod
+    def validate_instagram_handle(cls, v: Optional[str]) -> Optional[str]:
+        """Strip @ from instagram handle if present."""
+        if v is not None:
+            v = v.strip()
+            if v:
+                # Remove @ if present
+                if v.startswith('@'):
+                    v = v[1:]
+                # Validate format (alphanumeric, underscores, periods)
+                if not all(c.isalnum() or c in '._' for c in v):
+                    raise ValueError("Instagram handle can only contain letters, numbers, underscores, and periods")
+            else:
+                return None
+        return v
+
     model_config = {
         "json_schema_extra": {
             "example": {
                 "name": "Live Nation",
                 "category_guid": "cat_01hgw2bbg0000000000000001",
                 "website": "https://livenation.com",
+                "instagram_handle": "livenation",
                 "rating": 4,
                 "ticket_required_default": True,
                 "notes": "Major concert promoter",
@@ -142,6 +167,7 @@ class OrganizerUpdate(BaseModel):
         name: New organizer name
         category_guid: New category GUID
         website: New website URL (null to clear)
+        instagram_handle: New Instagram handle (empty string to clear)
         rating: New rating (null to clear)
         ticket_required_default: New ticket default
         notes: New notes (null to clear)
@@ -164,6 +190,11 @@ class OrganizerUpdate(BaseModel):
         default=None,
         max_length=500,
         description="Organizer website URL",
+    )
+    instagram_handle: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Instagram username (without @)",
     )
     rating: Optional[int] = Field(
         default=None,
@@ -204,6 +235,25 @@ class OrganizerUpdate(BaseModel):
             # Keep empty string - service interprets as 'clear'
         return v
 
+    @field_validator("instagram_handle")
+    @classmethod
+    def validate_instagram_handle(cls, v: Optional[str]) -> Optional[str]:
+        """Strip @ from instagram handle if present.
+
+        For update schema, empty string means 'clear', None means 'don't update'.
+        """
+        if v is not None:
+            v = v.strip()
+            if v:
+                # Remove @ if present
+                if v.startswith('@'):
+                    v = v[1:]
+                # Validate format
+                if not all(c.isalnum() or c in '._' for c in v):
+                    raise ValueError("Instagram handle can only contain letters, numbers, underscores, and periods")
+            # Keep empty string - service interprets as 'clear'
+        return v
+
     model_config = {
         "json_schema_extra": {
             "example": {
@@ -229,6 +279,8 @@ class OrganizerResponse(BaseModel):
         guid: External identifier (org_xxx)
         name: Organizer display name
         website: Organizer website URL
+        instagram_handle: Instagram username (without @)
+        instagram_url: Full Instagram profile URL (computed)
         category: Embedded category info
         rating: Organizer rating (1-5 stars)
         ticket_required_default: Default ticket setting for events
@@ -243,6 +295,11 @@ class OrganizerResponse(BaseModel):
     guid: str = Field(..., description="External identifier (org_xxx)")
     name: str
     website: Optional[str]
+    instagram_handle: Optional[str]
+    instagram_url: Optional[str] = Field(
+        default=None,
+        description="Full Instagram profile URL"
+    )
     category: CategorySummary
     rating: Optional[int]
     ticket_required_default: bool
@@ -263,6 +320,8 @@ class OrganizerResponse(BaseModel):
                 "guid": "org_01hgw2bbg0000000000000001",
                 "name": "Live Nation",
                 "website": "https://livenation.com",
+                "instagram_handle": "livenation",
+                "instagram_url": "https://www.instagram.com/livenation",
                 "category": {
                     "guid": "cat_01hgw2bbg0000000000000001",
                     "name": "Concert",
@@ -325,18 +384,21 @@ class OrganizerStatsResponse(BaseModel):
     Fields:
         total_count: Total number of organizers
         with_rating_count: Number with ratings assigned
+        with_instagram_count: Number with Instagram handle
         avg_rating: Average rating across rated organizers
 
     Example:
         >>> stats = OrganizerStatsResponse(
         ...     total_count=15,
         ...     with_rating_count=12,
+        ...     with_instagram_count=8,
         ...     avg_rating=3.8
         ... )
     """
 
     total_count: int = Field(..., ge=0, description="Total number of organizers")
     with_rating_count: int = Field(..., ge=0, description="Number with ratings")
+    with_instagram_count: int = Field(..., ge=0, description="Number with Instagram")
     avg_rating: Optional[float] = Field(
         default=None, ge=1, le=5, description="Average rating"
     )
@@ -346,6 +408,7 @@ class OrganizerStatsResponse(BaseModel):
             "example": {
                 "total_count": 15,
                 "with_rating_count": 12,
+                "with_instagram_count": 8,
                 "avg_rating": 3.8,
             }
         }
