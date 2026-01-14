@@ -1,0 +1,1612 @@
+# PRD: Distributed Agent Architecture
+
+**Issue**: TBD
+**Status**: Draft
+**Created**: 2026-01-14
+**Last Updated**: 2026-01-14
+**Related Documents**:
+- [Domain Model](../domain-model.md) (Section: Agent - Planned Entity)
+- [007-remote-photos-completion.md](./007-remote-photos-completion.md) (Current job execution)
+- [012-user-tenancy.md](./012-user-tenancy.md) (Team-based multi-tenancy)
+
+---
+
+## Executive Summary
+
+This PRD defines the architecture for distributed Agents in photo-admin, enabling job execution on user-owned hardware instead of centralized cloud infrastructure. Agents are lightweight worker processes that connect to the central server, receive job assignments, execute tools locally, and report results back. This architecture addresses three critical objectives:
+
+1. **Cost Reduction**: Offload compute-intensive operations to user-owned devices
+2. **Security/Trust**: Keep sensitive credentials on user-controlled infrastructure
+3. **Resource Access**: Enable access to local filesystems, SMB shares, and desktop applications
+
+### Key Design Decisions
+
+1. **Pull-Based Job Assignment**: Agents poll for work (not pushed), enabling NAT traversal and firewall-friendly operation
+2. **Capability-Based Routing**: Jobs are matched to agents based on declared capabilities (access to specific connectors, tools, resources)
+3. **Credential Locality**: Connector credentials can remain encrypted on the agent's host, never transmitted to the central server
+4. **Eventual Consistency**: Results are stored centrally for reporting, but agents can operate offline and sync when connected
+5. **Team-Scoped Agents**: Each agent belongs to exactly one team; agents cannot access other teams' data or jobs
+
+---
+
+## Background
+
+### Current Architecture Limitations
+
+The current photo-admin architecture executes all jobs in the backend process:
+
+**Current Job Execution Flow:**
+```
+API Request (POST /tools/run)
+    ↓
+JobQueue (in-memory FIFO)
+    ↓
+asyncio.to_thread() → Tool Execution
+    ↓
+WebSocket Progress Broadcast
+    ↓
+Result Storage (PostgreSQL)
+```
+
+**Limitations:**
+
+| Limitation | Impact | Severity |
+|------------|--------|----------|
+| **Single-machine execution** | All jobs compete for server CPU/memory | High |
+| **No local file access** | Server cannot access user's local files | Critical |
+| **Credentials on server** | Connector secrets stored centrally | Medium |
+| **Network-bound storage access** | S3/GCS/SMB accessed from server location | Medium |
+| **No desktop app integration** | Cannot invoke Lightroom, DxO, Photoshop | High |
+| **Job queue non-persistent** | Queue lost on restart | Medium |
+| **No parallelism** | Single job at a time | Medium |
+
+### Strategic Context
+
+As photo-admin moves toward cloud deployment and SaaS offering, the centralized execution model becomes untenable:
+
+1. **Cloud Infrastructure Cost**: Running analysis on large collections requires significant compute
+2. **Data Sovereignty**: Enterprise users require credentials never leave their infrastructure
+3. **Local Resource Access**: Professional photographers work with local storage, not cloud-only
+4. **Desktop Tool Integration**: Workflows involve Adobe Lightroom, DxO PureRAW, Photoshop, etc.
+
+The Agent architecture solves these by moving execution to user-controlled infrastructure while maintaining centralized coordination, result storage, and reporting.
+
+---
+
+## Goals
+
+### Primary Goals
+
+1. **Distributed Execution**: Execute jobs on user-owned agents instead of central server
+2. **Credential Security**: Enable credentials to remain on agent hosts, never transmitted to server
+3. **Local Resource Access**: Access local filesystems, SMB shares, and network resources from agent location
+4. **Job Persistence**: Replace in-memory queue with persistent, distributed job queue
+5. **Horizontal Scaling**: Support multiple concurrent agents per team
+
+### Secondary Goals
+
+1. **Desktop Application Integration**: Foundation for invoking local applications (Lightroom, DxO, etc.)
+2. **Offline Operation**: Agents can queue results locally when server is unreachable
+3. **Agent Monitoring**: Real-time visibility into agent status, capabilities, and performance
+4. **Graceful Migration**: Existing functionality continues working during transition
+
+### Non-Goals (v1)
+
+1. **Agent Auto-Updates**: Manual agent installation/updates (defer auto-update to v2)
+2. **Agent Clustering**: No agent-to-agent communication (all coordination via server)
+3. **Real-Time Streaming**: Progress updates via periodic reporting (not WebSocket from agent)
+4. **Credential Vault Integration**: No HashiCorp Vault/AWS Secrets Manager (defer to v2)
+5. **Container Orchestration**: No Kubernetes/Docker Swarm integration (simple process model)
+
+---
+
+## Core Concepts and Terminology
+
+### Glossary
+
+| Term | Definition |
+|------|------------|
+| **Agent** | A worker process running on user-owned hardware that executes jobs |
+| **Coordinator** | The central server component that manages job distribution |
+| **Job** | A unit of work (tool execution) that can be assigned to an agent |
+| **Capability** | A declared ability of an agent (connector access, tool support, etc.) |
+| **Heartbeat** | Periodic signal from agent to coordinator indicating availability |
+| **Claim** | An agent's request to take ownership of a job |
+| **Local Connector** | A connector whose credentials are stored only on the agent |
+| **Remote Connector** | A connector whose credentials are stored on the central server |
+
+### Agent Execution Modes
+
+**Mode 1: Server-Side Execution (Current Behavior)**
+- Jobs execute in the backend process
+- Used when no capable agent is online
+- Limited to remote connectors (S3, GCS, remote SMB)
+- Credentials decrypted server-side
+
+**Mode 2: Agent-Side Execution (New)**
+- Jobs execute on a registered agent
+- Required for local collections, local SMB
+- Credentials can remain agent-local (never transmitted to server)
+- Results reported back to server for storage
+
+### Job Assignment Model
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                          Coordinator (Server)                         │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                    Distributed Job Queue                       │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │   │
+│  │  │ Job A   │ │ Job B   │ │ Job C   │ │ Job D   │ ...          │   │
+│  │  │ caps:   │ │ caps:   │ │ caps:   │ │ caps:   │              │   │
+│  │  │ [local] │ │ [s3]    │ │ [smb]   │ │ [dxo]   │              │   │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘              │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                       │
+│  Job Matcher: Match job.required_capabilities ⊆ agent.capabilities   │
+└────────────────────────┬───────────────────────┬─────────────────────┘
+                         │                       │
+         ┌───────────────▼──────┐    ┌──────────▼───────────────┐
+         │     Agent Alpha      │    │      Agent Beta          │
+         │  hostname: workstation│    │  hostname: nas-server    │
+         │  caps: [local, smb]  │    │  caps: [local, smb, s3]  │
+         │  connectors:         │    │  connectors:              │
+         │    - con_abc (local) │    │    - con_xyz (local)     │
+         │    - con_def (smb)   │    │    - con_123 (s3)        │
+         └──────────────────────┘    └──────────────────────────┘
+```
+
+---
+
+## User Personas
+
+### Primary: Cloud-Conscious Studio Owner (Sam)
+
+- **Current Pain**: Cloud compute costs are unpredictable, scales with usage
+- **Desired Outcome**: Run analysis on existing office workstation, pay only for coordination
+- **This PRD Delivers**: Agent running on workstation executes all tool jobs locally
+
+### Secondary: Security-Aware Enterprise Admin (Morgan)
+
+- **Current Pain**: Cannot store cloud storage credentials on third-party SaaS
+- **Desired Outcome**: Credentials never leave corporate network, only results shared
+- **This PRD Delivers**: Local connectors with agent-side credential storage
+
+### Tertiary: Remote Photographer (Alex)
+
+- **Current Pain**: 10TB local photo collection cannot be uploaded to analyze
+- **Desired Outcome**: Analyze local files without network transfer
+- **This PRD Delivers**: Agent accesses local filesystem, reports only metadata/results
+
+### Quaternary: Workflow Integrator (Taylor)
+
+- **Current Pain**: Cannot trigger DxO PureRAW processing from photo-admin
+- **Desired Outcome**: Workflow that includes local application processing
+- **This PRD Delivers**: Foundation for desktop app integration (future user story)
+
+---
+
+## User Stories
+
+### User Story 1: Agent Registration and Setup (Priority: P0 - Critical)
+
+**As** a team administrator
+**I want to** register an agent running on my local machine
+**So that** jobs can be executed on my own hardware
+
+**Acceptance Criteria:**
+- Download agent binary or install via package manager
+- Configure agent with server URL and registration token
+- Agent registers with server, appears in agent list UI
+- Agent capabilities auto-detected (local filesystem, installed tools)
+- Agent status (online/offline/error) visible in dashboard
+- Agent can be named for identification ("Office Workstation", "NAS Server")
+
+**Technical Notes:**
+- Registration token generated from UI (one-time use, team-scoped)
+- Agent stores API key locally after registration
+- Heartbeat interval: 30 seconds
+- Agent considered offline after 3 missed heartbeats (90 seconds)
+
+---
+
+### User Story 2: Local Collection Job Execution (Priority: P0 - Critical)
+
+**As** a photographer
+**I want to** analyze my local photo collection via an agent
+**So that** I don't need to upload files to the cloud
+
+**Acceptance Criteria:**
+- Create collection pointing to local path (e.g., `/home/user/Photos`)
+- Collection automatically requires agent with `local` capability
+- When job is created, it is assigned to a capable online agent
+- Agent executes PhotoStats/Photo Pairing locally
+- Results appear in web UI same as server-executed jobs
+- HTML report generated and stored on server
+
+**Technical Notes:**
+- Collection `type=LOCAL` with `location=/absolute/path`
+- Job includes `required_capabilities: ['local']`
+- Agent resolves path relative to its filesystem
+- Agent sends results JSON + generated HTML to server
+
+---
+
+### User Story 3: Agent-Local Connector Credentials (Priority: P1)
+
+**As** a security-conscious enterprise user
+**I want to** store connector credentials only on my agent
+**So that** sensitive AWS/GCS keys never reach the cloud server
+
+**Acceptance Criteria:**
+- Create connector marked as "agent-local" credentials
+- Server stores connector metadata but NOT credentials
+- When configuring agent, provide credentials locally
+- Agent stores credentials in local encrypted file
+- Jobs requiring this connector automatically route to agent
+- UI indicates which connectors have agent-local credentials
+
+**Technical Notes:**
+- Connector model: `credential_location` enum (`SERVER`, `AGENT`)
+- Agent-local credentials encrypted with agent's local master key
+- Server cannot execute jobs requiring agent-local connectors
+- Multiple agents can have same connector's credentials for redundancy
+
+---
+
+### User Story 4: SMB/Network Share via Agent (Priority: P1)
+
+**As** a photographer with NAS storage
+**I want to** analyze photos on my local SMB share
+**So that** I don't need to copy files to cloud storage
+
+**Acceptance Criteria:**
+- Create SMB connector pointing to local network share
+- Connector can be configured with agent-local credentials
+- Agent on same network can access SMB share
+- Jobs execute locally with low-latency file access
+- No SMB traffic traverses the internet
+
+**Technical Notes:**
+- SMB connector type already supported
+- Agent resolves SMB hostname from its network location
+- Agent-local credentials avoid server credential storage
+- Progress reporting includes file scan count
+
+---
+
+### User Story 5: Job Queue Visibility and Management (Priority: P1)
+
+**As** a team administrator
+**I want to** see all queued and running jobs across agents
+**So that** I can monitor workload and troubleshoot issues
+
+**Acceptance Criteria:**
+- View all jobs: queued, running, completed, failed
+- See which agent is executing each running job
+- Cancel queued jobs before execution
+- Retry failed jobs with one click
+- Filter jobs by collection, tool, agent, status
+
+**Technical Notes:**
+- Persistent job queue (Redis or PostgreSQL-backed)
+- Job states: PENDING, ASSIGNED, RUNNING, COMPLETED, FAILED, CANCELLED
+- Job assignment recorded with agent_guid
+- Failed jobs retain error message and stack trace
+
+---
+
+### User Story 6: Agent Health Monitoring (Priority: P2)
+
+**As** a team administrator
+**I want to** monitor agent health and resource usage
+**So that** I can identify performance bottlenecks
+
+**Acceptance Criteria:**
+- View agent status: online, offline, error
+- See last heartbeat timestamp
+- View current job (if executing)
+- View recent job history per agent
+- Receive notification when agent goes offline
+
+**Technical Notes:**
+- Heartbeat includes: status, current job, CPU/memory (optional)
+- Agent offline notification via WebSocket to dashboard
+- Agent list sorted by status (online first)
+
+---
+
+### User Story 7: Multi-Agent Job Distribution (Priority: P2)
+
+**As** a studio owner with multiple workstations
+**I want to** run agents on multiple machines
+**So that** jobs are distributed across available compute
+
+**Acceptance Criteria:**
+- Register multiple agents for same team
+- Jobs distributed to any capable online agent
+- Each agent processes one job at a time (v1)
+- Agent selection considers: capabilities match, queue depth, last active
+- Load balancing visible in job assignment UI
+
+**Technical Notes:**
+- Job assignment algorithm: FIFO with capability filtering
+- Tie-breaker: agent with fewest recent jobs (simple load balance)
+- No job stealing (agent completes assigned job or fails)
+- V2: concurrent job execution per agent
+
+---
+
+### User Story 8: Offline Agent Operation (Priority: P3)
+
+**As** a photographer working in the field
+**I want to** run analysis while disconnected from internet
+**So that** I can review results when back online
+
+**Acceptance Criteria:**
+- Agent can operate with queued local jobs when offline
+- Results stored locally until connectivity restored
+- Agent syncs completed results on reconnection
+- No duplicate job execution during sync
+- UI shows "pending sync" status for offline results
+
+**Technical Notes:**
+- Local job queue on agent (SQLite)
+- Result upload retry with exponential backoff
+- Conflict resolution: server result wins if already exists
+- V1: Offline mode limited to locally-queued jobs (not new assignments)
+
+---
+
+## Key Entities
+
+### Agent (New Entity)
+
+**GUID Prefix:** `agt_`
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `external_id` | UUID | unique, not null | UUIDv7 for GUID generation |
+| `team_id` | Integer | FK(teams.id), not null | Owning team |
+| `name` | String(255) | not null | User-friendly agent name |
+| `hostname` | String(255) | nullable | Machine hostname (auto-detected) |
+| `os_info` | String(255) | nullable | OS type/version |
+| `status` | Enum | not null, default='OFFLINE' | `ONLINE`, `OFFLINE`, `ERROR` |
+| `error_message` | Text | nullable | Last error if status=ERROR |
+| `last_heartbeat` | DateTime | nullable | Last successful heartbeat |
+| `capabilities_json` | JSONB | not null, default='[]' | Declared capabilities |
+| `connectors_json` | JSONB | not null, default='[]' | Connector GUIDs with local credentials |
+| `api_key_hash` | String(255) | not null, unique | SHA-256 hash of API key |
+| `api_key_prefix` | String(10) | not null | First 8 chars for identification |
+| `version` | String(50) | nullable | Agent software version |
+| `created_at` | DateTime | not null | Registration timestamp |
+| `updated_at` | DateTime | not null, auto-update | Last modification |
+
+**Capability Types (v1):**
+```json
+{
+  "capabilities": [
+    "local_filesystem",      // Can access local paths
+    "tool:photostats",       // PhotoStats tool installed
+    "tool:photo_pairing",    // Photo Pairing tool installed
+    "tool:pipeline_validation",  // Pipeline Validation tool
+    "connector:smb",         // Can connect to SMB shares
+    "connector:s3",          // Can connect to S3 (with local creds)
+    "connector:gcs",         // Can connect to GCS (with local creds)
+    "app:lightroom",         // Adobe Lightroom available (future)
+    "app:dxo_pureraw"        // DxO PureRAW available (future)
+  ]
+}
+```
+
+**Design Notes:**
+- `capabilities_json` auto-populated on registration, can be manually adjusted
+- `connectors_json` lists connectors for which this agent has local credentials
+- API key shown once at registration, stored only as hash
+- Version tracking enables compatibility checks
+
+---
+
+### AgentRegistrationToken (New Entity)
+
+**GUID Prefix:** `art_`
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `external_id` | UUID | unique, not null | UUIDv7 for GUID generation |
+| `team_id` | Integer | FK(teams.id), not null | Team this token registers for |
+| `created_by_user_id` | Integer | FK(users.id), not null | User who created token |
+| `token_hash` | String(255) | unique, not null | SHA-256 hash of token |
+| `name` | String(100) | nullable | Optional description |
+| `is_used` | Boolean | not null, default=false | Whether token has been used |
+| `used_by_agent_id` | Integer | FK(agents.id), nullable | Agent that used this token |
+| `expires_at` | DateTime | not null | Token expiration |
+| `created_at` | DateTime | not null | Creation timestamp |
+
+**Design Notes:**
+- One-time use tokens (is_used=true after registration)
+- Default expiration: 24 hours
+- Token shown once at creation
+- Prevents unauthorized agent registration
+
+---
+
+### Job (Enhanced from Current)
+
+**GUID Prefix:** `job_`
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `id` | Integer | PK, auto-increment | Internal identifier |
+| `external_id` | UUID | unique, not null | UUIDv7 for GUID generation |
+| `team_id` | Integer | FK(teams.id), not null | Owning team |
+| `collection_id` | Integer | FK(collections.id), not null | Target collection |
+| `tool` | Enum | not null | `photostats`, `photo_pairing`, `pipeline_validation` |
+| `pipeline_id` | Integer | FK(pipelines.id), nullable | Pipeline for validation |
+| `status` | Enum | not null, default='PENDING' | Job lifecycle state |
+| `required_capabilities_json` | JSONB | not null | Capabilities needed to execute |
+| `agent_id` | Integer | FK(agents.id), nullable | Assigned/executing agent |
+| `assigned_at` | DateTime | nullable | When job was assigned |
+| `started_at` | DateTime | nullable | When execution began |
+| `completed_at` | DateTime | nullable | When execution finished |
+| `progress_json` | JSONB | nullable | Current progress data |
+| `result_id` | Integer | FK(analysis_results.id), nullable | Result after completion |
+| `error_message` | Text | nullable | Error details if failed |
+| `retry_count` | Integer | not null, default=0 | Number of retry attempts |
+| `max_retries` | Integer | not null, default=3 | Maximum retry attempts |
+| `priority` | Integer | not null, default=0 | Higher = more urgent |
+| `created_at` | DateTime | not null | Creation timestamp |
+| `updated_at` | DateTime | not null, auto-update | Last modification |
+
+**Job Status State Machine:**
+```
+PENDING ──(agent claims)──> ASSIGNED ──(execution starts)──> RUNNING
+    │                           │                               │
+    │ (cancelled)               │ (agent offline)               │ (success)
+    ▼                           ▼                               ▼
+CANCELLED                   PENDING (released)              COMPLETED
+                                                                │
+                               ▲                                │ (failure)
+                               │                                ▼
+                               └────(retry)─────────────────FAILED
+```
+
+**Required Capabilities Resolution:**
+```python
+def resolve_required_capabilities(collection: Collection) -> list[str]:
+    """Determine capabilities needed to process a collection."""
+    caps = []
+
+    if collection.type == CollectionType.LOCAL:
+        caps.append("local_filesystem")
+    elif collection.type == CollectionType.SMB:
+        caps.append("connector:smb")
+        if collection.connector.credential_location == CredentialLocation.AGENT:
+            caps.append(f"connector:{collection.connector.guid}")
+    elif collection.type == CollectionType.S3:
+        caps.append("connector:s3")
+        # Similar logic for agent-local S3 credentials
+
+    return caps
+```
+
+---
+
+### Connector (Enhanced)
+
+**Additions to existing Connector model:**
+
+| Attribute | Type | Constraints | Description |
+|-----------|------|-------------|-------------|
+| `credential_location` | Enum | not null, default='SERVER' | `SERVER` or `AGENT` |
+
+**Credential Location Semantics:**
+- `SERVER`: Credentials stored encrypted in database, server can execute jobs
+- `AGENT`: Credentials stored only on registered agents, server cannot execute jobs
+
+**Migration:** Existing connectors default to `SERVER` for backward compatibility.
+
+---
+
+### JobQueue Persistence Model
+
+Rather than in-memory queue, jobs are persisted to database:
+
+**Queue Query Pattern:**
+```sql
+-- Find next job for an agent with given capabilities
+SELECT * FROM jobs
+WHERE status = 'PENDING'
+  AND team_id = :team_id
+  AND required_capabilities_json <@ :agent_capabilities  -- JSONB containment
+ORDER BY priority DESC, created_at ASC
+LIMIT 1
+FOR UPDATE SKIP LOCKED;  -- Prevent race conditions
+```
+
+**Alternative: Redis-Based Queue**
+
+For higher throughput, Redis can serve as the job queue:
+
+```python
+# Redis queue structure
+KEYS:
+  "jobs:{team_id}:pending"     # Sorted set: (score=priority, member=job_guid)
+  "jobs:{team_id}:assigned"    # Hash: {job_guid: agent_guid}
+  "jobs:{job_guid}:data"       # Hash: job attributes
+  "agents:{team_id}:heartbeats" # Hash: {agent_guid: last_heartbeat}
+```
+
+**Recommendation:** Start with PostgreSQL-backed queue (simpler), migrate to Redis if throughput requires.
+
+---
+
+## Communication Protocol
+
+### Agent ↔ Coordinator API
+
+All agent communication uses REST API with API key authentication.
+
+**Base URL:** `{server_url}/api/agent/v1`
+
+**Authentication:** `Authorization: Bearer agt_key_xxxxx`
+
+#### Registration
+
+```http
+POST /api/agent/v1/register
+Content-Type: application/json
+
+{
+  "registration_token": "art_xxxxx...",
+  "name": "Office Workstation",
+  "hostname": "ws-001.local",
+  "os_info": "Ubuntu 22.04 LTS",
+  "version": "1.0.0",
+  "capabilities": ["local_filesystem", "tool:photostats", "tool:photo_pairing"],
+  "connectors": []  // Connector GUIDs with local credentials
+}
+
+Response:
+{
+  "agent_guid": "agt_01hgw2bbg...",
+  "api_key": "agt_key_xxxxx...",  // Shown once, store securely
+  "server_version": "1.5.0"
+}
+```
+
+#### Heartbeat
+
+```http
+POST /api/agent/v1/heartbeat
+Authorization: Bearer agt_key_xxxxx
+
+{
+  "status": "ONLINE",
+  "current_job_guid": "job_01hgw2bbg..." | null,
+  "progress": {...} | null,
+  "metrics": {  // Optional
+    "cpu_percent": 45.2,
+    "memory_percent": 62.1,
+    "disk_free_gb": 120.5
+  }
+}
+
+Response:
+{
+  "acknowledged": true,
+  "server_time": "2026-01-14T12:00:00Z"
+}
+```
+
+#### Job Polling (Claim)
+
+```http
+POST /api/agent/v1/jobs/claim
+Authorization: Bearer agt_key_xxxxx
+
+{
+  "capabilities": ["local_filesystem", "tool:photostats"]  // Current capabilities
+}
+
+Response (job available):
+{
+  "job": {
+    "guid": "job_01hgw2bbg...",
+    "tool": "photostats",
+    "collection": {
+      "guid": "col_01hgw2bbg...",
+      "name": "Wedding Photos 2026",
+      "type": "LOCAL",
+      "location": "/home/user/Photos/Wedding2026"
+    },
+    "pipeline": null,
+    "parameters": {}
+  }
+}
+
+Response (no job):
+{
+  "job": null
+}
+```
+
+#### Progress Update
+
+```http
+POST /api/agent/v1/jobs/{job_guid}/progress
+Authorization: Bearer agt_key_xxxxx
+
+{
+  "stage": "scanning",
+  "percentage": 45,
+  "files_scanned": 1234,
+  "message": "Scanning files..."
+}
+
+Response:
+{
+  "acknowledged": true,
+  "cancelled": false  // Agent should abort if true
+}
+```
+
+#### Job Completion
+
+```http
+POST /api/agent/v1/jobs/{job_guid}/complete
+Authorization: Bearer agt_key_xxxxx
+Content-Type: multipart/form-data
+
+{
+  "status": "COMPLETED" | "FAILED",
+  "results_json": {...},  // Tool output
+  "report_html": "...",   // Generated HTML report
+  "error_message": null | "Error details...",
+  "metrics": {
+    "duration_seconds": 123.4,
+    "files_processed": 5678
+  }
+}
+
+Response:
+{
+  "result_guid": "res_01hgw2bbg...",
+  "acknowledged": true
+}
+```
+
+#### Connector Credentials (Agent-Local Setup)
+
+```http
+GET /api/agent/v1/connectors/{connector_guid}/metadata
+Authorization: Bearer agt_key_xxxxx
+
+Response:
+{
+  "guid": "con_01hgw2bbg...",
+  "name": "My S3 Bucket",
+  "type": "S3",
+  "credential_location": "AGENT",
+  "credential_schema": {
+    "type": "object",
+    "properties": {
+      "aws_access_key_id": {"type": "string"},
+      "aws_secret_access_key": {"type": "string"},
+      "region": {"type": "string"},
+      "endpoint_url": {"type": "string", "optional": true}
+    }
+  }
+}
+```
+
+### Polling Strategy
+
+**Agent Main Loop:**
+```python
+async def agent_main_loop():
+    while running:
+        # 1. Send heartbeat
+        await send_heartbeat()
+
+        # 2. Check for job (if idle)
+        if not current_job:
+            job = await claim_job()
+            if job:
+                asyncio.create_task(execute_job(job))
+
+        # 3. Wait before next poll
+        await asyncio.sleep(POLL_INTERVAL)  # 5-10 seconds
+
+POLL_INTERVAL = 5  # seconds when idle
+HEARTBEAT_INTERVAL = 30  # seconds
+```
+
+**Backoff on Errors:**
+- Network error: exponential backoff (5s, 10s, 20s, 40s, max 60s)
+- Authentication error: log and exit (requires manual intervention)
+- Server 5xx: exponential backoff with jitter
+
+---
+
+## Security Model
+
+### Credential Security Architecture
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                         CENTRAL SERVER                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  Connector: "AWS Production"                                      │ │
+│  │  type: S3                                                         │ │
+│  │  credential_location: AGENT                                       │ │
+│  │  credentials: NULL (not stored)                                   │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+│                                                                        │
+│  Job Queue: "Analyze AWS Photos"                                      │
+│  required_capabilities: ["connector:con_aws_prod"]                    │
+│                         ↓                                              │
+│  Only agents with local credentials for this connector can claim     │
+└───────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    ▼                               ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│        Agent Alpha           │    │        Agent Beta            │
+│  ~/.photo-admin/             │    │  ~/.photo-admin/             │
+│    credentials.enc           │    │    credentials.enc           │
+│    ┌──────────────────────┐  │    │    (no AWS credentials)      │
+│    │ con_aws_prod:        │  │    │                              │
+│    │   aws_access_key_id  │  │    │  ❌ Cannot claim this job   │
+│    │   aws_secret_key     │  │    │                              │
+│    └──────────────────────┘  │    └──────────────────────────────┘
+│  ✅ Can claim and execute    │
+└──────────────────────────────┘
+```
+
+### Authentication Layers
+
+1. **Agent Registration**: One-time token (team-scoped, expires in 24h)
+2. **Agent API Key**: Long-lived key (hashed storage, shown once)
+3. **Job Claims**: Only agents matching required_capabilities can claim
+4. **Connector Access**: Agent-local credentials decrypted only on agent
+
+### Threat Model
+
+| Threat | Mitigation |
+|--------|------------|
+| Unauthorized agent registration | One-time registration tokens, team-scoped |
+| Agent API key theft | Key rotation, IP allowlisting (v2) |
+| Job injection | Jobs created only via authenticated API |
+| Cross-team data access | team_id enforced on all queries |
+| Man-in-the-middle | HTTPS required, certificate pinning (optional) |
+| Credential exfiltration | Agent-local storage, never transmitted |
+| Malicious agent results | Result validation, anomaly detection (v2) |
+
+### Agent Security Requirements
+
+**Agent Binary:**
+- Code-signed binary (macOS/Windows)
+- Checksum verification (Linux)
+- No auto-update without explicit user action (v1)
+
+**Local Credential Storage:**
+```
+~/.photo-admin/
+├── config.yaml          # Agent configuration
+├── credentials.enc      # Encrypted connector credentials
+├── agent_key.enc        # Encrypted API key
+└── local_queue.db       # SQLite for offline operation
+```
+
+**Encryption:**
+- Local master key derived from user password or machine key
+- Fernet encryption (same as server-side)
+- Key never transmitted to server
+
+---
+
+## Technical Architecture
+
+### Component Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           CENTRAL SERVER                                 │
+│                                                                          │
+│  ┌────────────────────┐  ┌────────────────────┐  ┌──────────────────┐  │
+│  │   FastAPI Backend   │  │   PostgreSQL DB    │  │  Redis (Optional) │  │
+│  │                      │  │                    │  │                   │  │
+│  │  /api/agent/v1/*    │  │  - agents          │  │  - job queue     │  │
+│  │  /api/jobs/*        │  │  - jobs            │  │  - heartbeats    │  │
+│  │  /api/connectors/*  │  │  - connectors      │  │  - pub/sub       │  │
+│  │                      │  │  - results         │  │                   │  │
+│  └─────────┬───────────┘  └────────────────────┘  └──────────────────┘  │
+│            │                                                              │
+│  ┌─────────▼────────────────────────────────────────────────────────┐   │
+│  │                    Agent Coordinator Service                       │   │
+│  │  - Agent registration and authentication                          │   │
+│  │  - Job routing and assignment                                     │   │
+│  │  - Heartbeat monitoring                                           │   │
+│  │  - Result collection                                              │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+└──────────────────────────────────┬───────────────────────────────────────┘
+                                   │ HTTPS REST API
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        │                          │                          │
+        ▼                          ▼                          ▼
+┌───────────────────┐    ┌───────────────────┐    ┌───────────────────┐
+│   Agent (macOS)   │    │  Agent (Windows)  │    │   Agent (Linux)   │
+│                   │    │                   │    │                   │
+│  ┌─────────────┐  │    │  ┌─────────────┐  │    │  ┌─────────────┐  │
+│  │ Agent Core  │  │    │  │ Agent Core  │  │    │  │ Agent Core  │  │
+│  │ - Polling   │  │    │  │ - Polling   │  │    │  │ - Polling   │  │
+│  │ - Execution │  │    │  │ - Execution │  │    │  │ - Execution │  │
+│  │ - Reporting │  │    │  │ - Reporting │  │    │  │ - Reporting │  │
+│  └─────────────┘  │    │  └─────────────┘  │    │  └─────────────┘  │
+│                   │    │                   │    │                   │
+│  ┌─────────────┐  │    │  ┌─────────────┐  │    │  ┌─────────────┐  │
+│  │ Tool Bundle │  │    │  │ Tool Bundle │  │    │  │ Tool Bundle │  │
+│  │ - PhotoStats│  │    │  │ - PhotoStats│  │    │  │ - PhotoStats│  │
+│  │ - Pairing   │  │    │  │ - Pairing   │  │    │  │ - Pairing   │  │
+│  │ - Pipeline  │  │    │  │ - Pipeline  │  │    │  │ - Pipeline  │  │
+│  └─────────────┘  │    │  └─────────────┘  │    │  └─────────────┘  │
+│                   │    │                   │    │                   │
+│  ┌─────────────┐  │    │  ┌─────────────┐  │    │  ┌─────────────┐  │
+│  │ Local Store │  │    │  │ Local Store │  │    │  │ Local Store │  │
+│  │ - Creds.enc │  │    │  │ - Creds.enc │  │    │  │ - Creds.enc │  │
+│  │ - Offline Q │  │    │  │ - Offline Q │  │    │  │ - Offline Q │  │
+│  └─────────────┘  │    │  └─────────────┘  │    │  └─────────────┘  │
+└───────────────────┘    └───────────────────┘    └───────────────────┘
+```
+
+### Agent Architecture
+
+```python
+# Pseudocode for agent structure
+
+class PhotoAdminAgent:
+    """Main agent process."""
+
+    def __init__(self, config_path: Path):
+        self.config = AgentConfig.load(config_path)
+        self.api_client = AgentAPIClient(self.config.server_url, self.config.api_key)
+        self.tool_executor = ToolExecutor()
+        self.credential_store = LocalCredentialStore(self.config.credentials_path)
+        self.current_job: Job | None = None
+
+    async def run(self):
+        """Main event loop."""
+        logger.info(f"Agent {self.config.name} starting...")
+
+        while self.running:
+            try:
+                # Send heartbeat
+                await self.send_heartbeat()
+
+                # Try to claim a job if idle
+                if not self.current_job:
+                    job = await self.api_client.claim_job(self.get_capabilities())
+                    if job:
+                        asyncio.create_task(self.execute_job(job))
+
+                await asyncio.sleep(self.config.poll_interval)
+
+            except NetworkError as e:
+                logger.warning(f"Network error: {e}, backing off...")
+                await self.backoff()
+
+    def get_capabilities(self) -> list[str]:
+        """Return current capabilities including local connector access."""
+        caps = ["local_filesystem"]
+        caps.extend(self.tool_executor.available_tools())
+        caps.extend(self.credential_store.available_connectors())
+        return caps
+
+    async def execute_job(self, job: Job):
+        """Execute a job and report results."""
+        self.current_job = job
+
+        try:
+            # Get credentials if needed
+            creds = await self.resolve_credentials(job)
+
+            # Execute tool
+            result = await self.tool_executor.run(
+                tool=job.tool,
+                collection=job.collection,
+                credentials=creds,
+                progress_callback=lambda p: self.report_progress(job.guid, p)
+            )
+
+            # Report completion
+            await self.api_client.complete_job(
+                job_guid=job.guid,
+                status="COMPLETED",
+                results=result.to_json(),
+                report_html=result.generate_html()
+            )
+
+        except Exception as e:
+            await self.api_client.complete_job(
+                job_guid=job.guid,
+                status="FAILED",
+                error_message=str(e)
+            )
+
+        finally:
+            self.current_job = None
+```
+
+### Server-Side Components
+
+```python
+# New services for agent coordination
+
+class AgentService:
+    """Manages agent lifecycle."""
+
+    def register_agent(self, token: str, agent_data: AgentRegisterRequest) -> Agent:
+        """Register new agent using registration token."""
+        # Validate token
+        reg_token = self.validate_registration_token(token)
+
+        # Create agent
+        agent = Agent(
+            team_id=reg_token.team_id,
+            name=agent_data.name,
+            hostname=agent_data.hostname,
+            capabilities_json=agent_data.capabilities,
+            api_key_hash=hash_api_key(api_key := generate_api_key()),
+            status=AgentStatus.ONLINE
+        )
+
+        # Mark token as used
+        reg_token.is_used = True
+        reg_token.used_by_agent_id = agent.id
+
+        return agent, api_key  # api_key shown once
+
+    def process_heartbeat(self, agent_guid: str, heartbeat: HeartbeatRequest) -> None:
+        """Update agent status from heartbeat."""
+        agent = self.get_agent(agent_guid)
+        agent.status = heartbeat.status
+        agent.last_heartbeat = datetime.utcnow()
+        # Optionally store metrics
+
+class JobCoordinatorService:
+    """Manages distributed job queue."""
+
+    def create_job(self, collection: Collection, tool: str) -> Job:
+        """Create job with required capabilities."""
+        job = Job(
+            team_id=collection.team_id,
+            collection_id=collection.id,
+            tool=tool,
+            required_capabilities_json=self.resolve_capabilities(collection),
+            status=JobStatus.PENDING
+        )
+        return job
+
+    def claim_job(self, agent: Agent) -> Job | None:
+        """Assign next matching job to agent."""
+        # Find job where required_capabilities ⊆ agent.capabilities
+        job = self.db.query(Job).filter(
+            Job.status == JobStatus.PENDING,
+            Job.team_id == agent.team_id,
+            Job.required_capabilities_json.contained_by(agent.capabilities_json)
+        ).with_for_update(skip_locked=True).first()
+
+        if job:
+            job.status = JobStatus.ASSIGNED
+            job.agent_id = agent.id
+            job.assigned_at = datetime.utcnow()
+
+        return job
+
+    def complete_job(self, job_guid: str, result: JobCompletionRequest) -> AnalysisResult:
+        """Process job completion from agent."""
+        job = self.get_job(job_guid)
+        job.status = JobStatus.COMPLETED if result.status == "COMPLETED" else JobStatus.FAILED
+        job.completed_at = datetime.utcnow()
+
+        if result.status == "COMPLETED":
+            # Store analysis result
+            analysis_result = AnalysisResult(
+                collection_id=job.collection_id,
+                tool=job.tool,
+                results_json=result.results_json,
+                report_html=result.report_html
+            )
+            job.result_id = analysis_result.id
+
+            # Update collection statistics
+            self.update_collection_stats(job.collection, result.results_json)
+
+        return analysis_result
+```
+
+---
+
+## Migration Strategy
+
+### Phase 1: Foundation (No Breaking Changes)
+
+1. **Database Schema**: Add Agent, AgentRegistrationToken, Job tables
+2. **Agent API Endpoints**: `/api/agent/v1/*` (new routes, no conflict)
+3. **Job Persistence**: Migrate in-memory queue to database-backed queue
+4. **Server-Side Execution**: Continue working as-is (fallback)
+
+**Backward Compatibility:** Existing installations continue working unchanged.
+
+### Phase 2: Agent Introduction
+
+1. **Agent Binary**: Release cross-platform agent (macOS, Windows, Linux)
+2. **Registration UI**: Add agent management to Settings
+3. **Job Routing**: Jobs prefer agents when capable, fallback to server
+4. **Documentation**: Agent installation and configuration guide
+
+**Transition:** Users can optionally install agents; server execution remains default.
+
+### Phase 3: Credential Locality
+
+1. **Connector Enhancement**: Add `credential_location` field
+2. **Agent Credential UI**: Configure local credentials per agent
+3. **Job Routing Update**: Require agent for agent-local connectors
+4. **Migration Tool**: Option to migrate existing connectors to agent-local
+
+**Security Win:** Enterprise users can migrate credentials off server.
+
+### Phase 4: Local Collections (Full Value)
+
+1. **Local Collection Type**: Enable `type=LOCAL` with agent requirement
+2. **SMB via Agent**: SMB connectors default to agent-local
+3. **Performance Optimization**: Parallel job execution (v2)
+4. **Desktop App Foundation**: Capability detection for installed apps
+
+---
+
+## Requirements
+
+### Functional Requirements
+
+#### FR-100: Agent Management
+
+- **FR-100.1**: Create registration token from Settings UI (team-scoped)
+- **FR-100.2**: Registration token expires after 24 hours or single use
+- **FR-100.3**: Agent registers with token, receives API key (shown once)
+- **FR-100.4**: Agent status updates via heartbeat (30-second interval)
+- **FR-100.5**: Agent marked offline after 90 seconds without heartbeat
+- **FR-100.6**: View agent list with status, capabilities, last heartbeat
+- **FR-100.7**: Delete agent (revokes API key, reassigns queued jobs)
+- **FR-100.8**: Rename agent from UI
+
+#### FR-200: Job Distribution
+
+- **FR-200.1**: Jobs persist to database (not in-memory)
+- **FR-200.2**: Jobs include `required_capabilities_json` array
+- **FR-200.3**: Agent claims job via poll (POST /jobs/claim)
+- **FR-200.4**: Job assigned to first capable agent that claims it
+- **FR-200.5**: Server executes job if no capable agent online (for server connectors)
+- **FR-200.6**: Job reassigned if agent goes offline mid-execution
+- **FR-200.7**: Failed jobs retry up to max_retries (default: 3)
+- **FR-200.8**: Job history retained for 90 days (configurable)
+
+#### FR-300: Credential Locality
+
+- **FR-300.1**: Connector has `credential_location` enum (`SERVER` | `AGENT`)
+- **FR-300.2**: Agent-local connectors: credentials NOT stored on server
+- **FR-300.3**: Agent stores credentials in local encrypted file
+- **FR-300.4**: Agent declares which connectors it has credentials for
+- **FR-300.5**: Jobs requiring agent-local connectors only route to agents
+- **FR-300.6**: UI indicates credential location for each connector
+
+#### FR-400: Local Collection Support
+
+- **FR-400.1**: Collection `type=LOCAL` creates local filesystem collection
+- **FR-400.2**: Local collections require agent with `local_filesystem` capability
+- **FR-400.3**: Agent resolves local path relative to its filesystem
+- **FR-400.4**: Local collection jobs cannot execute on server
+- **FR-400.5**: UI shows which agent(s) can access a local collection
+
+#### FR-500: Progress and Results
+
+- **FR-500.1**: Agent reports progress via POST /jobs/{guid}/progress
+- **FR-500.2**: Progress updates broadcast to UI via existing WebSocket
+- **FR-500.3**: Agent reports completion with results JSON and HTML report
+- **FR-500.4**: Results stored in existing AnalysisResult table
+- **FR-500.5**: Collection statistics updated on job completion
+- **FR-500.6**: Job completion triggers WebSocket notification
+
+---
+
+### Non-Functional Requirements
+
+#### NFR-100: Performance
+
+- **NFR-100.1**: Job claim latency < 100ms (excluding network)
+- **NFR-100.2**: Support 100+ concurrent agents per team
+- **NFR-100.3**: Job queue throughput: 1000 jobs/minute
+- **NFR-100.4**: Heartbeat processing < 50ms
+- **NFR-100.5**: Agent polling interval: 5-10 seconds (configurable)
+
+#### NFR-200: Reliability
+
+- **NFR-200.1**: Jobs survive server restart (persistent queue)
+- **NFR-200.2**: Agent reconnects automatically after network failure
+- **NFR-200.3**: Failed jobs retry with exponential backoff
+- **NFR-200.4**: Orphaned jobs (agent offline) reassigned within 2 minutes
+- **NFR-200.5**: Results survive agent restart (completion is atomic)
+
+#### NFR-300: Security
+
+- **NFR-300.1**: Agent API keys hashed with SHA-256
+- **NFR-300.2**: Registration tokens single-use, expire in 24 hours
+- **NFR-300.3**: All agent communication over HTTPS
+- **NFR-300.4**: Agent-local credentials never transmitted to server
+- **NFR-300.5**: Job results validated before storage (prevent injection)
+- **NFR-300.6**: Rate limiting: 60 heartbeats/minute, 120 job claims/minute
+
+#### NFR-400: Observability
+
+- **NFR-400.1**: Agent status visible in real-time dashboard
+- **NFR-400.2**: Job assignment logged with agent_guid
+- **NFR-400.3**: Failed jobs include error message and stack trace
+- **NFR-400.4**: Agent heartbeat history retained for 7 days
+- **NFR-400.5**: Metrics endpoint for agent count, job throughput (future)
+
+#### NFR-500: Compatibility
+
+- **NFR-500.1**: Agent supports macOS 12+, Windows 10+, Ubuntu 20.04+
+- **NFR-500.2**: Agent binary < 50MB (including tool bundle)
+- **NFR-500.3**: Agent runs without administrator/root privileges
+- **NFR-500.4**: Existing server-side execution continues working
+
+---
+
+## Implementation Plan
+
+### Phase 1: Database Foundation (Priority: P0)
+
+**Duration**: 2-3 weeks
+
+**Tasks:**
+
+1. **Database Schema**
+   - Agent model with GuidMixin
+   - AgentRegistrationToken model
+   - Job model (enhanced from in-memory)
+   - Connector enhancement (credential_location)
+   - Database migrations
+
+2. **Job Persistence**
+   - JobRepository with database queries
+   - Replace in-memory JobQueue
+   - Job state machine implementation
+   - Failed job retry logic
+
+3. **Testing**
+   - Unit tests for models
+   - Integration tests for job persistence
+   - Migration tests
+
+**Checkpoint**: Jobs persist to database, existing functionality unchanged
+
+---
+
+### Phase 2: Agent Coordinator (Priority: P0)
+
+**Duration**: 2-3 weeks
+
+**Tasks:**
+
+1. **Agent API Endpoints**
+   - POST /api/agent/v1/register
+   - POST /api/agent/v1/heartbeat
+   - POST /api/agent/v1/jobs/claim
+   - POST /api/agent/v1/jobs/{guid}/progress
+   - POST /api/agent/v1/jobs/{guid}/complete
+
+2. **Agent Service**
+   - Registration with token validation
+   - Heartbeat processing
+   - Offline detection (background task)
+   - API key authentication middleware
+
+3. **Job Coordinator**
+   - Capability-based job matching
+   - Job claim with locking
+   - Job reassignment on agent offline
+
+4. **Testing**
+   - API endpoint tests
+   - Service unit tests
+   - Concurrency tests (job claiming)
+
+**Checkpoint**: Server can coordinate agents (agent binary not yet built)
+
+---
+
+### Phase 3: Agent Binary (Priority: P0)
+
+**Duration**: 3-4 weeks
+
+**Tasks:**
+
+1. **Agent Core**
+   - Python-based agent application
+   - Configuration management
+   - API client for coordinator
+   - Main polling loop
+   - Graceful shutdown
+
+2. **Tool Execution**
+   - PhotoStats integration
+   - Photo Pairing integration
+   - Pipeline Validation integration
+   - Progress callback mechanism
+   - HTML report generation
+
+3. **Local Credential Store**
+   - Encrypted credential file
+   - Fernet encryption (matching server)
+   - Credential CRUD commands
+   - Connector capability reporting
+
+4. **Packaging**
+   - PyInstaller for binary
+   - macOS: DMG installer
+   - Windows: MSI installer
+   - Linux: AppImage or deb/rpm
+
+5. **Testing**
+   - Unit tests for agent components
+   - Integration tests with mock server
+   - End-to-end tests
+
+**Checkpoint**: Functional agent binary for all platforms
+
+---
+
+### Phase 4: Agent Management UI (Priority: P1)
+
+**Duration**: 2 weeks
+
+**Tasks:**
+
+1. **Settings > Agents Tab**
+   - Agent list with status indicators
+   - Registration token generation
+   - Agent details view
+   - Delete agent action
+
+2. **Job Queue UI Enhancement**
+   - Agent column in job list
+   - Agent filter
+   - Job reassignment UI
+   - Retry failed job button
+
+3. **Connector Enhancement**
+   - Credential location selector
+   - Agent-local indicator
+   - Which agents have credentials
+
+4. **Testing**
+   - Frontend component tests
+   - E2E tests for agent management
+
+**Checkpoint**: Full agent management from web UI
+
+---
+
+### Phase 5: Local Collections (Priority: P1)
+
+**Duration**: 2 weeks
+
+**Tasks:**
+
+1. **Local Collection Type**
+   - Collection type=LOCAL in backend
+   - Path validation on agent
+   - Agent requirement enforcement
+   - Frontend collection form update
+
+2. **SMB via Agent**
+   - SMB default to agent-local credentials
+   - Agent SMB access testing
+   - Documentation update
+
+3. **E2E Testing**
+   - Local collection workflow
+   - SMB collection via agent
+   - Multi-agent scenarios
+
+**Checkpoint**: Local and SMB collections work via agents
+
+---
+
+### Phase 6: Polish and Documentation (Priority: P1)
+
+**Duration**: 2 weeks
+
+**Tasks:**
+
+1. **Documentation**
+   - Agent installation guide (per platform)
+   - Agent configuration reference
+   - Troubleshooting guide
+   - Architecture documentation
+
+2. **Security Hardening**
+   - Penetration testing
+   - Rate limiting tuning
+   - Audit logging verification
+
+3. **Performance Optimization**
+   - Connection pooling
+   - Batch heartbeat processing
+   - Redis evaluation (if needed)
+
+4. **CLAUDE.md Update**
+   - Agent architecture section
+   - New API endpoints
+   - Configuration reference
+
+**Checkpoint**: Production-ready agent system
+
+---
+
+## Risks and Mitigation
+
+### Risk 1: Agent Adoption Friction
+
+- **Impact**: High - Users may not install agents, limiting value
+- **Probability**: Medium
+- **Mitigation**: One-click installers, minimal configuration, clear documentation, server fallback for remote connectors
+
+### Risk 2: Network Reliability
+
+- **Impact**: Medium - Agents in unreliable networks may disconnect frequently
+- **Probability**: Medium
+- **Mitigation**: Automatic reconnection, exponential backoff, offline job queue, idempotent operations
+
+### Risk 3: Job Queue Race Conditions
+
+- **Impact**: High - Duplicate job execution wastes resources
+- **Probability**: Low (with proper locking)
+- **Mitigation**: Database-level locking (FOR UPDATE SKIP LOCKED), idempotent job completion, deduplication checks
+
+### Risk 4: Agent Security Vulnerabilities
+
+- **Impact**: Critical - Compromised agent could access sensitive data
+- **Probability**: Low (with security review)
+- **Mitigation**: API key rotation, capability-based access, audit logging, code signing, no auto-update without verification
+
+### Risk 5: Cross-Platform Compatibility
+
+- **Impact**: Medium - Agent may not work consistently across OS
+- **Probability**: Medium
+- **Mitigation**: Extensive platform testing, CI/CD for all platforms, user feedback loop, Python for portability
+
+### Risk 6: Backward Compatibility
+
+- **Impact**: High - Breaking existing installations
+- **Probability**: Low (with careful migration)
+- **Mitigation**: Server-side execution continues as fallback, gradual migration path, feature flags
+
+---
+
+## Open Questions
+
+1. **Job Queue Backend**: PostgreSQL-only or Redis for scale? (Recommendation: Start PostgreSQL, add Redis if needed)
+
+2. **Agent Auto-Update**: Should agents auto-update, or require manual update? (Security vs convenience)
+
+3. **Concurrent Jobs per Agent**: V1 single job, V2 concurrent - what's the limit? (CPU cores, memory?)
+
+4. **Agent Impersonation Prevention**: How to prevent fake agents from claiming jobs? (Registration token + API key sufficient?)
+
+5. **Result Size Limits**: Maximum results JSON and HTML report size? (10MB? 50MB?)
+
+6. **Offline Job Creation**: Should agents be able to create jobs while offline? (Complexity vs value)
+
+7. **Agent Grouping**: Should agents be organizable into groups/pools? (Defer to v2?)
+
+8. **Desktop App Protocol**: How will agents invoke Lightroom, DxO, etc.? (CLI, AppleScript, COM?)
+
+---
+
+## Testing Strategy
+
+### Unit Tests
+
+- AgentService: registration, heartbeat, offline detection
+- JobCoordinatorService: capability matching, job claiming, completion
+- Agent Core: polling, execution, reporting
+- LocalCredentialStore: encryption, CRUD, validation
+
+### Integration Tests
+
+- Full registration flow (token → agent → API key)
+- Job lifecycle (create → claim → execute → complete)
+- Multi-agent job distribution
+- Agent offline → job reassignment
+- Agent-local credential access
+
+### End-to-End Tests
+
+- Install agent on fresh machine
+- Register with server via UI-generated token
+- Create local collection
+- Run PhotoStats via agent
+- View results in web UI
+
+### Security Tests
+
+- Unauthorized agent registration attempt
+- Cross-team job access attempt
+- API key brute force protection
+- Credential exfiltration attempt
+
+### Performance Tests
+
+- 100 concurrent agents
+- 1000 jobs/minute throughput
+- Agent reconnection under load
+- Job queue under high contention
+
+---
+
+## Future Enhancements (Post-v1)
+
+### v2.0: Agent Auto-Update
+
+- Secure update channel
+- Rollback capability
+- Version compatibility matrix
+- Zero-downtime updates
+
+### v2.1: Desktop Application Integration
+
+- Adobe Lightroom Classic plugin
+- DxO PureRAW CLI wrapper
+- Capture One integration
+- Photoshop scripting
+
+### v2.2: Agent Clustering
+
+- Agent-to-agent communication
+- Local job distribution
+- Shared file cache
+- Leader election
+
+### v2.3: Advanced Job Scheduling
+
+- Scheduled jobs (cron-like)
+- Job dependencies (DAG)
+- Priority queues
+- Resource reservations
+
+### v2.4: Credential Vault Integration
+
+- HashiCorp Vault support
+- AWS Secrets Manager
+- Azure Key Vault
+- Google Secret Manager
+
+---
+
+## Dependencies
+
+### External Dependencies
+
+- **Python 3.10+**: Agent runtime
+- **PyInstaller**: Binary packaging
+- **PostgreSQL 12+**: Job persistence
+- **Redis (optional)**: High-throughput queue
+
+### Internal Dependencies
+
+- **Team/User entities**: Multi-tenancy (from 012-user-tenancy.md)
+- **Existing tool implementations**: PhotoStats, Photo Pairing, Pipeline Validation
+- **Jinja2 templates**: HTML report generation
+- **GuidMixin pattern**: Entity identification
+
+---
+
+## Appendix
+
+### A. Agent Configuration File
+
+```yaml
+# ~/.photo-admin/config.yaml
+server:
+  url: https://photo-admin.example.com
+  verify_ssl: true
+
+agent:
+  name: "Office Workstation"
+  poll_interval: 5  # seconds
+  heartbeat_interval: 30  # seconds
+
+capabilities:
+  # Auto-detected, can be overridden
+  - local_filesystem
+  - tool:photostats
+  - tool:photo_pairing
+  - tool:pipeline_validation
+
+logging:
+  level: INFO
+  file: ~/.photo-admin/agent.log
+```
+
+### B. Agent CLI Commands
+
+```bash
+# Install and register
+photo-admin-agent register \
+  --server https://photo-admin.example.com \
+  --token art_xxxxx... \
+  --name "Office Workstation"
+
+# Start agent (foreground)
+photo-admin-agent start
+
+# Start agent (background service)
+photo-admin-agent start --daemon
+
+# Stop agent
+photo-admin-agent stop
+
+# Check status
+photo-admin-agent status
+
+# Configure local credentials
+photo-admin-agent credentials add con_xxxxx \
+  --aws-access-key-id AKIAIOSFODNN7EXAMPLE \
+  --aws-secret-access-key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+# List local credentials
+photo-admin-agent credentials list
+
+# Remove local credentials
+photo-admin-agent credentials remove con_xxxxx
+
+# View logs
+photo-admin-agent logs --tail 100
+```
+
+### C. API Key Format
+
+```
+agt_key_[32 random bytes base64url encoded]
+
+Example: agt_key_xK9mN2pQrStUvWxYz01234567890ABCDEFghij
+```
+
+### D. Related Issues/PRDs
+
+| Document | Relevance |
+|----------|-----------|
+| [012-user-tenancy.md](./012-user-tenancy.md) | Team-scoped agents, authentication |
+| [007-remote-photos-completion.md](./007-remote-photos-completion.md) | Current job execution, result storage |
+| [004-remote-photos-persistence.md](./004-remote-photos-persistence.md) | Connector architecture, tool integration |
+| [Domain Model](../domain-model.md) | Agent entity specification |
+
+---
+
+## Revision History
+
+- **2026-01-14 (v1.0)**: Initial draft
+  - Defined core Agent architecture and concepts
+  - Specified agent registration and lifecycle
+  - Designed distributed job queue with capability routing
+  - Detailed credential locality security model
+  - Outlined communication protocol (REST API)
+  - Created 6-phase implementation plan
+  - Identified risks and mitigation strategies
