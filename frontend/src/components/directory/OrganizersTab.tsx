@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Users, Star, Globe, Ticket } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Star, Globe, Ticket, Instagram } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -153,6 +153,7 @@ function OrganizerList({ organizers, loading, onEdit, onDelete }: OrganizerListP
             <TableHead>Rating</TableHead>
             <TableHead>Ticket Default</TableHead>
             <TableHead>Website</TableHead>
+            <TableHead>Instagram</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -199,6 +200,21 @@ function OrganizerList({ organizers, loading, onEdit, onDelete }: OrganizerListP
                     <span className="max-w-[120px] truncate">
                       {new URL(organizer.website).hostname}
                     </span>
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </TableCell>
+              <TableCell>
+                {organizer.instagram_handle ? (
+                  <a
+                    href={organizer.instagram_url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Instagram className="h-3 w-3" />
+                    <span>@{organizer.instagram_handle}</span>
                   </a>
                 ) : (
                   <span className="text-muted-foreground">-</span>

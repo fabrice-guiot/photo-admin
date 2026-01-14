@@ -28,6 +28,8 @@ export interface Location {
   state: string | null
   country: string | null
   postal_code: string | null
+  instagram_handle: string | null  // Instagram username (without @)
+  instagram_url: string | null     // Full Instagram profile URL
   latitude: number | null
   longitude: number | null
   timezone: string | null    // IANA timezone identifier
@@ -53,6 +55,7 @@ export interface LocationCreateRequest {
   state?: string | null
   country?: string | null
   postal_code?: string | null
+  instagram_handle?: string | null
   latitude?: number | null
   longitude?: number | null
   timezone?: string | null
@@ -71,6 +74,7 @@ export interface LocationUpdateRequest {
   state?: string | null
   country?: string | null
   postal_code?: string | null
+  instagram_handle?: string | null
   latitude?: number | null
   longitude?: number | null
   timezone?: string | null
@@ -114,6 +118,9 @@ export interface LocationStatsResponse {
 
   /** Number of locations with geocoded coordinates */
   with_coordinates_count: number
+
+  /** Number of locations with Instagram handle */
+  with_instagram_count: number
 }
 
 export interface CategoryMatchResponse {

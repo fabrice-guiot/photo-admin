@@ -24,6 +24,8 @@ export interface Organizer {
   guid: string               // External identifier (org_xxx format)
   name: string
   website: string | null
+  instagram_handle: string | null  // Instagram username (without @)
+  instagram_url: string | null     // Full Instagram profile URL
   category: CategorySummary
   rating: number | null      // 1-5 stars
   ticket_required_default: boolean
@@ -40,6 +42,7 @@ export interface OrganizerCreateRequest {
   name: string
   category_guid: string
   website?: string | null
+  instagram_handle?: string | null
   rating?: number | null
   ticket_required_default?: boolean
   notes?: string | null
@@ -49,6 +52,7 @@ export interface OrganizerUpdateRequest {
   name?: string
   category_guid?: string
   website?: string | null
+  instagram_handle?: string | null
   rating?: number | null
   ticket_required_default?: boolean
   notes?: string | null
@@ -69,6 +73,9 @@ export interface OrganizerStatsResponse {
 
   /** Number of organizers with ratings */
   with_rating_count: number
+
+  /** Number of organizers with Instagram handle */
+  with_instagram_count: number
 
   /** Average rating across rated organizers */
   avg_rating: number | null

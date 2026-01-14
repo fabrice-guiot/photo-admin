@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, MapPin, Star } from 'lucide-react'
+import { Plus, Edit, Trash2, MapPin, Star, Instagram } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -169,6 +169,7 @@ function LocationList({ locations, loading, onEdit, onDelete }: LocationListProp
             <TableHead>Location</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Rating</TableHead>
+            <TableHead>Instagram</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -193,6 +194,21 @@ function LocationList({ locations, loading, onEdit, onDelete }: LocationListProp
               </TableCell>
               <TableCell>
                 <RatingDisplay rating={location.rating} size="sm" />
+              </TableCell>
+              <TableCell>
+                {location.instagram_handle ? (
+                  <a
+                    href={location.instagram_url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Instagram className="h-3 w-3" />
+                    <span>@{location.instagram_handle}</span>
+                  </a>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant={location.is_known ? 'default' : 'secondary'}>

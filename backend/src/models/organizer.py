@@ -37,6 +37,7 @@ class Organizer(Base, GuidMixin):
         guid: GUID string property (org_xxx, inherited from GuidMixin)
         name: Organizer name
         website: Website URL
+        instagram_handle: Instagram username (without @)
         category_id: Foreign key to categories (must match event category)
         rating: Organizer rating 1-5 (displayed as stars)
         ticket_required_default: Pre-select ticket required for new events
@@ -79,6 +80,7 @@ class Organizer(Base, GuidMixin):
     # Core fields
     name = Column(String(255), nullable=False)
     website = Column(String(500), nullable=True)
+    instagram_handle = Column(String(100), nullable=True)  # Without @
 
     # Rating and defaults
     rating = Column(Integer, nullable=True)  # 1-5
@@ -108,6 +110,13 @@ class Organizer(Base, GuidMixin):
         back_populates="organizer",
         lazy="dynamic"
     )
+
+    @property
+    def instagram_url(self) -> str | None:
+        """Get full Instagram profile URL."""
+        if self.instagram_handle:
+            return f"https://www.instagram.com/{self.instagram_handle}"
+        return None
 
     def __repr__(self) -> str:
         """String representation for debugging."""

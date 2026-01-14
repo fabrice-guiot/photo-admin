@@ -59,6 +59,7 @@ class OrganizerService:
         name: str,
         category_guid: str,
         website: Optional[str] = None,
+        instagram_handle: Optional[str] = None,
         rating: Optional[int] = None,
         ticket_required_default: bool = False,
         notes: Optional[str] = None,
@@ -70,6 +71,7 @@ class OrganizerService:
             name: Organizer display name
             category_guid: Category GUID (must be active)
             website: Organizer website URL
+            instagram_handle: Instagram username (without @)
             rating: Organizer rating (1-5)
             ticket_required_default: Default ticket setting for events
             notes: Additional notes
@@ -103,6 +105,7 @@ class OrganizerService:
                 name=name,
                 category_id=category.id,
                 website=website,
+                instagram_handle=instagram_handle,
                 rating=rating,
                 ticket_required_default=ticket_required_default,
                 notes=notes,
@@ -200,6 +203,7 @@ class OrganizerService:
             query = query.filter(
                 (Organizer.name.ilike(search_term)) |
                 (Organizer.website.ilike(search_term)) |
+                (Organizer.instagram_handle.ilike(search_term)) |
                 (Organizer.notes.ilike(search_term))
             )
 
@@ -223,6 +227,7 @@ class OrganizerService:
         name: Optional[str] = None,
         category_guid: Optional[str] = None,
         website: Optional[str] = None,
+        instagram_handle: Optional[str] = None,
         rating: Optional[int] = None,
         ticket_required_default: Optional[bool] = None,
         notes: Optional[str] = None,
@@ -235,6 +240,7 @@ class OrganizerService:
             name: New name
             category_guid: New category GUID
             website: New website URL
+            instagram_handle: New Instagram handle (empty string to clear)
             rating: New rating (1-5)
             ticket_required_default: New ticket default
             notes: New notes
@@ -270,6 +276,8 @@ class OrganizerService:
             organizer.name = name
         if website is not None:
             organizer.website = website if website else None
+        if instagram_handle is not None:
+            organizer.instagram_handle = instagram_handle if instagram_handle else None
         if rating is not None:
             organizer.rating = rating
         if ticket_required_default is not None:
@@ -346,6 +354,7 @@ class OrganizerService:
             {
                 "total_count": int,
                 "with_rating_count": int,
+                "with_instagram_count": int,
                 "avg_rating": Optional[float]
             }
         """
@@ -353,6 +362,11 @@ class OrganizerService:
         with_rating = (
             self.db.query(func.count(Organizer.id))
             .filter(Organizer.rating.isnot(None))
+            .scalar()
+        )
+        with_instagram = (
+            self.db.query(func.count(Organizer.id))
+            .filter(Organizer.instagram_handle.isnot(None))
             .scalar()
         )
         avg_rating = (
@@ -364,6 +378,7 @@ class OrganizerService:
         return {
             "total_count": total,
             "with_rating_count": with_rating,
+            "with_instagram_count": with_instagram,
             "avg_rating": round(float(avg_rating), 1) if avg_rating else None,
         }
 

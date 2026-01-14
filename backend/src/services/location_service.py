@@ -77,6 +77,7 @@ class LocationService:
         state: Optional[str] = None,
         country: Optional[str] = None,
         postal_code: Optional[str] = None,
+        instagram_handle: Optional[str] = None,
         latitude: Optional[Decimal] = None,
         longitude: Optional[Decimal] = None,
         timezone: Optional[str] = None,
@@ -97,6 +98,7 @@ class LocationService:
             state: State/province
             country: Country name
             postal_code: ZIP/postal code
+            instagram_handle: Instagram username (without @)
             latitude: Geocoded latitude (-90 to 90)
             longitude: Geocoded longitude (-180 to 180)
             timezone: IANA timezone identifier
@@ -146,6 +148,7 @@ class LocationService:
                 state=state,
                 country=country,
                 postal_code=postal_code,
+                instagram_handle=instagram_handle,
                 latitude=latitude,
                 longitude=longitude,
                 timezone=timezone,
@@ -255,7 +258,8 @@ class LocationService:
                 (Location.name.ilike(search_term)) |
                 (Location.city.ilike(search_term)) |
                 (Location.address.ilike(search_term)) |
-                (Location.country.ilike(search_term))
+                (Location.country.ilike(search_term)) |
+                (Location.instagram_handle.ilike(search_term))
             )
 
         # Get total count before pagination
@@ -282,6 +286,7 @@ class LocationService:
         state: Optional[str] = None,
         country: Optional[str] = None,
         postal_code: Optional[str] = None,
+        instagram_handle: Optional[str] = None,
         latitude: Optional[Decimal] = None,
         longitude: Optional[Decimal] = None,
         timezone: Optional[str] = None,
@@ -303,6 +308,7 @@ class LocationService:
             state: New state
             country: New country
             postal_code: New postal code
+            instagram_handle: New Instagram handle (empty string to clear)
             latitude: New latitude
             longitude: New longitude
             timezone: New timezone
@@ -351,6 +357,8 @@ class LocationService:
             location.country = country if country else None
         if postal_code is not None:
             location.postal_code = postal_code if postal_code else None
+        if instagram_handle is not None:
+            location.instagram_handle = instagram_handle if instagram_handle else None
         if latitude is not None:
             location.latitude = latitude
         if longitude is not None:
@@ -482,7 +490,8 @@ class LocationService:
             {
                 "total_count": int,
                 "known_count": int,
-                "with_coordinates_count": int
+                "with_coordinates_count": int,
+                "with_instagram_count": int
             }
         """
         total = self.db.query(func.count(Location.id)).scalar()
@@ -499,11 +508,17 @@ class LocationService:
             )
             .scalar()
         )
+        with_instagram = (
+            self.db.query(func.count(Location.id))
+            .filter(Location.instagram_handle.isnot(None))
+            .scalar()
+        )
 
         return {
             "total_count": total,
             "known_count": known,
             "with_coordinates_count": with_coords,
+            "with_instagram_count": with_instagram,
         }
 
     def validate_category_match(
