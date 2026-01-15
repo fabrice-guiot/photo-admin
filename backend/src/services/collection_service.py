@@ -842,10 +842,18 @@ class CollectionService:
             Tuple of (is_accessible: bool, last_error: Optional[str])
         """
         if type == CollectionType.LOCAL:
+            # First, normalize and resolve the user-supplied path to prevent
+            # traversal via ".." and similar constructs.
+            try:
+                normalized = Path(location).expanduser().resolve()
+            except (OSError, ValueError) as e:
+                return False, f"Invalid path: {str(e)}"
+
             # Security: Validate path against authorized roots (allowlist approach)
             # This prevents path traversal attacks by ensuring the path is under
-            # a configured root directory
-            is_authorized, auth_error = is_path_authorized(location)
+            # a configured root directory. Validation is performed on the
+            # normalized path to avoid bypasses.
+            is_authorized, auth_error = is_path_authorized(str(normalized))
             if not is_authorized:
                 logger.warning(
                     f"Unauthorized path access attempt: {location}",
@@ -853,13 +861,7 @@ class CollectionService:
                 )
                 return False, auth_error
 
-            # Path is authorized - now check accessibility
-            try:
-                # Normalize and resolve the path (safe since it's already authorized)
-                normalized = Path(location).expanduser().resolve()
-            except (OSError, ValueError) as e:
-                return False, f"Invalid path: {str(e)}"
-
+            # Path is authorized - now check accessibility on the normalized path
             # Test local filesystem access
             if normalized.is_dir() and os.access(normalized, os.R_OK):
                 return True, None
