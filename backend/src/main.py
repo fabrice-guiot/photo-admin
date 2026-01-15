@@ -7,6 +7,10 @@ This module initializes the FastAPI application with:
 - Exception handlers for consistent error responses
 - Startup event handlers for environment validation
 - Logging configuration
+- SPA (Single Page Application) serving from frontend/dist/
+
+The application serves both the REST API (under /api/) and the React SPA
+from the same server, enabling single-port HTTPS deployment.
 
 Environment Variables:
     PHOTO_ADMIN_MASTER_KEY: Master encryption key (required)
@@ -17,10 +21,12 @@ Environment Variables:
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Dict, Any
 
 from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pydantic import ValidationError
@@ -86,10 +92,26 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Content Security Policy
-        # Skip restrictive CSP for documentation pages (Swagger UI needs external resources)
-        if request.url.path not in ["/docs", "/redoc", "/openapi.json"]:
+        # Different CSP for API vs SPA pages
+        path = request.url.path
+        if path in ["/docs", "/redoc", "/openapi.json"]:
+            # Skip restrictive CSP for documentation pages (Swagger UI needs external resources)
+            pass
+        elif path.startswith("/api/") or path == "/health":
+            # Restrictive CSP for API endpoints
             response.headers["Content-Security-Policy"] = (
                 "default-src 'none'; "
+                "frame-ancestors 'none'"
+            )
+        else:
+            # CSP for SPA pages - allow self-hosted scripts, styles, images, fonts
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob:; "
+                "font-src 'self'; "
+                "connect-src 'self' ws: wss:; "
                 "frame-ancestors 'none'"
             )
 
@@ -454,21 +476,86 @@ app.include_router(organizers.router, prefix="/api")
 app.include_router(performers.router, prefix="/api")
 
 
-# Root endpoint
+# ============================================================================
+# SPA Static Files Configuration
+# ============================================================================
+# Determine the path to the frontend dist directory
+# This works both when running from project root and from backend directory
+_project_root = Path(__file__).parent.parent.parent.parent
+_spa_dist_path = _project_root / "frontend" / "dist"
+_spa_index_path = _spa_dist_path / "index.html"
 
 
-@app.get("/", tags=["Root"])
-async def root() -> Dict[str, str]:
+async def serve_spa(request: Request) -> FileResponse:
     """
-    Root endpoint with API information.
+    Serve the SPA index.html for client-side routing.
+
+    This handles all non-API routes by returning the SPA's index.html,
+    allowing React Router to handle the routing on the client side.
+
+    Args:
+        request: The incoming HTTP request
 
     Returns:
-        API metadata and documentation links
+        FileResponse with index.html content
     """
-    return {
-        "message": "Photo Admin API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "openapi": "/openapi.json",
-    }
+    if not _spa_index_path.exists():
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={
+                "error": "SPA Not Built",
+                "message": "The frontend application has not been built. "
+                          "Run 'npm run build' in the frontend directory.",
+                "hint": f"Expected path: {_spa_index_path}"
+            }
+        )
+    return FileResponse(_spa_index_path, media_type="text/html")
+
+
+# Mount static assets if the dist directory exists
+# This serves JS, CSS, images, and other assets from frontend/dist/assets/
+if _spa_dist_path.exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(_spa_dist_path / "assets")),
+        name="spa-assets"
+    )
+
+
+# Root endpoint - serve SPA
+@app.get("/", response_class=FileResponse, include_in_schema=False)
+async def root(request: Request):
+    """Serve the SPA index.html at root."""
+    return await serve_spa(request)
+
+
+# Catch-all route for SPA client-side routing
+# This must be registered AFTER all other routes
+@app.get("/{full_path:path}", response_class=FileResponse, include_in_schema=False)
+async def spa_catch_all(request: Request, full_path: str):
+    """
+    Catch-all route for SPA client-side routing.
+
+    Handles all routes not matched by API endpoints, serving the SPA's
+    index.html so that React Router can handle the routing.
+
+    Note: This route is excluded from OpenAPI schema as it's not an API endpoint.
+    """
+    # Don't serve SPA for API routes that weren't found (return 404 from API handlers)
+    if full_path.startswith("api/"):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "error": "Not Found",
+                "message": f"API endpoint '/{full_path}' not found"
+            }
+        )
+
+    # Check if the requested path is a static file that exists in dist root
+    # This handles files like favicon.ico, robots.txt, etc.
+    if full_path and "." in full_path.split("/")[-1]:
+        static_file_path = _spa_dist_path / full_path
+        if static_file_path.exists() and static_file_path.is_file():
+            return FileResponse(static_file_path)
+
+    return await serve_spa(request)
