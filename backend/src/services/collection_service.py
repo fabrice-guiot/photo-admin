@@ -14,6 +14,7 @@ Design:
 
 import os
 import json
+from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -25,6 +26,7 @@ from backend.src.models import Collection, CollectionType, CollectionState, Conn
 from backend.src.utils.formatting import format_storage_bytes
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.logging_config import get_logger
+from backend.src.utils.security_settings import is_path_authorized
 from backend.src.services.connector_service import ConnectorService
 from backend.src.services.guid import GuidService
 
@@ -824,6 +826,13 @@ class CollectionService:
         """
         Test collection accessibility (local or remote).
 
+        For local collections, validates that the path:
+        1. Is under an authorized root directory (allowlist-based security)
+        2. Exists and is readable
+
+        The authorized roots are configured via the PHOTO_ADMIN_AUTHORIZED_LOCAL_ROOTS
+        environment variable. This provides defense against path traversal attacks.
+
         Args:
             type: Collection type
             location: Storage location
@@ -833,8 +842,28 @@ class CollectionService:
             Tuple of (is_accessible: bool, last_error: Optional[str])
         """
         if type == CollectionType.LOCAL:
+            # First, normalize and resolve the user-supplied path to prevent
+            # traversal via ".." and similar constructs.
+            try:
+                normalized = Path(location).expanduser().resolve()
+            except (OSError, ValueError) as e:
+                return False, f"Invalid path: {str(e)}"
+
+            # Security: Validate path against authorized roots (allowlist approach)
+            # This prevents path traversal attacks by ensuring the path is under
+            # a configured root directory. Validation is performed on the
+            # normalized path to avoid bypasses.
+            is_authorized, auth_error = is_path_authorized(str(normalized))
+            if not is_authorized:
+                logger.warning(
+                    f"Unauthorized path access attempt: {location}",
+                    extra={"error": auth_error}
+                )
+                return False, auth_error
+
+            # Path is authorized - now check accessibility on the normalized path
             # Test local filesystem access
-            if os.path.isdir(location) and os.access(location, os.R_OK):
+            if normalized.is_dir() and os.access(normalized, os.R_OK):
                 return True, None
             else:
                 return False, f"Local directory not found or not readable: {location}"
