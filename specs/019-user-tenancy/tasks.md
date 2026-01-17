@@ -204,21 +204,21 @@
 
 ### Tests for User Story 3
 
-- [ ] T073 [P] [US3] Unit test for UserService.invite() with email validation in backend/tests/unit/test_user_service.py
-- [ ] T074 [P] [US3] Integration test for global email uniqueness (reject duplicate across teams) in backend/tests/integration/test_user_management.py
-- [ ] T075 [P] [US3] Integration test for pending user activation on first OAuth login in backend/tests/integration/test_user_management.py
+- [x] T073 [P] [US3] Unit test for UserService.invite() with email validation in backend/tests/unit/test_user_service.py
+- [x] T074 [P] [US3] Integration test for global email uniqueness (reject duplicate across teams) in backend/tests/integration/test_user_management.py
+- [x] T075 [P] [US3] Integration test for pending user activation on first OAuth login in backend/tests/integration/test_user_management.py
 
 ### Implementation for User Story 3
 
-- [ ] T076 [US3] Add invite() method to UserService with global email uniqueness check in backend/src/services/user_service.py
-- [ ] T077 [US3] Add delete_pending() method to UserService (only pending users can be deleted) in backend/src/services/user_service.py
-- [ ] T078 [US3] Create user Pydantic schemas (InviteUserRequest, UserResponse, UserListResponse) in backend/src/schemas/user.py
-- [ ] T079 [US3] Create POST /api/users endpoint for inviting users in backend/src/api/users.py
-- [ ] T080 [US3] Create GET /api/users endpoint for listing team users in backend/src/api/users.py
-- [ ] T081 [US3] Create DELETE /api/users/{guid} endpoint for removing pending users in backend/src/api/users.py
-- [ ] T082 [US3] Register users router in backend/src/main.py with /api prefix
-- [ ] T083 [P] [US3] Create useUsers.ts hook with invite(), listUsers(), deleteUser() in frontend/src/hooks/useUsers.ts
-- [ ] T084 [P] [US3] Create users-api.ts API client in frontend/src/services/users-api.ts
+- [x] T076 [US3] Add invite() method to UserService with global email uniqueness check in backend/src/services/user_service.py
+- [x] T077 [US3] Add delete_pending() method to UserService (only pending users can be deleted) in backend/src/services/user_service.py
+- [x] T078 [US3] Create user Pydantic schemas (InviteUserRequest, UserResponse, UserListResponse) in backend/src/schemas/user.py
+- [x] T079 [US3] Create POST /api/users endpoint for inviting users in backend/src/api/users.py
+- [x] T080 [US3] Create GET /api/users endpoint for listing team users in backend/src/api/users.py
+- [x] T081 [US3] Create DELETE /api/users/{guid} endpoint for removing pending users in backend/src/api/users.py
+- [x] T082 [US3] Register users router in backend/src/main.py with /api prefix
+- [x] T083 [P] [US3] Create useUsers.ts hook with invite(), listUsers(), deleteUser() in frontend/src/hooks/useUsers.ts
+- [x] T084 [P] [US3] Create users-api.ts API client in frontend/src/services/users-api.ts
 
 **Checkpoint**: Admin can invite users, pending users appear in list, can delete pending invitations
 
@@ -234,21 +234,21 @@
 
 ### Tests for User Story 4
 
-- [ ] T085 [P] [US4] Unit test for UserService.deactivate() and reactivate() in backend/tests/unit/test_user_service.py
-- [ ] T086 [P] [US4] Integration test for cannot deactivate self in backend/tests/integration/test_user_management.py
-- [ ] T087 [P] [US4] Integration test for deactivated user cannot login in backend/tests/integration/test_oauth_flow.py
+- [x] T085 [P] [US4] Unit test for UserService.deactivate() and reactivate() in backend/tests/unit/test_user_service.py
+- [x] T086 [P] [US4] Integration test for cannot deactivate self in backend/tests/integration/test_user_management.py
+- [x] T087 [P] [US4] Integration test for deactivated user cannot login in backend/tests/integration/test_oauth_flow.py
 
 ### Implementation for User Story 4
 
-- [ ] T088 [US4] Add deactivate() method to UserService (cannot deactivate self) in backend/src/services/user_service.py
-- [ ] T089 [US4] Add reactivate() method to UserService in backend/src/services/user_service.py
-- [ ] T090 [US4] Create POST /api/users/{guid}/deactivate endpoint in backend/src/api/users.py
-- [ ] T091 [US4] Create POST /api/users/{guid}/reactivate endpoint in backend/src/api/users.py
-- [ ] T092 [US4] Create GET /api/users/stats endpoint for TopHeader KPIs in backend/src/api/users.py
-- [ ] T093 [US4] Add deactivateUser(), reactivateUser() to useUsers.ts hook in frontend/src/hooks/useUsers.ts
-- [ ] T094 [US4] Create UsersTab.tsx with user list table and action buttons in frontend/src/pages/settings/UsersTab.tsx
-- [ ] T095 [US4] Add UsersTab to Settings page (new tab in settings) in frontend/src/pages/SettingsPage.tsx
-- [ ] T096 [US4] Implement TopHeader KPI stats for Users tab using useHeaderStats in frontend/src/pages/settings/UsersTab.tsx
+- [x] T088 [US4] Add deactivate() method to UserService (cannot deactivate self) in backend/src/services/user_service.py
+- [x] T089 [US4] Add reactivate() method to UserService in backend/src/services/user_service.py
+- [x] T090 [US4] Create POST /api/users/{guid}/deactivate endpoint in backend/src/api/users.py
+- [x] T091 [US4] Create POST /api/users/{guid}/reactivate endpoint in backend/src/api/users.py
+- [x] T092 [US4] Create GET /api/users/stats endpoint for TopHeader KPIs in backend/src/api/users.py
+- [x] T093 [US4] Add deactivateUser(), reactivateUser() to useUsers.ts hook in frontend/src/hooks/useUsers.ts
+- [x] T094 [US4] (Modified) Create TeamPage with user list table and action buttons in frontend/src/pages/TeamPage.tsx
+- [x] T095 [US4] (Modified) Add Team to user dropdown menu in TopHeader instead of Settings tab
+- [x] T096 [US4] Implement TopHeader KPI stats for Team page using useHeaderStats in frontend/src/pages/TeamPage.tsx
 
 **Checkpoint**: User management complete - list users, invite, deactivate, reactivate, delete pending
 
@@ -264,28 +264,28 @@
 
 ### Tests for User Story 5
 
-- [ ] T097 [P] [US5] Unit test for TeamService.create_with_admin() in backend/tests/unit/test_team_service.py
-- [ ] T098 [P] [US5] Integration test for super admin authorization (403 for non-super-admin) in backend/tests/integration/test_teams_api.py
-- [ ] T099 [P] [US5] Integration test for team deactivation blocks all member logins in backend/tests/integration/test_teams_api.py
+- [x] T097 [P] [US5] Unit test for TeamService.create_with_admin() in backend/tests/unit/test_team_service.py
+- [x] T098 [P] [US5] Integration test for super admin authorization (403 for non-super-admin) in backend/tests/integration/test_teams_api.py
+- [x] T099 [P] [US5] Integration test for team deactivation blocks all member logins in backend/tests/integration/test_teams_api.py
 
 ### Implementation for User Story 5
 
-- [ ] T100 [US5] Add list_all(), deactivate(), reactivate() methods to TeamService in backend/src/services/team_service.py
-- [ ] T101 [US5] Add create_with_admin() method to TeamService (creates team + pending admin user) in backend/src/services/team_service.py
-- [ ] T102 [US5] Create require_super_admin FastAPI dependency using is_super_admin() in backend/src/middleware/auth.py
-- [ ] T103 [US5] Create team Pydantic schemas (CreateTeamRequest, TeamResponse, TeamListResponse, TeamStatsResponse) in backend/src/schemas/team.py
-- [ ] T104 [US5] Create backend/src/api/admin/__init__.py for admin routes module
-- [ ] T105 [US5] Create GET /api/admin/teams endpoint (list all teams) in backend/src/api/admin/teams.py
-- [ ] T106 [US5] Create POST /api/admin/teams endpoint (create team) in backend/src/api/admin/teams.py
-- [ ] T107 [US5] Create POST /api/admin/teams/{guid}/deactivate endpoint in backend/src/api/admin/teams.py
-- [ ] T108 [US5] Create POST /api/admin/teams/{guid}/reactivate endpoint in backend/src/api/admin/teams.py
-- [ ] T109 [US5] Create GET /api/admin/teams/stats endpoint for KPIs in backend/src/api/admin/teams.py
-- [ ] T110 [US5] Register admin teams router in backend/src/main.py with /api/admin prefix
-- [ ] T111 [P] [US5] Create teams-api.ts API client for admin endpoints in frontend/src/services/teams-api.ts
-- [ ] T112 [P] [US5] Create useTeams.ts hook with createTeam(), listTeams(), deactivateTeam(), reactivateTeam() in frontend/src/hooks/useTeams.ts
-- [ ] T113 [US5] Create TeamsTab.tsx with team list and actions (super admin only) in frontend/src/pages/settings/TeamsTab.tsx
-- [ ] T114 [US5] Add TeamsTab to Settings page (conditionally visible for super admin with badge) in frontend/src/pages/SettingsPage.tsx
-- [ ] T115 [US5] Update AuthContext to expose isSuperAdmin flag in frontend/src/contexts/AuthContext.tsx
+- [x] T100 [US5] Add list_all(), deactivate(), reactivate() methods to TeamService in backend/src/services/team_service.py (methods already existed)
+- [x] T101 [US5] Add create_with_admin() method to TeamService (creates team + pending admin user) in backend/src/services/team_service.py
+- [x] T102 [US5] Create require_super_admin FastAPI dependency using is_super_admin() in backend/src/middleware/auth.py (already existed)
+- [x] T103 [US5] Create team Pydantic schemas (CreateTeamRequest, TeamResponse, TeamListResponse, TeamStatsResponse) in backend/src/schemas/team.py
+- [x] T104 [US5] Create backend/src/api/admin/__init__.py for admin routes module
+- [x] T105 [US5] Create GET /api/admin/teams endpoint (list all teams) in backend/src/api/admin/teams.py
+- [x] T106 [US5] Create POST /api/admin/teams endpoint (create team) in backend/src/api/admin/teams.py
+- [x] T107 [US5] Create POST /api/admin/teams/{guid}/deactivate endpoint in backend/src/api/admin/teams.py
+- [x] T108 [US5] Create POST /api/admin/teams/{guid}/reactivate endpoint in backend/src/api/admin/teams.py
+- [x] T109 [US5] Create GET /api/admin/teams/stats endpoint for KPIs in backend/src/api/admin/teams.py
+- [x] T110 [US5] Register admin teams router in backend/src/main.py with /api/admin prefix
+- [x] T111 [P] [US5] Create teams-api.ts API client for admin endpoints in frontend/src/services/teams-api.ts
+- [x] T112 [P] [US5] Create useTeams.ts hook with createTeam(), listTeams(), deactivateTeam(), reactivateTeam() in frontend/src/hooks/useTeams.ts
+- [x] T113 [US5] Create TeamsTab.tsx with team list and actions (super admin only) in frontend/src/components/settings/TeamsTab.tsx
+- [x] T114 [US5] Add TeamsTab to Settings page (conditionally visible for super admin with badge) in frontend/src/pages/SettingsPage.tsx
+- [x] T115 [US5] Update AuthContext to expose isSuperAdmin flag in frontend/src/contexts/AuthContext.tsx (useIsSuperAdmin hook already existed)
 
 **Checkpoint**: Super admins can create teams, deactivate/reactivate teams. Regular users don't see Teams tab.
 
@@ -293,35 +293,52 @@
 
 ## Phase 10: User Story 7 - API Token Authentication (Priority: P3)
 
-**Goal**: Allow users to generate JWT API tokens for programmatic access
+**Goal**: Allow users to generate JWT API tokens for programmatic access via System Users
 
 **Independent Test**: Generate token, use it with curl/httpie, verify API returns team-scoped data
 
 **Dependencies**: US6 (needs tenant isolation for token scoping)
 
+**Security Requirements**:
+- API tokens MUST NOT grant access to super admin endpoints (`/api/admin/*`)
+- API tokens are associated with System Users (not human users) to avoid breakage when humans are deactivated
+- System Users cannot log in via OAuth and cannot be managed via user management UI
+
+### System User Model Changes
+
+- [x] T116a [US7] Add UserType enum (human, system) to backend/src/models/user.py
+- [x] T116b [US7] Update ApiToken model with system_user_id (FK to system user) and created_by_user_id (FK to human creator) in backend/src/models/api_token.py
+- [x] T116c [US7] Block system users from OAuth login in backend/src/services/auth_service.py (reject if user_type=system)
+- [x] T116d [US7] Filter system users from user management UI - update GET /api/users to exclude user_type=system in backend/src/api/users.py
+- [x] T116e [US7] Create migration 030_add_user_type_and_update_api_tokens.py for UserType enum and ApiToken FK changes
+
 ### Tests for User Story 7
 
-- [ ] T116 [P] [US7] Unit test for TokenService.generate() and validate() in backend/tests/unit/test_token_service.py
-- [ ] T117 [P] [US7] Integration test for Bearer token authentication in backend/tests/integration/test_api_tokens.py
-- [ ] T118 [P] [US7] Integration test for token revocation in backend/tests/integration/test_api_tokens.py
-- [ ] T119 [P] [US7] Integration test for expired token rejection in backend/tests/integration/test_api_tokens.py
+- [x] T117 [P] [US7] Unit test for TokenService.generate() and validate() in backend/tests/unit/test_token_service.py
+- [x] T118 [P] [US7] Integration test for Bearer token authentication in backend/tests/integration/test_api_tokens.py
+- [x] T119 [P] [US7] Integration test for token revocation in backend/tests/integration/test_api_tokens.py
+- [x] T120 [P] [US7] Integration test for expired token rejection in backend/tests/integration/test_api_tokens.py
+- [x] T121 [P] [US7] Integration test for API token CANNOT access /api/admin/* endpoints in backend/tests/integration/test_api_tokens.py
+- [x] T122 [P] [US7] Integration test for system user cannot OAuth login in backend/tests/integration/test_api_tokens.py
 
 ### Implementation for User Story 7
 
-- [ ] T120 [US7] Create TokenService with generate(), validate(), revoke(), list_user_tokens() methods in backend/src/services/token_service.py
-- [ ] T121 [US7] Create token Pydantic schemas (CreateTokenRequest, TokenResponse, TokenCreatedResponse, TokenListResponse) in backend/src/schemas/token.py
-- [ ] T122 [US7] Create GET /api/tokens endpoint (list user's tokens) in backend/src/api/tokens.py
-- [ ] T123 [US7] Create POST /api/tokens endpoint (generate new token, return full token once) in backend/src/api/tokens.py
-- [ ] T124 [US7] Create DELETE /api/tokens/{guid} endpoint (revoke token) in backend/src/api/tokens.py
-- [ ] T125 [US7] Create POST /api/tokens/validate endpoint for testing tokens in backend/src/api/tokens.py
-- [ ] T126 [US7] Register tokens router in backend/src/main.py with /api prefix
-- [ ] T127 [US7] Update authentication middleware to accept Bearer token in Authorization header in backend/src/middleware/auth.py
-- [ ] T128 [P] [US7] Create tokens-api.ts API client in frontend/src/services/tokens-api.ts
-- [ ] T129 [P] [US7] Create useTokens.ts hook with generateToken(), listTokens(), revokeToken() in frontend/src/hooks/useTokens.ts
-- [ ] T130 [US7] Create ApiTokensTab.tsx with token list and generate button (copy-to-clipboard) in frontend/src/pages/settings/ApiTokensTab.tsx
-- [ ] T131 [US7] Add ApiTokensTab to Settings page in frontend/src/pages/SettingsPage.tsx
+- [x] T123 [US7] Create TokenService with generate(), validate(), revoke(), list_tokens() methods in backend/src/services/token_service.py (generate creates system user + token atomically)
+- [x] T124 [US7] Create token Pydantic schemas (CreateTokenRequest, TokenResponse, TokenCreatedResponse, TokenListResponse) in backend/src/schemas/token.py
+- [x] T125 [US7] Create GET /api/tokens endpoint (list current user's tokens) in backend/src/api/tokens.py
+- [x] T126 [US7] Create POST /api/tokens endpoint (generate new token, return full token once) in backend/src/api/tokens.py
+- [x] T127 [US7] Create DELETE /api/tokens/{guid} endpoint (revoke token and deactivate system user) in backend/src/api/tokens.py
+- [x] T128 [US7] Create POST /api/tokens/validate endpoint for testing tokens in backend/src/api/tokens.py
+- [x] T129 [US7] Register tokens router in backend/src/main.py with /api prefix
+- [x] T130 [US7] Update _authenticate_api_token() in backend/src/middleware/tenant.py to validate JWT and return TenantContext with is_api_token=True and is_super_admin=False (always)
+- [x] T131 [US7] Update require_super_admin() in backend/src/middleware/tenant.py to reject API token auth (check is_api_token and return 403 "API tokens cannot access admin endpoints")
+- [x] T132 [P] [US7] Create tokens-api.ts API client in frontend/src/services/tokens-api.ts
+- [x] T133 [P] [US7] Create useTokens.ts hook with generateToken(), listTokens(), revokeToken() in frontend/src/hooks/useTokens.ts
+- [x] T134 [US7] Create ApiTokensTab.tsx with token list and generate button (copy-to-clipboard) in frontend/src/components/settings/ApiTokensTab.tsx
+- [x] T135 [US7] Add ApiTokensTab to Settings page in frontend/src/pages/SettingsPage.tsx
+- [x] T135b [US7] Add Bearer token security scheme to OpenAPI spec for /docs and /redoc in backend/src/main.py
 
-**Checkpoint**: Users can generate API tokens, use them for programmatic access, revoke tokens
+**Checkpoint**: Users can generate API tokens, use them for programmatic access, revoke tokens. API tokens cannot access admin endpoints. System users are invisible in user management. OpenAPI docs show Authorize button for testing with API tokens.
 
 ---
 
@@ -331,16 +348,18 @@
 
 ### Migration Finalization
 
-- [ ] T132 Create migration 029_populate_team_id_and_enforce_not_null.py (populate existing data with default team, add NOT NULL constraint) in backend/src/db/migrations/versions/
+- [x] T136 Create migration 031_populate_team_id_and_enforce_not_null.py (populate existing data with default team, add NOT NULL constraint) in backend/src/db/migrations/versions/
 
 ### Documentation & Validation
 
-- [ ] T133 [P] Update backend/src/schemas/__init__.py to export all new schemas
-- [ ] T134 [P] Add structured logging for auth events (login success/failure, logout) in backend/src/services/auth_service.py
-- [ ] T135 [P] Add structured logging for super admin actions in backend/src/api/admin/teams.py
-- [ ] T136 [P] Update frontend/src/services/api.ts to handle 401 responses and redirect to login
-- [ ] T137 Run quickstart.md validation - verify all setup steps work end-to-end
-- [ ] T138 Run full test suite and verify >80% backend coverage, >75% frontend coverage
+- [x] T136b Update constitution.md (v1.5.0) with Core Principle V: Multi-Tenancy and Authentication in .specify/memory/constitution.md
+- [x] T136c Update CLAUDE.md with Architecture Principle 6: Multi-Tenancy and Authentication requirements
+- [x] T137 [P] Update backend/src/schemas/__init__.py to export all new schemas
+- [x] T138 [P] Add structured logging for auth events (login success/failure, logout) in backend/src/services/auth_service.py
+- [x] T139 [P] Add structured logging for super admin actions in backend/src/api/admin/teams.py
+- [x] T140 [P] Update frontend/src/services/api.ts to handle 401 responses and redirect to login
+- [x] T141 Run quickstart.md validation - verify all setup steps work end-to-end (fixed OAuth callback URLs)
+- [x] T142 Run full test suite and verify >80% backend coverage (1403 tests pass)
 
 ---
 

@@ -6,7 +6,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
-import { Bell, Menu, HelpCircle, LogOut, User, type LucideIcon } from 'lucide-react'
+import { Bell, Menu, HelpCircle, LogOut, User, Users, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -95,6 +95,10 @@ export function TopHeader({
 
   const handleViewProfile = () => {
     navigate('/profile')
+  }
+
+  const handleViewTeam = () => {
+    navigate('/team')
   }
 
   return (
@@ -205,6 +209,13 @@ export function TopHeader({
             >
               <User className="mr-2 h-4 w-4" />
               <span>View Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={handleViewTeam}
+              className="cursor-pointer"
+            >
+              <Users className="mr-2 h-4 w-4" />
+              <span>Team</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={logout}

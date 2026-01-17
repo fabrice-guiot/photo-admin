@@ -162,35 +162,44 @@ async def _authenticate_api_token(
     """
     Authenticate using an API token.
 
+    API tokens use JWT format and are validated through the TokenService.
+    API tokens NEVER grant super admin privileges (security requirement).
+
     Args:
         token: JWT token string
         db: Database session
-        check_super_admin: Function to check super admin status
+        check_super_admin: Function to check super admin status (unused for tokens)
 
     Returns:
-        TenantContext for the token's user and team
+        TenantContext for the token's user and team with:
+        - is_api_token=True
+        - is_super_admin=False (always, for security)
 
     Raises:
-        HTTPException 401: If token is invalid
+        HTTPException 401: If token is invalid, expired, or revoked
         HTTPException 403: If token, user, or team is inactive
     """
-    # TODO: Implement JWT validation and token lookup
-    # This will be implemented in Phase 4 (US6 - API Token Management)
-    #
-    # Implementation steps:
-    # 1. Decode JWT and extract token_id
-    # 2. Lookup ApiToken by id
-    # 3. Verify token_hash matches
-    # 4. Check token is active and not expired
-    # 5. Check user is active
-    # 6. Check team is active
-    # 7. Update last_used_at
-    # 8. Return TenantContext
+    # Import TokenService here to avoid circular imports
+    from backend.src.services.token_service import TokenService
+    from backend.src.config.settings import get_settings
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="API token authentication not yet implemented"
-    )
+    settings = get_settings()
+
+    # Validate token using TokenService
+    service = TokenService(db, settings.jwt_secret_key)
+    ctx = service.validate_token(token)
+
+    if not ctx:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid, expired, or revoked API token",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    # ctx from TokenService already has:
+    # - is_api_token=True
+    # - is_super_admin=False (enforced by TokenService)
+    return ctx
 
 
 async def _authenticate_session(
@@ -257,15 +266,16 @@ def require_super_admin(ctx: TenantContext = Depends(get_tenant_context)) -> Ten
     Dependency that requires super admin privileges.
 
     Use this for endpoints that should only be accessible to super admins.
+    API tokens are NEVER allowed, even if the creating user was a super admin.
 
     Args:
         ctx: Tenant context from get_tenant_context
 
     Returns:
-        TenantContext if user is super admin
+        TenantContext if user is super admin (via session auth)
 
     Raises:
-        HTTPException 403: If user is not a super admin
+        HTTPException 403: If user is not a super admin OR using API token
 
     Example:
         @router.delete("/teams/{guid}")
@@ -275,6 +285,13 @@ def require_super_admin(ctx: TenantContext = Depends(get_tenant_context)) -> Ten
             # Only super admins can delete teams
             ...
     """
+    # API tokens cannot access admin endpoints (security requirement)
+    if ctx.is_api_token:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="API tokens cannot access admin endpoints"
+        )
+
     if not ctx.is_super_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

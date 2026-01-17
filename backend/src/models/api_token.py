@@ -9,9 +9,16 @@ Design Rationale:
 - JWT tokens for stateless validation
 - token_hash stored for revocation lookup (can't recompute JWT hash)
 - token_prefix (first 8 chars) allows users to identify tokens in UI
-- team_id denormalized from user for efficient team-scoped queries
+- team_id denormalized for efficient team-scoped queries
 - scopes_json prepared for future granular permissions (v1: ["*"] only)
 - Soft revocation via is_active=false (maintains audit trail)
+
+System User Association (Phase 10):
+- Each API token has an associated system_user (UserType.SYSTEM)
+- The system_user is auto-created when the token is generated
+- This avoids token breakage when human users are deactivated
+- created_by_user_id tracks which human created the token (audit trail)
+- The system_user's team_id determines tenant isolation
 """
 
 import json
@@ -36,12 +43,17 @@ class ApiToken(Base, GuidMixin):
     Tokens are JWT-based credentials for automation. The full token is only
     shown once at creation; the hash is stored for validation and revocation.
 
+    Each token has an associated system user (UserType.SYSTEM) that represents
+    the token's identity. This design ensures tokens remain functional even if
+    the human user who created them is deactivated.
+
     Attributes:
         id: Primary key (internal, never exposed)
         uuid: UUIDv7 for external identification (inherited from GuidMixin)
         guid: GUID string property (tok_xxx, inherited from GuidMixin)
-        user_id: Token owner (FK to users)
-        team_id: Team scope (denormalized from user for query efficiency)
+        system_user_id: System user for this token (FK to users, UserType.SYSTEM)
+        created_by_user_id: Human user who created this token (FK to users, audit trail)
+        team_id: Team scope (denormalized for query efficiency)
         name: User-provided token name/description
         token_hash: SHA-256 hash of the full JWT (for validation)
         token_prefix: First 8 characters of token (for UI identification)
@@ -52,18 +64,21 @@ class ApiToken(Base, GuidMixin):
         created_at: Creation timestamp
 
     Relationships:
-        user: User who owns this token (many-to-one)
+        system_user: System user representing this token's identity (many-to-one)
+        created_by: Human user who created this token (many-to-one)
         team: Team this token is scoped to (many-to-one)
 
     Constraints:
         - token_hash must be unique
-        - user_id and team_id are required
+        - system_user_id and team_id are required
+        - created_by_user_id is required (audit trail)
         - expires_at must be in the future at creation
 
     Indexes:
         - uuid (unique, for GUID lookups)
         - token_hash (unique, for validation lookup)
-        - user_id (for user's token list)
+        - system_user_id (for token lookup by system user)
+        - created_by_user_id (for listing tokens created by a user)
         - team_id (for team-scoped queries)
         - expires_at (for expiration cleanup)
         - is_active (for filtering active tokens)
@@ -77,13 +92,23 @@ class ApiToken(Base, GuidMixin):
     # Primary key
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Ownership
-    user_id = Column(
+    # System user (represents this token's identity)
+    system_user_id = Column(
         Integer,
-        ForeignKey("users.id", name="fk_api_tokens_user_id"),
+        ForeignKey("users.id", name="fk_api_tokens_system_user_id"),
         nullable=False,
         index=True
     )
+
+    # Human user who created this token (audit trail)
+    created_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", name="fk_api_tokens_created_by_user_id"),
+        nullable=False,
+        index=True
+    )
+
+    # Team scope (denormalized from system_user for query efficiency)
     team_id = Column(
         Integer,
         ForeignKey("teams.id", name="fk_api_tokens_team_id"),
@@ -108,9 +133,16 @@ class ApiToken(Base, GuidMixin):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
-    user = relationship(
+    system_user = relationship(
         "User",
-        back_populates="api_tokens",
+        foreign_keys=[system_user_id],
+        back_populates="api_token",
+        lazy="joined"
+    )
+    created_by = relationship(
+        "User",
+        foreign_keys=[created_by_user_id],
+        back_populates="created_api_tokens",
         lazy="joined"
     )
     team = relationship(

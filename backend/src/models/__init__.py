@@ -68,7 +68,7 @@ from backend.src.models.event_performer import EventPerformer, PerformerStatus
 
 # User Management models (Issue #73)
 from backend.src.models.team import Team
-from backend.src.models.user import User, UserStatus
+from backend.src.models.user import User, UserStatus, UserType
 from backend.src.models.api_token import ApiToken
 
 # Export Base and all models
@@ -110,5 +110,6 @@ __all__ = [
     "Team",
     "User",
     "UserStatus",
+    "UserType",
     "ApiToken",
 ]

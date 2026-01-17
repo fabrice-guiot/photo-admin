@@ -11,6 +11,13 @@ Design Rationale:
 - is_active is the functional toggle for login capability
 - OAuth profile data (name, picture) synced on each login
 - oauth_subject stores immutable OAuth sub claim for identity verification
+- user_type distinguishes human users from system users (API tokens)
+
+System Users (Phase 10):
+- Created automatically when an API token is generated
+- Cannot log in via OAuth (blocked in auth flow)
+- Not visible in user management UI
+- Lifecycle tied to the API token (deactivated when token is revoked)
 """
 
 import enum
@@ -26,6 +33,17 @@ from backend.src.models.mixins import GuidMixin
 if TYPE_CHECKING:
     from backend.src.models.team import Team
     from backend.src.models.api_token import ApiToken
+
+
+class UserType(enum.Enum):
+    """
+    User type classification.
+
+    - HUMAN: Regular users who authenticate via OAuth
+    - SYSTEM: Auto-created users for API tokens (cannot OAuth login)
+    """
+    HUMAN = "human"    # Normal users who log in via OAuth
+    SYSTEM = "system"  # Auto-created for API tokens
 
 
 class UserStatus(enum.Enum):
@@ -54,6 +72,7 @@ class User(Base, GuidMixin):
         uuid: UUIDv7 for external identification (inherited from GuidMixin)
         guid: GUID string property (usr_xxx, inherited from GuidMixin)
         team_id: Team membership (FK to teams)
+        user_type: Type of user (human or system)
         email: Login email (globally unique across ALL teams)
         first_name: User's first name (from invite or OAuth)
         last_name: User's last name (from invite or OAuth)
@@ -101,6 +120,14 @@ class User(Base, GuidMixin):
         index=True
     )
 
+    # User type (human or system)
+    user_type = Column(
+        Enum(UserType, name="user_type", create_constraint=True),
+        default=UserType.HUMAN,
+        nullable=False,
+        index=True
+    )
+
     # Identity
     email = Column(String(255), unique=True, nullable=False, index=True)
     first_name = Column(String(100), nullable=True)
@@ -140,11 +167,20 @@ class User(Base, GuidMixin):
         back_populates="users",
         lazy="joined"
     )
-    api_tokens = relationship(
+    # For system users: the API token this system user represents (one-to-one)
+    api_token = relationship(
         "ApiToken",
-        back_populates="user",
-        lazy="dynamic",
-        cascade="all, delete-orphan"
+        foreign_keys="ApiToken.system_user_id",
+        back_populates="system_user",
+        uselist=False,
+        lazy="joined"
+    )
+    # For human users: API tokens created by this user (one-to-many)
+    created_api_tokens = relationship(
+        "ApiToken",
+        foreign_keys="ApiToken.created_by_user_id",
+        back_populates="created_by",
+        lazy="dynamic"
     )
 
     @property
@@ -169,16 +205,42 @@ class User(Base, GuidMixin):
     @property
     def can_login(self) -> bool:
         """
-        Check if the user can log in.
+        Check if the user can log in via OAuth.
 
         A user can log in if:
+        - They are a human user (not system user)
         - Their account is active (is_active=True)
         - Their status is not DEACTIVATED
         - Their team is active
 
         Note: Team active status should be checked separately via the team relationship.
+        System users (created for API tokens) cannot log in via OAuth.
         """
-        return self.is_active and self.status != UserStatus.DEACTIVATED
+        return (
+            self.user_type == UserType.HUMAN
+            and self.is_active
+            and self.status != UserStatus.DEACTIVATED
+        )
+
+    @property
+    def is_system_user(self) -> bool:
+        """
+        Check if this is a system user (created for API tokens).
+
+        Returns:
+            True if user_type is SYSTEM
+        """
+        return self.user_type == UserType.SYSTEM
+
+    @property
+    def is_human_user(self) -> bool:
+        """
+        Check if this is a human user (can authenticate via OAuth).
+
+        Returns:
+            True if user_type is HUMAN
+        """
+        return self.user_type == UserType.HUMAN
 
     def __repr__(self) -> str:
         """String representation for debugging."""

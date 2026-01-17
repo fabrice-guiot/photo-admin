@@ -628,3 +628,99 @@ class TestTenantIsolationSecurity:
         assert data["total_collections"] == 1
 
         app.dependency_overrides.clear()
+
+
+# ============================================================================
+# T121: API Token Admin Restriction Tests (Phase 10)
+# ============================================================================
+
+class TestApiTokenAdminRestriction:
+    """Tests for API token restriction from admin endpoints (T121)."""
+
+    def test_api_token_cannot_access_admin_endpoints(self, test_team, test_user):
+        """API tokens should be rejected from /api/admin/* endpoints."""
+        from backend.src.middleware.tenant import require_super_admin, TenantContext
+        from fastapi import HTTPException
+
+        # Create a context that simulates API token auth
+        token_ctx = TenantContext(
+            team_id=test_team.id,
+            team_guid=test_team.guid,
+            user_id=test_user.id,
+            user_guid=test_user.guid,
+            user_email="system-token@system.local",
+            is_super_admin=False,  # Tokens never have super admin
+            is_api_token=True,     # This is an API token
+        )
+
+        # require_super_admin should reject API tokens
+        with pytest.raises(HTTPException) as exc:
+            require_super_admin(token_ctx)
+
+        assert exc.value.status_code == 403
+        assert "API tokens cannot access admin endpoints" in exc.value.detail
+
+    def test_api_token_rejected_even_with_super_admin_flag(self, test_team, test_user):
+        """API tokens should be rejected even if is_super_admin is True (defense in depth)."""
+        from backend.src.middleware.tenant import require_super_admin, TenantContext
+        from fastapi import HTTPException
+
+        # Hypothetically, if someone tries to craft a token with is_super_admin=True
+        # (TokenService prevents this, but test defense in depth)
+        token_ctx = TenantContext(
+            team_id=test_team.id,
+            team_guid=test_team.guid,
+            user_id=test_user.id,
+            user_guid=test_user.guid,
+            user_email="system-token@system.local",
+            is_super_admin=True,   # Even if this is True...
+            is_api_token=True,     # ...API tokens are still rejected
+        )
+
+        # require_super_admin should still reject because is_api_token=True
+        with pytest.raises(HTTPException) as exc:
+            require_super_admin(token_ctx)
+
+        assert exc.value.status_code == 403
+        assert "API tokens cannot access admin endpoints" in exc.value.detail
+
+    def test_super_admin_session_can_access_admin_endpoints(self, test_team, test_user):
+        """Super admin session auth should be allowed."""
+        from backend.src.middleware.tenant import require_super_admin, TenantContext
+
+        # Create a context for a super admin session
+        admin_ctx = TenantContext(
+            team_id=test_team.id,
+            team_guid=test_team.guid,
+            user_id=test_user.id,
+            user_guid=test_user.guid,
+            user_email=test_user.email,
+            is_super_admin=True,
+            is_api_token=False,
+        )
+
+        # Should not raise
+        result = require_super_admin(admin_ctx)
+        assert result is admin_ctx
+
+    def test_non_super_admin_session_rejected(self, test_team, test_user):
+        """Non-super-admin session should be rejected from admin endpoints."""
+        from backend.src.middleware.tenant import require_super_admin, TenantContext
+        from fastapi import HTTPException
+
+        # Create a context for a regular user session
+        user_ctx = TenantContext(
+            team_id=test_team.id,
+            team_guid=test_team.guid,
+            user_id=test_user.id,
+            user_guid=test_user.guid,
+            user_email=test_user.email,
+            is_super_admin=False,
+            is_api_token=False,
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            require_super_admin(user_ctx)
+
+        assert exc.value.status_code == 403
+        assert "Super admin privileges required" in exc.value.detail

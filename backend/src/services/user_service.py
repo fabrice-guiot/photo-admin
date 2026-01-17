@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
-from backend.src.models import User, UserStatus, Team
+from backend.src.models import User, UserStatus, UserType, Team
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.exceptions import NotFoundError, ConflictError, ValidationError
 from backend.src.services.guid import GuidService
@@ -233,6 +233,7 @@ class UserService:
         team_id: int,
         active_only: bool = False,
         status_filter: Optional[UserStatus] = None,
+        include_system_users: bool = False,
     ) -> List[User]:
         """
         List all users in a team.
@@ -241,11 +242,16 @@ class UserService:
             team_id: Team ID to filter by
             active_only: If True, only return active users
             status_filter: Filter by specific status (optional)
+            include_system_users: If False (default), exclude system users
 
         Returns:
             List of User instances
         """
         query = self.db.query(User).filter(User.team_id == team_id)
+
+        # By default, exclude system users (they are for API tokens)
+        if not include_system_users:
+            query = query.filter(User.user_type == UserType.HUMAN)
 
         if active_only:
             query = query.filter(User.is_active == True)
@@ -395,21 +401,82 @@ class UserService:
         new_status = UserStatus.ACTIVE if user.last_login_at else UserStatus.PENDING
         return self.update(guid, is_active=True, status=new_status)
 
-    def count_by_team(self, team_id: int) -> int:
+    def count_by_team(self, team_id: int, include_system_users: bool = False) -> int:
         """
         Get user count for a team.
 
         Args:
             team_id: Team ID
+            include_system_users: If False (default), exclude system users
 
         Returns:
             Number of users in the team
         """
-        return (
+        query = (
             self.db.query(func.count(User.id))
             .filter(User.team_id == team_id)
-            .scalar()
         )
+
+        if not include_system_users:
+            query = query.filter(User.user_type == UserType.HUMAN)
+
+        return query.scalar()
+
+    def invite(self, team_id: int, email: str) -> User:
+        """
+        Invite a user by email (pre-provisioning).
+
+        Creates a pending user in the specified team. The user will be
+        activated on their first OAuth login.
+
+        This is the preferred method for user creation as it enforces
+        the pre-provisioning workflow.
+
+        Args:
+            team_id: ID of the team to invite user to
+            email: User's email address (must be globally unique)
+
+        Returns:
+            Created User instance with PENDING status
+
+        Raises:
+            NotFoundError: If team not found
+            ConflictError: If email already exists (globally)
+            ValidationError: If email format is invalid
+        """
+        return self.create(
+            team_id=team_id,
+            email=email,
+            status=UserStatus.PENDING,
+            is_active=True,
+        )
+
+    def delete_pending(self, guid: str) -> None:
+        """
+        Delete a pending user invitation.
+
+        Only users with PENDING status can be deleted. Active and
+        deactivated users cannot be deleted (to preserve history).
+
+        Args:
+            guid: User GUID to delete
+
+        Raises:
+            NotFoundError: If user not found
+            ValidationError: If user is not in PENDING status
+        """
+        user = self.get_by_guid(guid)
+
+        if user.status != UserStatus.PENDING:
+            raise ValidationError(
+                f"Only pending users can be deleted. User status is: {user.status.value}",
+                field="status"
+            )
+
+        email = user.email
+        self.db.delete(user)
+        self.db.commit()
+        logger.info(f"Deleted pending user: {email} ({guid})")
 
     def _is_valid_email(self, email: str) -> bool:
         """

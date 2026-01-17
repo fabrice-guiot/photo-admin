@@ -407,3 +407,129 @@ class TestTeamSlugGeneration:
     def test_generate_slug_only_special(self):
         """Test slug generation with only special chars."""
         assert Team.generate_slug("@#$%") == ""
+
+
+# ============================================================================
+# Create With Admin Tests (T097)
+# ============================================================================
+
+
+class TestTeamServiceCreateWithAdmin:
+    """Tests for create_with_admin() method."""
+
+    def test_create_with_admin_success(self, team_service, test_db_session):
+        """Test successfully creating a team with admin user."""
+        team, admin = team_service.create_with_admin(
+            name="New Company",
+            admin_email="admin@newcompany.com",
+        )
+
+        assert team is not None
+        assert team.name == "New Company"
+        assert team.slug == "new-company"
+        assert team.is_active is True
+        assert team.guid.startswith("ten_")
+
+        assert admin is not None
+        assert admin.email == "admin@newcompany.com"
+        assert admin.team_id == team.id
+        assert admin.status.value == "pending"
+        assert admin.is_active is True
+        assert admin.guid.startswith("usr_")
+
+    def test_create_with_admin_email_normalized(self, team_service):
+        """Test admin email is lowercased."""
+        team, admin = team_service.create_with_admin(
+            name="Email Test",
+            admin_email="ADMIN@EXAMPLE.COM",
+        )
+
+        assert admin.email == "admin@example.com"
+
+    def test_create_with_admin_duplicate_email(self, team_service, test_db_session):
+        """Test error when admin email already exists."""
+        from backend.src.models import User, UserStatus
+
+        # Create a team and user first
+        team_service.create_with_admin(
+            name="First Team",
+            admin_email="existing@example.com",
+        )
+
+        # Try to create another team with same admin email
+        with pytest.raises(ConflictError) as exc_info:
+            team_service.create_with_admin(
+                name="Second Team",
+                admin_email="existing@example.com",
+            )
+
+        assert "already exists" in str(exc_info.value).lower()
+
+    def test_create_with_admin_duplicate_team_name(self, team_service, sample_team):
+        """Test error when team name already exists."""
+        sample_team(name="Existing Team")
+
+        with pytest.raises(ConflictError):
+            team_service.create_with_admin(
+                name="Existing Team",
+                admin_email="new@example.com",
+            )
+
+    def test_create_with_admin_empty_email(self, team_service):
+        """Test error when admin email is empty."""
+        with pytest.raises(ValidationError) as exc_info:
+            team_service.create_with_admin(
+                name="Test Team",
+                admin_email="",
+            )
+
+        assert "empty" in str(exc_info.value).lower()
+
+    def test_create_with_admin_invalid_email_format(self, team_service):
+        """Test error when admin email has invalid format."""
+        with pytest.raises(ValidationError) as exc_info:
+            team_service.create_with_admin(
+                name="Test Team",
+                admin_email="notanemail",
+            )
+
+        assert "invalid" in str(exc_info.value).lower()
+
+    def test_create_with_admin_custom_slug(self, team_service):
+        """Test creating with custom slug."""
+        team, admin = team_service.create_with_admin(
+            name="Custom Slug Team",
+            admin_email="admin@customslug.com",
+            slug="custom-slug",
+        )
+
+        assert team.slug == "custom-slug"
+
+
+# ============================================================================
+# Stats Tests
+# ============================================================================
+
+
+class TestTeamServiceStats:
+    """Tests for get_stats() method."""
+
+    def test_get_stats_empty(self, team_service):
+        """Test stats with no teams."""
+        stats = team_service.get_stats()
+
+        assert stats["total_teams"] == 0
+        assert stats["active_teams"] == 0
+        assert stats["inactive_teams"] == 0
+
+    def test_get_stats_with_teams(self, team_service, sample_team):
+        """Test stats with mixed active/inactive teams."""
+        sample_team(name="Active 1", is_active=True)
+        sample_team(name="Active 2", is_active=True)
+        sample_team(name="Inactive 1", is_active=False)
+
+        stats = team_service.get_stats()
+
+        assert stats["total_teams"] == 3
+        assert stats["active_teams"] == 2
+        assert stats["inactive_teams"] == 1

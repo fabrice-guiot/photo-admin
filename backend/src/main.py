@@ -30,6 +30,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import ValidationError
@@ -347,6 +348,72 @@ else:
     )
 
 
+# ============================================================================
+# Custom OpenAPI Schema with Bearer Token Authentication
+# ============================================================================
+def custom_openapi():
+    """
+    Generate custom OpenAPI schema with Bearer token authentication.
+
+    This adds the HTTPBearer security scheme to the OpenAPI spec, enabling
+    the "Authorize" button in Swagger UI (/docs) and ReDoc (/redoc).
+
+    Users can enter their API token to test authenticated endpoints.
+
+    Note: /health and /api/version endpoints do not require authentication
+    and are marked accordingly in their route definitions.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Add security scheme for Bearer token authentication
+    openapi_schema["components"] = openapi_schema.get("components", {})
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": (
+                "API Token authentication. Generate a token from Settings > API Tokens "
+                "in the web UI. Enter the token value (without 'Bearer ' prefix)."
+            )
+        }
+    }
+
+    # Apply security globally to all endpoints except public ones
+    # Public endpoints: /health, /api/version, /api/auth/*
+    public_paths = {"/health", "/api/version"}
+    public_prefixes = ["/api/auth/"]
+
+    for path, path_item in openapi_schema.get("paths", {}).items():
+        # Skip public paths
+        if path in public_paths:
+            continue
+        if any(path.startswith(prefix) for prefix in public_prefixes):
+            continue
+        # Skip non-API paths (SPA routes)
+        if not path.startswith("/api") and path != "/health":
+            continue
+
+        # Apply security to all methods on this path
+        for method in path_item.values():
+            if isinstance(method, dict):
+                method["security"] = [{"BearerAuth": []}]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+
 # Exception handlers
 
 
@@ -491,6 +558,9 @@ async def get_version() -> Dict[str, str]:
 # API routers
 from backend.src.api import collections, connectors, tools, results, pipelines, trends, config, categories, events, locations, organizers, performers
 from backend.src.api import auth as auth_router
+from backend.src.api import users as users_router
+from backend.src.api import tokens as tokens_router
+from backend.src.api.admin import teams_router as admin_teams_router
 
 app.include_router(collections.router, prefix="/api")
 app.include_router(connectors.router, prefix="/api")
@@ -507,6 +577,15 @@ app.include_router(performers.router, prefix="/api")
 
 # Authentication router
 app.include_router(auth_router.router, prefix="/api")
+
+# User management router
+app.include_router(users_router.router, prefix="/api")
+
+# Token management routes (Phase 10)
+app.include_router(tokens_router.router)
+
+# Admin routes (super admin only)
+app.include_router(admin_teams_router, prefix="/api/admin")
 
 
 # ============================================================================

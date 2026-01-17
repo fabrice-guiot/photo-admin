@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
-from backend.src.models import User, UserStatus
+from backend.src.models import User, UserStatus, UserType
 from backend.src.services.user_service import UserService
 from backend.src.services.team_service import TeamService
 from backend.src.services.exceptions import NotFoundError, ValidationError
@@ -152,7 +152,13 @@ class AuthService:
         else:
             redirect_uri = self.settings.microsoft_redirect_uri
 
-        logger.info(f"Initiating OAuth login with {provider}")
+        logger.info(
+            "OAuth login initiated",
+            extra={
+                "event": "auth.login.initiated",
+                "provider": provider,
+            }
+        )
 
         url, state = await create_authorization_url(
             request=request,
@@ -182,14 +188,27 @@ class AuthService:
         """
         try:
             # Exchange code for tokens
-            logger.info(f"Processing OAuth callback from {provider}")
+            logger.info(
+                "Processing OAuth callback",
+                extra={
+                    "event": "auth.callback.processing",
+                    "provider": provider,
+                }
+            )
             token = await fetch_token(request, provider)
 
             # Extract user info from ID token
             user_info = await get_user_info(provider, token)
 
             if not user_info:
-                logger.error(f"No user info returned from {provider}")
+                logger.error(
+                    "No user info returned from provider",
+                    extra={
+                        "event": "auth.login.failed",
+                        "provider": provider,
+                        "reason": "no_user_info",
+                    }
+                )
                 return AuthResult(
                     success=False,
                     error="Failed to retrieve user information from provider",
@@ -201,7 +220,14 @@ class AuthService:
             oauth_subject = user_info.get("sub")
 
             if not email:
-                logger.error(f"No email in user info from {provider}")
+                logger.error(
+                    "No email in user info from provider",
+                    extra={
+                        "event": "auth.login.failed",
+                        "provider": provider,
+                        "reason": "no_email",
+                    }
+                )
                 return AuthResult(
                     success=False,
                     error="Email not provided by OAuth provider",
@@ -249,16 +275,51 @@ class AuthService:
         user = self.user_service.get_by_email(email)
 
         if not user:
-            logger.warning(f"Login attempt for unknown email: {email}")
+            logger.warning(
+                "Login attempt for unknown email",
+                extra={
+                    "event": "auth.login.failed",
+                    "provider": provider,
+                    "email": email,
+                    "reason": "user_not_found",
+                }
+            )
             return AuthResult(
                 success=False,
                 error="No account found for this email. Please contact your administrator.",
                 error_code="user_not_found",
             )
 
+        # Check user is not a system user (system users cannot OAuth login)
+        if user.user_type == UserType.SYSTEM:
+            logger.warning(
+                "OAuth login attempt by system user blocked",
+                extra={
+                    "event": "auth.login.failed",
+                    "provider": provider,
+                    "email": email,
+                    "user_guid": user.guid,
+                    "reason": "system_user_login_blocked",
+                }
+            )
+            return AuthResult(
+                success=False,
+                error="This account cannot be used for interactive login.",
+                error_code="system_user_login_blocked",
+            )
+
         # Check user is active
         if not user.is_active:
-            logger.warning(f"Login attempt for inactive user: {email}")
+            logger.warning(
+                "Login attempt for inactive user",
+                extra={
+                    "event": "auth.login.failed",
+                    "provider": provider,
+                    "email": email,
+                    "user_guid": user.guid,
+                    "reason": "user_inactive",
+                }
+            )
             return AuthResult(
                 success=False,
                 error="Your account has been deactivated. Please contact your administrator.",
@@ -266,7 +327,16 @@ class AuthService:
             )
 
         if user.status == UserStatus.DEACTIVATED:
-            logger.warning(f"Login attempt for deactivated user: {email}")
+            logger.warning(
+                "Login attempt for deactivated user",
+                extra={
+                    "event": "auth.login.failed",
+                    "provider": provider,
+                    "email": email,
+                    "user_guid": user.guid,
+                    "reason": "user_deactivated",
+                }
+            )
             return AuthResult(
                 success=False,
                 error="Your account has been deactivated. Please contact your administrator.",
@@ -276,7 +346,17 @@ class AuthService:
         # Check team is active
         team = user.team
         if not team or not team.is_active:
-            logger.warning(f"Login attempt for user in inactive team: {email}")
+            logger.warning(
+                "Login attempt for user in inactive team",
+                extra={
+                    "event": "auth.login.failed",
+                    "provider": provider,
+                    "email": email,
+                    "user_guid": user.guid,
+                    "team_guid": team.guid if team else None,
+                    "reason": "team_inactive",
+                }
+            )
             return AuthResult(
                 success=False,
                 error="Your organization's account is inactive. Please contact your administrator.",
@@ -300,7 +380,16 @@ class AuthService:
             picture_url=picture_url,
         )
 
-        logger.info(f"User authenticated: {email} via {provider}")
+        logger.info(
+            "User authenticated successfully",
+            extra={
+                "event": "auth.login.success",
+                "provider": provider,
+                "email": email,
+                "user_guid": user.guid,
+                "team_guid": team.guid,
+            }
+        )
 
         return AuthResult(
             success=True,
@@ -334,7 +423,16 @@ class AuthService:
         request.session["is_super_admin"] = is_super_admin(user.email)
         request.session["authenticated_at"] = datetime.utcnow().isoformat()
 
-        logger.info(f"Session created for user: {user.email}")
+        logger.info(
+            "Session created",
+            extra={
+                "event": "auth.session.created",
+                "email": user.email,
+                "user_guid": user.guid,
+                "team_guid": user.team.guid,
+                "is_super_admin": request.session["is_super_admin"],
+            }
+        )
 
     def clear_session(self, request: Request) -> None:
         """
@@ -348,8 +446,19 @@ class AuthService:
             return
 
         email = request.session.get("email", "unknown")
+        user_guid = request.session.get("user_guid")
+        team_guid = request.session.get("team_guid")
         request.session.clear()
-        logger.info(f"Session cleared for user: {email}")
+
+        logger.info(
+            "User logged out",
+            extra={
+                "event": "auth.logout",
+                "email": email,
+                "user_guid": user_guid,
+                "team_guid": team_guid,
+            }
+        )
 
     def get_session_user(self, request: Request) -> Optional[User]:
         """

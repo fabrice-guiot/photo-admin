@@ -37,7 +37,7 @@ python-jose[cryptography]>=3.3.0  # JWT handling
 4. Click **Create Credentials > OAuth 2.0 Client IDs**
 5. Configure consent screen if prompted
 6. Set **Application type** to "Web application"
-7. Add authorized redirect URI: `http://localhost:8000/auth/google/callback`
+7. Add authorized redirect URI: `http://localhost:8000/api/auth/callback/google`
 8. Note the **Client ID** and **Client Secret**
 
 #### Microsoft OAuth Setup (Optional)
@@ -45,7 +45,7 @@ python-jose[cryptography]>=3.3.0  # JWT handling
 1. Go to [Azure Portal](https://portal.azure.com/)
 2. Navigate to **Azure Active Directory > App registrations**
 3. Click **New registration**
-4. Set redirect URI: `http://localhost:8000/auth/microsoft/callback`
+4. Set redirect URI: `http://localhost:8000/api/auth/callback/microsoft`
 5. Note the **Application (client) ID**
 6. Create a **Client secret** under "Certificates & secrets"
 
@@ -160,11 +160,11 @@ npm run test:coverage
 
 ### Testing OAuth Locally
 
-For local development, you can use the `/auth/debug` endpoint (only available in development mode):
+For local development, you can use the `/api/auth/debug` endpoint (only available in development mode):
 
 ```bash
 # Create a test session without OAuth
-curl -X POST http://localhost:8000/auth/debug/login \
+curl -X POST http://localhost:8000/api/auth/debug/login \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@example.com"}'
 ```
@@ -262,14 +262,21 @@ frontend/
 │   ├── contexts/
 │   │   └── AuthContext.tsx   # Auth state
 │   ├── components/
-│   │   └── auth/
-│   │       ├── LoginPage.tsx
-│   │       └── ProtectedRoute.tsx
-│   └── pages/
-│       ├── ProfilePage.tsx
-│       └── settings/
-│           ├── UsersTab.tsx
-│           └── TeamsTab.tsx
+│   │   ├── auth/
+│   │   │   ├── OAuthButton.tsx
+│   │   │   └── ProtectedRoute.tsx
+│   │   └── settings/
+│   │       ├── TokensTab.tsx   # API Token management
+│   │       └── TeamsTab.tsx    # Team management (super admin)
+│   ├── pages/
+│   │   ├── LoginPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   └── TeamPage.tsx        # User management
+│   └── hooks/
+│       ├── useAuth.ts
+│       ├── useUsers.ts
+│       ├── useTeams.ts
+│       └── useTokens.ts
 ```
 
 ## Next Steps

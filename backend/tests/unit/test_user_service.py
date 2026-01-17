@@ -505,6 +505,103 @@ class TestUserServiceHelpers:
 # ============================================================================
 
 
+# ============================================================================
+# Invite Tests (T073)
+# ============================================================================
+
+
+class TestUserServiceInvite:
+    """Tests for user invitation (pre-provisioning)."""
+
+    def test_invite_creates_pending_user(self, user_service, sample_team):
+        """Test invite creates a pending user."""
+        result = user_service.invite(
+            team_id=sample_team.id,
+            email="invited@example.com",
+        )
+
+        assert result.email == "invited@example.com"
+        assert result.status == UserStatus.PENDING
+        assert result.is_active is True
+        assert result.team_id == sample_team.id
+        assert result.guid.startswith("usr_")
+
+    def test_invite_validates_email_format(self, user_service, sample_team):
+        """Test invite validates email format."""
+        invalid_emails = ["notanemail", "no@domain", "", "   @.com"]
+
+        for email in invalid_emails:
+            with pytest.raises(ValidationError) as exc_info:
+                user_service.invite(team_id=sample_team.id, email=email)
+            assert "email" in str(exc_info.value).lower()
+
+    def test_invite_normalizes_email(self, user_service, sample_team):
+        """Test invite normalizes email (lowercase, trimmed)."""
+        result = user_service.invite(
+            team_id=sample_team.id,
+            email="  INVITE@EXAMPLE.COM  ",
+        )
+
+        assert result.email == "invite@example.com"
+
+    def test_invite_rejects_duplicate_email(self, user_service, sample_team, sample_user):
+        """Test invite rejects duplicate email."""
+        sample_user(email="existing@example.com")
+
+        with pytest.raises(ConflictError) as exc_info:
+            user_service.invite(
+                team_id=sample_team.id,
+                email="existing@example.com",
+            )
+        assert "already exists" in str(exc_info.value).lower()
+
+    def test_invite_rejects_invalid_team(self, user_service):
+        """Test invite rejects nonexistent team."""
+        with pytest.raises(NotFoundError):
+            user_service.invite(team_id=99999, email="test@example.com")
+
+
+# ============================================================================
+# Delete Pending Tests (T073)
+# ============================================================================
+
+
+class TestUserServiceDeletePending:
+    """Tests for deleting pending users."""
+
+    def test_delete_pending_success(self, user_service, sample_user, test_db_session):
+        """Test successfully deleting a pending user."""
+        user = sample_user(email="pending@example.com", status=UserStatus.PENDING)
+        guid = user.guid
+
+        user_service.delete_pending(guid)
+
+        # Verify user is deleted
+        with pytest.raises(NotFoundError):
+            user_service.get_by_guid(guid)
+
+    def test_delete_pending_rejects_active_user(self, user_service, sample_user):
+        """Test cannot delete an active user."""
+        user = sample_user(email="active@example.com", status=UserStatus.ACTIVE)
+
+        with pytest.raises(ValidationError) as exc_info:
+            user_service.delete_pending(user.guid)
+        assert "pending" in str(exc_info.value).lower()
+
+    def test_delete_pending_rejects_deactivated_user(self, user_service, sample_user):
+        """Test cannot delete a deactivated user."""
+        user = sample_user(email="deactivated@example.com", status=UserStatus.DEACTIVATED)
+
+        with pytest.raises(ValidationError) as exc_info:
+            user_service.delete_pending(user.guid)
+        assert "pending" in str(exc_info.value).lower()
+
+    def test_delete_pending_not_found(self, user_service):
+        """Test error when user not found."""
+        with pytest.raises(NotFoundError):
+            user_service.delete_pending("usr_00000000000000000000000000")
+
+
 class TestUserProperties:
     """Tests for User model properties."""
 

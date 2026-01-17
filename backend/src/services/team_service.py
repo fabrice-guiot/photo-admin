@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 
-from backend.src.models import Team
+from backend.src.models import Team, User, UserStatus
 from backend.src.utils.logging_config import get_logger
 from backend.src.services.exceptions import NotFoundError, ConflictError, ValidationError
 from backend.src.services.guid import GuidService
@@ -350,3 +350,104 @@ class TeamService:
             First Team instance or None if no teams exist
         """
         return self.db.query(Team).order_by(Team.id.asc()).first()
+
+    def list_all(self, active_only: bool = False) -> List[Team]:
+        """
+        List all teams (alias for list()).
+
+        Used by super admin endpoints for team management.
+
+        Args:
+            active_only: If True, only return active teams
+
+        Returns:
+            List of all Team instances
+        """
+        return self.list(active_only=active_only)
+
+    def create_with_admin(
+        self,
+        name: str,
+        admin_email: str,
+        slug: Optional[str] = None,
+    ) -> tuple[Team, User]:
+        """
+        Create a new team with a pending admin user.
+
+        This is the primary method for super admins to create new teams.
+        The admin user is created with PENDING status and will become active
+        on their first OAuth login.
+
+        Args:
+            name: Team display name (must be unique)
+            admin_email: Email address for the team's first admin user
+            slug: URL-safe identifier (auto-generated from name if not provided)
+
+        Returns:
+            Tuple of (Team, User) - the created team and admin user
+
+        Raises:
+            ConflictError: If team name/slug or email already exists
+            ValidationError: If name or email is invalid
+        """
+        # Validate admin email
+        if not admin_email or not admin_email.strip():
+            raise ValidationError("Admin email cannot be empty", field="admin_email")
+
+        admin_email = admin_email.strip().lower()
+
+        # Basic email format validation
+        if "@" not in admin_email or "." not in admin_email.split("@")[-1]:
+            raise ValidationError("Invalid email format", field="admin_email")
+
+        # Check for existing user with same email (globally unique)
+        existing_user = (
+            self.db.query(User)
+            .filter(func.lower(User.email) == admin_email)
+            .first()
+        )
+        if existing_user:
+            raise ConflictError(f"User with email '{admin_email}' already exists")
+
+        # Create the team first (validates name/slug uniqueness)
+        team = self.create(name=name, slug=slug)
+
+        try:
+            # Create the admin user with PENDING status
+            admin_user = User(
+                email=admin_email,
+                team_id=team.id,
+                status=UserStatus.PENDING,
+                is_active=True,
+            )
+            self.db.add(admin_user)
+            self.db.commit()
+            self.db.refresh(admin_user)
+
+            logger.info(
+                f"Created team '{team.name}' ({team.guid}) with admin user "
+                f"'{admin_user.email}' ({admin_user.guid})"
+            )
+            return team, admin_user
+
+        except IntegrityError as e:
+            self.db.rollback()
+            logger.error(f"Failed to create admin user for team '{name}': {e}")
+            raise ConflictError(f"Failed to create admin user: {admin_email}")
+
+    def get_stats(self) -> dict:
+        """
+        Get team statistics for super admin dashboard.
+
+        Returns:
+            Dictionary with team counts by status
+        """
+        all_teams = self.list()
+        active_count = len([t for t in all_teams if t.is_active])
+        inactive_count = len(all_teams) - active_count
+
+        return {
+            "total_teams": len(all_teams),
+            "active_teams": active_count,
+            "inactive_teams": inactive_count,
+        }

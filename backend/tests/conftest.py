@@ -47,7 +47,7 @@ try:
 except Exception:
     pass  # Ignore errors during cleanup
 
-from backend.src.models import Base, Connector, Collection, AnalysisResult, Pipeline, Configuration, Team, User, UserStatus
+from backend.src.models import Base, Connector, Collection, AnalysisResult, Pipeline, Configuration, Team, User, UserStatus, UserType
 from backend.src.utils.crypto import CredentialEncryptor
 from backend.src.utils.cache import FileListingCache
 from backend.src.utils.job_queue import JobQueue
@@ -130,6 +130,22 @@ def test_user(test_db_session, test_team):
         email='test@example.com',
         display_name='Test User',
         status=UserStatus.ACTIVE,
+    )
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
+    return user
+
+
+@pytest.fixture(scope='function')
+def test_system_user(test_db_session, test_team):
+    """Create a test system user for API token testing."""
+    user = User(
+        team_id=test_team.id,
+        email='system-token-1@system.local',
+        display_name='System Token User',
+        status=UserStatus.ACTIVE,
+        user_type=UserType.SYSTEM,
     )
     test_db_session.add(user)
     test_db_session.commit()
